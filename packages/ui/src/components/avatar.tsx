@@ -1,0 +1,56 @@
+'use client';
+
+import { useState } from 'react';
+import { cn } from '../lib/cn.js';
+
+export interface AvatarProps {
+  src?: string;
+  alt: string;
+  name?: string;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
+const sizeClasses: Record<NonNullable<AvatarProps['size']>, string> = {
+  sm: 'h-8 w-8 text-xs',
+  md: 'h-10 w-10 text-sm',
+  lg: 'h-12 w-12 text-base',
+};
+
+function initials(name?: string): string {
+  if (!name) {
+    return '?';
+  }
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? '';
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
+  return (first + last).toUpperCase() || '?';
+}
+
+export function Avatar({ src, alt, name, size = 'md', className }: AvatarProps) {
+  const [failed, setFailed] = useState(false);
+  const showImage = src && !failed;
+
+  return (
+    <span
+      className={cn(
+        'bg-primary text-primary-foreground inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-medium',
+        sizeClasses[size],
+        className,
+      )}
+    >
+      {showImage ? (
+        <img
+          src={src}
+          alt={alt}
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <span aria-label={alt} role="img">
+          {initials(name)}
+        </span>
+      )}
+    </span>
+  );
+}

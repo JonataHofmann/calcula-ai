@@ -1,0 +1,24 @@
+import {
+  CreditCard,
+  LayoutDashboard,
+  PiggyBank,
+  Receipt,
+  Target,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react';
+
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+export const NAV_ITEMS: NavItem[] = [
+  { label: 'Visão Geral', href: '/', icon: LayoutDashboard },
+  { label: 'Contas', href: '/contas', icon: Wallet },
+  { label: 'Transações', href: '/transacoes', icon: Receipt },
+  { label: 'Cartões', href: '/cartoes', icon: CreditCard },
+  { label: 'Orçamentos', href: '/orcamentos', icon: PiggyBank },
+  { label: 'Metas', href: '/metas', icon: Target },
+];

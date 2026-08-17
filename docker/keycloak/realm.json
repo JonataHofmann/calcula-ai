@@ -1,0 +1,45 @@
+{
+  "realm": "finance",
+  "enabled": true,
+  "registrationAllowed": true,
+  "clients": [
+    {
+      "clientId": "finance-web",
+      "publicClient": false,
+      "secret": "dev-secret",
+      "standardFlowEnabled": true,
+      "redirectUris": ["http://localhost:3002/auth/callback"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:3000/*",
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "finance-api",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect"
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "user", "description": "Regular platform user" },
+      { "name": "admin", "description": "Platform administrator" }
+    ]
+  },
+  "defaultRoles": ["user"],
+  "users": [
+    {
+      "username": "test@finance.local",
+      "email": "test@finance.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "User",
+      "credentials": [{ "type": "password", "value": "test1234", "temporary": false }],
+      "realmRoles": ["user"]
+    }
+  ]
+}

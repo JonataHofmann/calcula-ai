@@ -1,0 +1,92 @@
+:root {
+  --color-background: #f8f8f8;
+  --color-surface: #ffffff;
+  --color-surface-strong: #0f4264;
+  --color-surface-strong-foreground: #ffffff;
+  --color-primary: #197bbd;
+  --color-primary-foreground: #ffffff;
+  --color-accent: #ffc145;
+  --color-accent-foreground: #404040;
+  --color-text: #404040;
+  --color-text-muted: #696969;
+  --color-border: #e3e3e3;
+  --color-success: #1b7f3b;
+  --color-success-soft: #ddf9e4;
+  --color-danger: #b03f2c;
+  --color-danger-soft: #fbe4de;
+  --color-warning: #8a5c00;
+  --color-warning-soft: #ffeada;
+  --color-info: #14669d;
+  --color-info-soft: #e4f0ff;
+  --color-focus-ring: #197bbd;
+
+  --font-sans: 'Inter', 'Lato', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 6px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 4px 8px rgb(0 0 0 / 0.04), 0 16px 24px rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 16px 24px rgb(0 0 0 / 0.06), 0 24px 32px rgb(0 0 0 / 0.04);
+}
+
+.dark {
+  --color-background: #0d1520;
+  --color-surface: #16212e;
+  --color-surface-strong: #0f4264;
+  --color-surface-strong-foreground: #ffffff;
+  --color-primary: #3d97d3;
+  --color-primary-foreground: #0d1520;
+  --color-accent: #ffc145;
+  --color-accent-foreground: #0d1520;
+  --color-text: #edf2f7;
+  --color-text-muted: #a3b2c2;
+  --color-border: #2c3a4b;
+  --color-success: #5bc97e;
+  --color-success-soft: #12331e;
+  --color-danger: #f08a76;
+  --color-danger-soft: #3b1912;
+  --color-warning: #ffc145;
+  --color-warning-soft: #3a2b10;
+  --color-info: #7fb8e8;
+  --color-info-soft: #122b41;
+  --color-focus-ring: #7fb8e8;
+}
+
+@theme inline {
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-surface-strong: var(--color-surface-strong);
+  --color-surface-strong-foreground: var(--color-surface-strong-foreground);
+  --color-primary: var(--color-primary);
+  --color-primary-foreground: var(--color-primary-foreground);
+  --color-accent: var(--color-accent);
+  --color-accent-foreground: var(--color-accent-foreground);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-border: var(--color-border);
+  --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
+  --color-danger: var(--color-danger);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-warning: var(--color-warning);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-info: var(--color-info);
+  --color-info-soft: var(--color-info-soft);
+  --color-focus-ring: var(--color-focus-ring);
+
+  --font-sans: var(--font-sans);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+}
