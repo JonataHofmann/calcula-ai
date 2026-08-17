@@ -18,7 +18,10 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const result = envSchema.safeParse(source);
+  const normalized = Object.fromEntries(
+    Object.entries(source).filter(([, value]) => value !== ''),
+  );
+  const result = envSchema.safeParse(normalized);
   if (!result.success) {
     const issues = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)

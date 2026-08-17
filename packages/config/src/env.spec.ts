@@ -11,6 +11,12 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ DATABASE_URL: 'not-a-url' })).toThrow(/DATABASE_URL/);
   });
 
+  it('treats empty strings as unset', () => {
+    const env = loadEnv({ AI_ROUTER_URL: '', KEYCLOAK_CLIENT_SECRET: '' });
+    expect(env.AI_ROUTER_URL).toBeUndefined();
+    expect(env.KEYCLOAK_CLIENT_SECRET).toBeUndefined();
+  });
+
   it('accepts valid values', () => {
     const env = loadEnv({
       NODE_ENV: 'test',
