@@ -33,3 +33,18 @@ export {
   type ChartContainerProps,
   type ChartLegendColor,
 } from './components/chart-container.js';
+export {
+  WeeklyBarChart,
+  type WeeklyBarChartProps,
+  type WeeklyBarDatum,
+} from './components/weekly-bar-chart.js';
+export {
+  ExpensePieChart,
+  type ExpensePieChartProps,
+  type ExpenseSlice,
+} from './components/expense-pie-chart.js';
+export {
+  BalanceLineChart,
+  type BalanceLineChartProps,
+  type BalancePoint,
+} from './components/balance-line-chart.js';

@@ -1,24 +1,32 @@
 :root {
-  --color-background: #f8f8f8;
+  --color-background: #f5f7fa;
   --color-surface: #ffffff;
-  --color-surface-strong: #0f4264;
+  --color-surface-strong: #343c6a;
   --color-surface-strong-foreground: #ffffff;
-  --color-primary: #197bbd;
+  --color-primary: #2d60ff;
   --color-primary-foreground: #ffffff;
-  --color-accent: #ffc145;
-  --color-accent-foreground: #404040;
-  --color-text: #404040;
-  --color-text-muted: #696969;
-  --color-border: #e3e3e3;
-  --color-success: #1b7f3b;
-  --color-success-soft: #ddf9e4;
-  --color-danger: #b03f2c;
-  --color-danger-soft: #fbe4de;
-  --color-warning: #8a5c00;
-  --color-warning-soft: #ffeada;
-  --color-info: #14669d;
-  --color-info-soft: #e4f0ff;
-  --color-focus-ring: #197bbd;
+  --color-accent: #ffbb38;
+  --color-accent-foreground: #232323;
+  --color-text: #343c6a;
+  --color-text-muted: #718ebf;
+  --color-border: #e6eff5;
+  --color-success: #16dbaa;
+  --color-success-soft: #dcfaf8;
+  --color-danger: #fe5c73;
+  --color-danger-soft: #ffe0e6;
+  --color-warning: #ffbb38;
+  --color-warning-soft: #fff5d9;
+  --color-info: #396aff;
+  --color-info-soft: #e7edff;
+  --color-focus-ring: #2d60ff;
+
+  /* Categorical chart palette (Expense Statistics, series) */
+  --color-chart-1: #343c6a;
+  --color-chart-2: #fc7900;
+  --color-chart-3: #fa00ff;
+  --color-chart-4: #396aff;
+  --color-chart-5: #16dbcc;
+  --color-chart-6: #fe5c73;
 
   --font-sans: 'Inter', 'Lato', ui-sans-serif, system-ui, -apple-system, sans-serif;
 
@@ -36,24 +44,31 @@
 .dark {
   --color-background: #0d1520;
   --color-surface: #16212e;
-  --color-surface-strong: #0f4264;
+  --color-surface-strong: #1f2547;
   --color-surface-strong-foreground: #ffffff;
-  --color-primary: #3d97d3;
+  --color-primary: #5a7fff;
   --color-primary-foreground: #0d1520;
-  --color-accent: #ffc145;
+  --color-accent: #ffbb38;
   --color-accent-foreground: #0d1520;
-  --color-text: #edf2f7;
-  --color-text-muted: #a3b2c2;
-  --color-border: #2c3a4b;
-  --color-success: #5bc97e;
-  --color-success-soft: #12331e;
-  --color-danger: #f08a76;
-  --color-danger-soft: #3b1912;
-  --color-warning: #ffc145;
-  --color-warning-soft: #3a2b10;
-  --color-info: #7fb8e8;
-  --color-info-soft: #122b41;
-  --color-focus-ring: #7fb8e8;
+  --color-text: #e7ecf3;
+  --color-text-muted: #93a4c4;
+  --color-border: #263447;
+  --color-success: #2ee6b8;
+  --color-success-soft: #10352f;
+  --color-danger: #ff7d90;
+  --color-danger-soft: #3b1720;
+  --color-warning: #ffcb5c;
+  --color-warning-soft: #3a2c10;
+  --color-info: #7fa0ff;
+  --color-info-soft: #14224a;
+  --color-focus-ring: #7fa0ff;
+
+  --color-chart-1: #8891c8;
+  --color-chart-2: #ff9a3d;
+  --color-chart-3: #ff5cff;
+  --color-chart-4: #7fa0ff;
+  --color-chart-5: #3fe6da;
+  --color-chart-6: #ff7d90;
 }
 
 @theme inline {
@@ -77,6 +92,13 @@
   --color-info: var(--color-info);
   --color-info-soft: var(--color-info-soft);
   --color-focus-ring: var(--color-focus-ring);
+
+  --color-chart-1: var(--color-chart-1);
+  --color-chart-2: var(--color-chart-2);
+  --color-chart-3: var(--color-chart-3);
+  --color-chart-4: var(--color-chart-4);
+  --color-chart-5: var(--color-chart-5);
+  --color-chart-6: var(--color-chart-6);
 
   --font-sans: var(--font-sans);
 
