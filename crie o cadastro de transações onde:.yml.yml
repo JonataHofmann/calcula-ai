@@ -1,0 +1,35 @@
+crie o cadastro de transações onde:
+- id
+- usuario dono da transação
+- description
+- dueDate
+- amount
+- recurrence: single, fixed, installment (padão single)
+- effectiveDate (opcional)
+- type: despesa, receita 
+- notes (opcional)
+- status: pending, paid (padrão pending)
+- endDate: Para recorrência FIXED: data de término (opcional)
+- installmentCount: Para recorrência INSTALLMENT: total de parcelas
+- installmentNumber: Para recorrência INSTALLMENT: número da parcela atual (1-based)
+- groupId: Agrupa parcelas/fixas do mesmo grupo
+- categoria
+- conta
+- cartão de credito
+
+
+regras: 
+formulario deve ser com popup 
+
+uma despesa pode ser de uma conta ou um cartao de credito
+
+uma despesa fixa pode ter fim ou não
+
+na listagem, coloque os filtros por: string search (description, amount, notes), data vencimento (start, end), valor (deve ser parecido com like), recorrencia, tipo, categoria, conta, cartao de credito 
+
+na listagem, deve ter uma opção de "mostrar despesas pendentes dos meses anteriores", onde ira mostrar em um grid acima, com as despesas não pagas dos meses anteeriores
+
+na listagem deve ter um botaão "efetivar", onde abria um popup para seleciona a data (defaul hj), valor (defaul amount), ao clicar em confirmar, efetivar a conta. 
+
+na listagem deve ter ordenação no cabeçalho de cada coluna
+
