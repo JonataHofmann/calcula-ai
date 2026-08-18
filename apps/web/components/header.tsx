@@ -31,10 +31,10 @@ export function Header() {
       <SearchField
         placeholder="Buscar algo"
         aria-label="Buscar"
-        className="hidden max-w-xs flex-1 sm:block [&_input]:rounded-full [&_input]:bg-background"
+        className="hidden max-w-sm flex-1 sm:block [&_input]:h-10 [&_input]:rounded-full [&_input]:bg-background [&_input]:transition-colors"
       />
 
-      <div className="flex flex-1 items-center justify-end gap-2 sm:gap-3">
+      <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2">
         <ThemeToggle />
         <button
           type="button"
@@ -55,8 +55,10 @@ export function Header() {
           />
         </button>
 
+        <span className="bg-border mx-1 hidden h-7 w-px sm:block" aria-hidden="true" />
+
         {isLoading ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="hidden flex-col items-end gap-1 sm:flex">
               <Skeleton className="h-3.5 w-24" />
               <Skeleton className="h-3 w-32" />
@@ -64,19 +66,22 @@ export function Header() {
             <Skeleton className="h-10 w-10 rounded-full" />
           </div>
         ) : user ? (
-          <div className="flex items-center gap-2">
-            <div className="hidden flex-col items-end sm:flex">
-              <span className="text-sm font-medium">{user.name}</span>
+          <div className="flex items-center gap-2.5">
+            <div className="hidden flex-col items-end leading-tight sm:flex">
+              <span className="text-text text-sm font-semibold">{user.name}</span>
               {user.email ? <span className="text-text-muted text-xs">{user.email}</span> : null}
             </div>
-            <Avatar name={user.name} alt={user.name} size="md" />
+            <span className="ring-border/70 rounded-full ring-2">
+              <Avatar name={user.name} alt={user.name} size="md" />
+            </span>
           </div>
         ) : null}
 
         <button
           type="button"
           onClick={handleLogout}
-          className="text-text-muted hover:text-danger focus-visible:ring-focus-ring flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          aria-label="Sair"
+          className="text-text-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-focus-ring flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
         >
           <LogOut className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">Sair</span>
