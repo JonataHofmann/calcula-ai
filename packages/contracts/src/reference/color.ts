@@ -11,6 +11,15 @@ export const colorTokenSchema = z.enum([
   'danger',
   'warning',
   'info',
+  'orange',
+  'teal',
+  'indigo',
+  'pink',
+  'lime',
+  'emerald',
+  'sky',
+  'fuchsia',
+  'slate',
 ]);
 
 export type ColorToken = z.infer<typeof colorTokenSchema>;
@@ -27,6 +36,15 @@ export const COLORS: readonly ColorOption[] = [
   { token: 'danger', label: 'Vermelho' },
   { token: 'warning', label: 'Amarelo' },
   { token: 'info', label: 'Ciano' },
+  { token: 'orange', label: 'Laranja' },
+  { token: 'teal', label: 'Turquesa' },
+  { token: 'indigo', label: 'Índigo' },
+  { token: 'pink', label: 'Rosa' },
+  { token: 'lime', label: 'Lima' },
+  { token: 'emerald', label: 'Esmeralda' },
+  { token: 'sky', label: 'Azul-céu' },
+  { token: 'fuchsia', label: 'Fúcsia' },
+  { token: 'slate', label: 'Cinza' },
 ] as const;
 
 export const COLOR_TOKENS: readonly ColorToken[] = COLORS.map((c) => c.token);

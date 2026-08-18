@@ -1,7 +1,7 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateUserHiddenCategoriesTable300000000000 implements MigrationInterface {
-  name = 'CreateUserHiddenCategoriesTable300000000000';
+export class CreateUserHiddenCategoriesTable3000000000000 implements MigrationInterface {
+  name = 'CreateUserHiddenCategoriesTable3000000000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

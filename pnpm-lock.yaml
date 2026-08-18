@@ -130,6 +130,9 @@ importers:
       react-redux:
         specifier: ^9.2.0
         version: 9.3.0(@types/react@19.2.18)(react@19.2.8)(redux@5.0.1)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
       '@finance/eslint-config':
         specifier: workspace:*

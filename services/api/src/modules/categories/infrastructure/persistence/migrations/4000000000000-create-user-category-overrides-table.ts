@@ -1,7 +1,7 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateUserCategoryOverridesTable400000000000 implements MigrationInterface {
-  name = 'CreateUserCategoryOverridesTable400000000000';
+export class CreateUserCategoryOverridesTable4000000000000 implements MigrationInterface {
+  name = 'CreateUserCategoryOverridesTable4000000000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

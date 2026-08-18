@@ -5,8 +5,8 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
  * created_at timestamps make the seed deterministic and idempotent; users hide or
  * override them per-user rather than mutating these rows.
  */
-export class SeedDefaultCategories200000000000 implements MigrationInterface {
-  name = 'SeedDefaultCategories200000000000';
+export class SeedDefaultCategories2000000000000 implements MigrationInterface {
+  name = 'SeedDefaultCategories2000000000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
     // Roots. (id, parent, name, type, icon, color, created_at ms)
