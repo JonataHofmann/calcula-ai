@@ -17,7 +17,7 @@ function Chip({ muted }: { muted: boolean }) {
     <span
       aria-hidden="true"
       className={cn(
-        'block h-8 w-10 rounded-md',
+        'block h-8 w-10 rounded-icon',
         muted ? 'bg-text-muted/25' : 'bg-white/40',
       )}
     />

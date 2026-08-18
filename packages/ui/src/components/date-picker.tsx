@@ -206,7 +206,7 @@ export function DatePicker({
                         setOpen(false);
                       }}
                       className={cn(
-                        'flex h-8 items-center justify-center rounded-md text-sm transition-colors',
+                        'flex h-8 items-center justify-center rounded-icon text-sm transition-colors',
                         'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:outline-none',
                         'disabled:pointer-events-none disabled:opacity-30',
                         isSelected
