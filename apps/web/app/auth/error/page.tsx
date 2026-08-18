@@ -18,12 +18,12 @@ export default async function AuthErrorPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="bg-surface border-border flex max-w-md flex-col items-center gap-4 rounded-lg border p-8 text-center shadow-sm">
+      <div className="bg-surface rounded-card shadow-card max-w-md flex-col items-center gap-4 p-8 text-center">
         <h1 className="text-xl font-semibold">Erro de autenticação</h1>
         <p className="text-text-muted text-sm">{message}</p>
         <Link
           href={`${bffUrl}/auth/login`}
-          className="bg-primary text-primary-foreground focus-visible:ring-focus-ring inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
+          className="bg-primary text-primary-foreground focus-visible:ring-focus-ring inline-flex h-10 items-center justify-center rounded-btn px-4 text-sm font-medium transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
         >
           Tentar novamente
         </Link>

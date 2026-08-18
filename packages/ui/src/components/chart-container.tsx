@@ -29,7 +29,7 @@ export function ChartContainer({
 }: ChartContainerProps) {
   return (
     <section
-      className={cn('bg-surface border-border rounded-lg border p-4 shadow-sm', className)}
+      className={cn('bg-surface rounded-card shadow-card p-5', className)}
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-text text-sm font-semibold">{title}</h3>

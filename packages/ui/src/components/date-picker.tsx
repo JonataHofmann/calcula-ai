@@ -135,7 +135,7 @@ export function DatePicker({
           data-value={value}
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            'bg-surface text-text flex h-10 w-full items-center gap-2 rounded-md border px-3 text-left text-sm transition-colors',
+            'bg-surface text-text rounded-btn flex h-10 w-full items-center gap-2 border px-3.5 text-left text-sm transition-colors',
             'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:outline-none',
             error ? 'border-danger' : 'border-border',
           )}
@@ -155,14 +155,14 @@ export function DatePicker({
               animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: reduceMotion ? 0 : 0.15, ease: 'easeOut' }}
-              className="bg-surface border-border absolute z-20 mt-1 w-72 rounded-xl border p-3 shadow-xl"
+              className="bg-surface border-border shadow-lift absolute z-20 mt-1 w-72 rounded-card border p-3"
             >
               <div className="mb-2 flex items-center justify-between">
                 <button
                   type="button"
                   aria-label="Mês anterior"
                   onClick={() => step(-1)}
-                  className="text-text-muted hover:bg-background hover:text-text rounded-md p-1.5 transition-colors"
+                  className="text-text-muted hover:bg-surface-2 hover:text-text rounded-icon p-1.5 transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -173,7 +173,7 @@ export function DatePicker({
                   type="button"
                   aria-label="Próximo mês"
                   onClick={() => step(1)}
-                  className="text-text-muted hover:bg-background hover:text-text rounded-md p-1.5 transition-colors"
+                  className="text-text-muted hover:bg-surface-2 hover:text-text rounded-icon p-1.5 transition-colors"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -211,7 +211,7 @@ export function DatePicker({
                         'disabled:pointer-events-none disabled:opacity-30',
                         isSelected
                           ? 'bg-primary font-medium text-white'
-                          : 'text-text hover:bg-background',
+                          : 'text-text hover:bg-surface-2',
                       )}
                     >
                       {day}

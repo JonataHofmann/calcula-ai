@@ -131,7 +131,7 @@ export function Modal({
                   type="button"
                   onClick={onClose}
                   aria-label="Fechar"
-                  className="text-text-muted hover:bg-background hover:text-text focus-visible:ring-focus-ring rounded-md p-1.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                  className="text-text-muted hover:bg-surface-2 hover:text-text focus-visible:ring-focus-ring rounded-icon p-1.5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <X className="h-5 w-5" />
                 </button>

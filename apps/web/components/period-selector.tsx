@@ -124,7 +124,7 @@ export function PeriodSelector({ className }: { className?: string }) {
         type="button"
         onClick={() => dispatch(prevMonth())}
         aria-label="Mês anterior"
-        className="text-text-muted hover:bg-border/40 hover:text-text focus-visible:ring-focus-ring flex h-9 w-9 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        className="text-text-muted hover:bg-surface-2 hover:text-text focus-visible:ring-focus-ring flex h-9 w-9 items-center justify-center rounded-icon transition-colors focus-visible:ring-2 focus-visible:outline-none"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -134,7 +134,7 @@ export function PeriodSelector({ className }: { className?: string }) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="text-text hover:bg-border/40 focus-visible:ring-focus-ring flex h-9 min-w-44 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold whitespace-nowrap capitalize transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        className="text-text hover:bg-surface-2 focus-visible:ring-focus-ring flex h-9 min-w-44 items-center justify-center gap-2 rounded-btn px-3 text-sm font-semibold whitespace-nowrap capitalize transition-colors focus-visible:ring-2 focus-visible:outline-none"
       >
         <Calendar className="text-text-muted h-4 w-4 shrink-0" aria-hidden="true" />
         {periodLabel(period)}
@@ -144,7 +144,7 @@ export function PeriodSelector({ className }: { className?: string }) {
         type="button"
         onClick={() => dispatch(nextMonth())}
         aria-label="Próximo mês"
-        className="text-text-muted hover:bg-border/40 hover:text-text focus-visible:ring-focus-ring flex h-9 w-9 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        className="text-text-muted hover:bg-surface-2 hover:text-text focus-visible:ring-focus-ring flex h-9 w-9 items-center justify-center rounded-icon transition-colors focus-visible:ring-2 focus-visible:outline-none"
       >
         <ChevronRight className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -158,14 +158,14 @@ export function PeriodSelector({ className }: { className?: string }) {
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: reduceMotion ? 0 : 0.15, ease: 'easeOut' }}
-            className="bg-surface border-border absolute top-full left-1/2 z-30 mt-2 w-80 -translate-x-1/2 rounded-xl border p-3 shadow-lg"
+            className="bg-surface border-border shadow-lift absolute top-full left-1/2 z-30 mt-2 w-80 -translate-x-1/2 rounded-card border p-3"
           >
             <div className="mb-2 flex items-center justify-between">
               <button
                 type="button"
                 aria-label="Mês anterior"
                 onClick={() => stepView(-1)}
-                className="text-text-muted hover:bg-background hover:text-text rounded-md p-1.5 transition-colors"
+                className="text-text-muted hover:bg-surface-2 hover:text-text rounded-icon p-1.5 transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -176,7 +176,7 @@ export function PeriodSelector({ className }: { className?: string }) {
                 type="button"
                 aria-label="Próximo mês"
                 onClick={() => stepView(1)}
-                className="text-text-muted hover:bg-background hover:text-text rounded-md p-1.5 transition-colors"
+                className="text-text-muted hover:bg-surface-2 hover:text-text rounded-icon p-1.5 transition-colors"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -219,11 +219,11 @@ export function PeriodSelector({ className }: { className?: string }) {
                       onClick={() => pickDay(cellIso)}
                       onMouseEnter={() => pending && setHover(cellIso)}
                       className={cn(
-                        'flex h-9 w-full items-center justify-center rounded-md text-sm transition-colors',
+                        'flex h-9 w-full items-center justify-center rounded-icon text-sm transition-colors',
                         'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:outline-none',
                         isEndpoint
                           ? 'bg-primary font-medium text-white'
-                          : 'text-text hover:bg-background',
+                          : 'text-text hover:bg-surface-2',
                       )}
                     >
                       {day}
@@ -243,7 +243,7 @@ export function PeriodSelector({ className }: { className?: string }) {
                   dispatch(thisMonth());
                   setOpen(false);
                 }}
-                className="text-primary hover:bg-primary/10 focus-visible:ring-focus-ring rounded-md px-2 py-1 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="text-primary hover:bg-primary-soft focus-visible:ring-focus-ring rounded-btn px-2 py-1 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
               >
                 Este mês
               </button>

@@ -54,7 +54,7 @@ export function AccountCard({ account, onEdit, onDelete }: AccountCardProps) {
             type="button"
             onClick={() => onEdit(account)}
             aria-label={`Editar ${account.name}`}
-            className="text-text-muted hover:bg-background hover:text-text focus-visible:ring-focus-ring rounded-md p-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            className="text-text-muted hover:bg-surface-2 hover:text-text focus-visible:ring-focus-ring rounded-icon p-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             <Pencil className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -62,7 +62,7 @@ export function AccountCard({ account, onEdit, onDelete }: AccountCardProps) {
             type="button"
             onClick={() => onDelete(account)}
             aria-label={`Excluir ${account.name}`}
-            className="text-text-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-focus-ring rounded-md p-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            className="text-text-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-focus-ring rounded-icon p-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>

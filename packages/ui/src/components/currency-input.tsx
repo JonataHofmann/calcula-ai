@@ -83,9 +83,9 @@ export function CurrencyInput({
           onChange={(e) => onChange(digitsToValue(toCentsDigits(e.target.value)))}
           placeholder={placeholder}
           className={cn(
-            'bg-surface text-text placeholder:text-text-muted h-10 w-full rounded-md border pr-3 pl-9 text-right text-sm tabular-nums transition-colors',
+            'bg-surface text-text placeholder:text-text-subtle rounded-btn h-10 w-full border pr-3 pl-9 text-right text-sm tabular-nums transition-colors',
             'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:outline-none',
-            'disabled:pointer-events-none disabled:opacity-50',
+            'disabled:pointer-events-none disabled:opacity-45',
             error ? 'border-danger' : 'border-border',
             className,
           )}

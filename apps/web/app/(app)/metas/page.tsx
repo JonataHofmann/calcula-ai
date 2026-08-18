@@ -32,15 +32,15 @@ export default function MetasPage() {
             </span>
           }
         />
-        <div className="bg-surface text-text border-border rounded-lg border p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-text-muted text-sm">Metas Ativas</p>
+        <MetricCard
+          title="Metas Ativas"
+          value={String(goalsSummary.activeGoals)}
+          icon={
             <span className="bg-warning-soft text-warning flex h-11 w-11 items-center justify-center rounded-full">
               <Flag className="h-5 w-5" aria-hidden="true" />
             </span>
-          </div>
-          <p className="mt-2 text-2xl font-semibold tracking-tight">{goalsSummary.activeGoals}</p>
-        </div>
+          }
+        />
       </div>
 
       <section>

@@ -53,7 +53,7 @@ function CategoryNode({ node, depth, ...cb }: CategoryNodeProps) {
       transition={{ duration: 0.16 }}
     >
       <div
-        className="group border-border/60 hover:bg-background flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors"
+        className="group border-border/60 hover:bg-surface-2 flex items-center gap-3 rounded-card border px-3 py-2 transition-colors"
         style={{ marginLeft: depth * 20 }}
       >
         <span
@@ -129,7 +129,7 @@ function IconButton({ label, onClick, variant = 'default', children }: IconButto
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`text-text-muted focus-visible:ring-focus-ring rounded-md p-1.5 transition-colors focus-visible:ring-2 focus-visible:outline-none ${hover}`}
+      className={`text-text-muted focus-visible:ring-focus-ring rounded-icon p-1.5 transition-colors focus-visible:ring-2 focus-visible:outline-none ${hover}`}
     >
       {children}
     </button>

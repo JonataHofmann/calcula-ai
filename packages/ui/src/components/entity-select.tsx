@@ -40,18 +40,18 @@ function OptionIcon({ option }: { option: EntityOption }) {
   if (option.colorHex) {
     return (
       <span
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+        className="rounded-icon flex h-7 w-7 shrink-0 items-center justify-center"
         style={{ backgroundColor: `${option.colorHex}1a`, color: option.colorHex }}
       >
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
     );
   }
-  const bg = option.color ? COLOR_TOKEN_SOFT_BG[option.color] : 'bg-background';
+  const bg = option.color ? COLOR_TOKEN_SOFT_BG[option.color] : 'bg-surface-2';
   const text = option.color ? COLOR_TOKEN_TEXT[option.color] : 'text-text-muted';
   return (
     <span
-      className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', bg, text)}
+      className={cn('rounded-icon flex h-7 w-7 shrink-0 items-center justify-center', bg, text)}
     >
       <Icon className="h-4 w-4" aria-hidden="true" />
     </span>
@@ -117,7 +117,7 @@ export function EntitySelect({
           disabled={disabled}
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            'bg-surface text-text flex h-10 w-full items-center gap-2 rounded-md border px-3 text-left text-sm transition-colors',
+            'bg-surface text-text rounded-btn flex h-10 w-full items-center gap-2 border px-3.5 text-left text-sm transition-colors',
             'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:outline-none',
             'disabled:pointer-events-none disabled:opacity-50',
             error ? 'border-danger' : 'border-border',
@@ -147,7 +147,7 @@ export function EntitySelect({
               animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: reduceMotion ? 0 : 0.15, ease: 'easeOut' }}
-              className="bg-surface border-border absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border p-1 shadow-xl"
+              className="bg-surface border-border shadow-lift absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-card border p-1"
             >
               {options.length === 0 ? (
                 <li className="text-text-muted px-3 py-2 text-sm">Nenhuma opção</li>
@@ -169,8 +169,8 @@ export function EntitySelect({
                           option.depth ? { paddingLeft: `${option.depth * 1.25 + 0.5}rem` } : undefined
                         }
                         className={cn(
-                          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-                          isSelected ? 'bg-background' : 'hover:bg-background',
+                          'rounded-btn flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm transition-colors',
+                          isSelected ? 'bg-primary-soft text-primary' : 'hover:bg-surface-2',
                         )}
                       >
                         <OptionIcon option={option} />

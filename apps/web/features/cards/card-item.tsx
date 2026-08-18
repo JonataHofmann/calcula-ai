@@ -43,7 +43,7 @@ export function CardItem({ card, index, onEdit, onDelete }: CardItemProps) {
           type="button"
           onClick={() => onEdit(card)}
           aria-label={`Editar ${card.name}`}
-          className="focus-visible:ring-focus-ring rounded-md bg-black/25 p-2 text-white backdrop-blur transition-colors hover:bg-black/40 focus-visible:ring-2 focus-visible:outline-none"
+          className="focus-visible:ring-focus-ring rounded-icon bg-black/25 p-2 text-white backdrop-blur transition-colors hover:bg-black/40 focus-visible:ring-2 focus-visible:outline-none"
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -51,7 +51,7 @@ export function CardItem({ card, index, onEdit, onDelete }: CardItemProps) {
           type="button"
           onClick={() => onDelete(card)}
           aria-label={`Excluir ${card.name}`}
-          className="focus-visible:ring-focus-ring rounded-md bg-black/25 p-2 text-white backdrop-blur transition-colors hover:bg-danger focus-visible:ring-2 focus-visible:outline-none"
+          className="focus-visible:ring-focus-ring rounded-icon bg-black/25 p-2 text-white backdrop-blur transition-colors hover:bg-danger focus-visible:ring-2 focus-visible:outline-none"
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
         </button>

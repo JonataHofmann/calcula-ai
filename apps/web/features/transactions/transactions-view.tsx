@@ -205,7 +205,7 @@ export function TransactionsView() {
       {isLoading ? (
         <div className="flex flex-col gap-2">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+            <Skeleton key={i} className="h-12 w-full rounded-card" />
           ))}
         </div>
       ) : transactions && transactions.length > 0 ? (

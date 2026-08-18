@@ -42,7 +42,7 @@ export function BankSelect({
           aria-invalid={error ? true : undefined}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
-            'bg-surface text-text h-10 flex-1 rounded-md border px-3 text-sm transition-colors',
+            'bg-surface text-text rounded-btn h-10 flex-1 border px-3.5 text-sm transition-colors',
             'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:outline-none',
             error ? 'border-danger' : 'border-border',
           )}

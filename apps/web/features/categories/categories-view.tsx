@@ -115,7 +115,7 @@ export function CategoriesView() {
       {isLoading ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {[0, 1].map((i) => (
-            <Skeleton key={i} className="h-64 w-full rounded-lg" />
+            <Skeleton key={i} className="h-64 w-full rounded-card" />
           ))}
         </div>
       ) : isEmpty ? (

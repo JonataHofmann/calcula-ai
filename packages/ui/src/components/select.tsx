@@ -49,9 +49,9 @@ export function Select({
         value={value}
         defaultValue={resolvedDefault}
         className={cn(
-          'bg-surface text-text h-10 rounded-md border px-3 text-sm transition-colors',
+          'bg-surface text-text rounded-btn h-10 border px-3.5 text-sm transition-colors',
           'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:outline-none',
-          'disabled:pointer-events-none disabled:opacity-50',
+          'disabled:pointer-events-none disabled:opacity-45',
           error ? 'border-danger' : 'border-border',
           className,
         )}

@@ -34,7 +34,7 @@ export function IconPicker({ value, onChange, label, error }: IconPickerProps) {
       <div
         role="radiogroup"
         aria-label={label ?? 'Ícones'}
-        className="border-border grid max-h-52 grid-cols-6 gap-1.5 overflow-y-auto rounded-md border p-2 sm:grid-cols-8"
+        className="border-border rounded-btn grid max-h-52 grid-cols-6 gap-1.5 overflow-y-auto border p-2 sm:grid-cols-8"
       >
         {filtered.map((option) => {
           const Icon = getIcon(option.key);
@@ -49,11 +49,11 @@ export function IconPicker({ value, onChange, label, error }: IconPickerProps) {
               title={option.label}
               onClick={() => onChange(option.key)}
               className={cn(
-                'flex aspect-square items-center justify-center rounded-md border transition-colors',
+                'rounded-icon flex aspect-square items-center justify-center border transition-colors',
                 'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:outline-none',
                 selected
-                  ? 'border-primary bg-info-soft text-primary'
-                  : 'border-transparent text-text-muted hover:bg-background hover:text-text',
+                  ? 'border-primary bg-primary-soft text-primary'
+                  : 'border-transparent text-text-muted hover:bg-surface-2 hover:text-text',
               )}
             >
               <Icon className="h-5 w-5" />

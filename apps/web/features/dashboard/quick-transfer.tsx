@@ -36,8 +36,8 @@ export function QuickTransfer({ contacts }: QuickTransferProps) {
                 onClick={() => setSelected(contact.id)}
                 aria-pressed={active}
                 className={cn(
-                  'focus-visible:ring-focus-ring flex flex-col items-center gap-2 rounded-lg p-1 transition-transform focus-visible:ring-2 focus-visible:outline-none',
-                  active && 'scale-105',
+                  'focus-visible:ring-focus-ring flex flex-col items-center gap-2 rounded-btn p-1 transition-transform focus-visible:ring-2 focus-visible:outline-none',
+                  active && 'bg-surface-2 scale-105',
                 )}
               >
                 <Avatar name={contact.name} alt={contact.name} src={contact.avatar} size="lg" />
