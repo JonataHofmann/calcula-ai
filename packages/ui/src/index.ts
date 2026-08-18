@@ -70,3 +70,19 @@ export {
   type ProgressBarProps,
   type ProgressTone,
 } from './components/progress-bar.js';
+export { StatusDot, type StatusDotProps, type StatusTone } from './components/status-dot.js';
+export { IconButton, type IconButtonProps } from './components/icon-button.js';
+export { Fab, type FabProps } from './components/fab.js';
+export { Checkbox, type CheckboxProps } from './components/checkbox.js';
+export {
+  SegmentedControl,
+  type SegmentedControlProps,
+  type SegmentedOption,
+} from './components/segmented-control.js';
+export {
+  AvatarStack,
+  type AvatarStackProps,
+  type AvatarStackItem,
+} from './components/avatar-stack.js';
+export { DropdownPill, type DropdownPillProps } from './components/dropdown-pill.js';
+export { Legend, type LegendProps, type LegendItem } from './components/legend.js';

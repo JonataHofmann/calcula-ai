@@ -115,7 +115,7 @@ export function Modal({
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 12 }}
             transition={{ duration, ease: 'easeOut' }}
             className={cn(
-              'bg-surface text-text border-border relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl border shadow-xl',
+              'bg-surface text-text rounded-card shadow-shell relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden',
               className ?? 'max-w-lg',
             )}
           >

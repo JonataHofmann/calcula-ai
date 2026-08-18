@@ -20,7 +20,7 @@ export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSecti
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
   return (
     <tr
-      className={cn('border-border hover:bg-background border-b transition-colors', className)}
+      className={cn('border-border hover:bg-surface-2 border-b transition-colors', className)}
       {...props}
     />
   );

@@ -61,7 +61,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       type="button"
       onClick={handleToggle}
       aria-label={`Tema atual: ${THEME_LABELS[theme]}. Alternar tema`}
-      className={`border-border bg-surface text-text hover:bg-background focus-visible:ring-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors focus-visible:ring-2 focus-visible:outline-none ${className ?? ''}`}
+      className={`text-text-muted hover:bg-surface-2 hover:text-text focus-visible:ring-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none ${className ?? ''}`}
     >
       <Icon className="h-4 w-4" aria-hidden="true" />
     </button>

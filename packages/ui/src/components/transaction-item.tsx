@@ -27,7 +27,7 @@ export function TransactionItem({
       {icon ? (
         <span
           aria-hidden="true"
-          className="bg-border/40 text-text-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+          className="bg-surface-2 text-text-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
         >
           {icon}
         </span>

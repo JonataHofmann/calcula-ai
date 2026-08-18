@@ -28,10 +28,10 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        'rounded-lg border p-4 shadow-sm',
+        'rounded-card shadow-card p-5',
         strong
-          ? 'bg-surface-strong text-surface-strong-foreground border-transparent'
-          : 'bg-surface text-text border-border',
+          ? 'bg-surface-strong text-surface-strong-foreground'
+          : 'bg-surface text-text',
         className,
       )}
     >

@@ -1,11 +1,10 @@
 'use client';
 
-import { Avatar, SearchField, Skeleton } from '@finance/ui';
-import { Bell, LogOut, Menu, Settings } from 'lucide-react';
+import { Avatar, IconButton, SearchField, Skeleton } from '@finance/ui';
+import { Bell, Menu, PanelLeft, Settings } from 'lucide-react';
 import { useSession } from '../features/auth/use-session';
 import { useAppDispatch } from '../hooks/use-store';
-import { logout } from '../services/auth-api';
-import { toggleSidebarMobile } from '../store/ui-slice';
+import { toggleSidebar, toggleSidebarMobile } from '../store/ui-slice';
 import { PeriodSelector } from './period-selector';
 import { ThemeToggle } from './theme-toggle';
 
@@ -13,54 +12,41 @@ export function Header() {
   const { user, isLoading } = useSession();
   const dispatch = useAppDispatch();
 
-  async function handleLogout() {
-    const logoutUrl = await logout();
-    window.location.assign(logoutUrl ?? '/');
-  }
-
   return (
-    <header className="bg-surface border-border sticky top-0 z-30 flex h-16 items-center gap-4 border-b px-4 md:px-6">
-      <div className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 lg:block">
-        <div className="pointer-events-auto">
-          <PeriodSelector />
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => dispatch(toggleSidebarMobile())}
+    <header className="bg-background/80 border-border sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 backdrop-blur md:px-6">
+      <IconButton
         aria-label="Abrir menu"
-        className="text-text-muted hover:text-text focus-visible:ring-focus-ring rounded-md p-1 transition-colors focus-visible:ring-2 focus-visible:outline-none md:hidden"
+        onClick={() => dispatch(toggleSidebarMobile())}
+        className="md:hidden"
       >
-        <Menu className="h-5 w-5" aria-hidden="true" />
-      </button>
+        <Menu />
+      </IconButton>
+      <IconButton
+        aria-label="Recolher menu"
+        onClick={() => dispatch(toggleSidebar())}
+        className="hidden md:inline-flex"
+      >
+        <PanelLeft />
+      </IconButton>
 
       <SearchField
         placeholder="Buscar algo"
         aria-label="Buscar"
-        className="hidden max-w-sm flex-1 sm:block [&_input]:h-10 [&_input]:rounded-full [&_input]:bg-background [&_input]:transition-colors"
+        className="hidden max-w-[480px] flex-1 sm:block"
       />
 
       <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2">
+        <div className="hidden lg:block">
+          <PeriodSelector />
+        </div>
+
         <ThemeToggle />
-        <button
-          type="button"
-          aria-label="Configurações"
-          className="text-text-muted hover:text-text bg-background focus-visible:ring-focus-ring hidden h-10 w-10 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none sm:flex"
-        >
-          <Settings className="h-5 w-5" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          aria-label="Notificações"
-          className="text-info hover:text-info bg-info-soft focus-visible:ring-focus-ring relative hidden h-10 w-10 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none sm:flex"
-        >
-          <Bell className="h-5 w-5" aria-hidden="true" />
-          <span
-            className="bg-danger absolute top-2.5 right-2.5 h-2 w-2 rounded-full"
-            aria-hidden="true"
-          />
-        </button>
+        <IconButton aria-label="Configurações" className="hidden sm:inline-flex">
+          <Settings />
+        </IconButton>
+        <IconButton aria-label="Notificações" dot className="hidden sm:inline-flex">
+          <Bell />
+        </IconButton>
 
         <span className="bg-border mx-1 hidden h-7 w-px sm:block" aria-hidden="true" />
 
@@ -70,29 +56,17 @@ export function Header() {
               <Skeleton className="h-3.5 w-24" />
               <Skeleton className="h-3 w-32" />
             </div>
-            <Skeleton className="h-10 w-10 rounded-full" />
+            <Skeleton className="h-9 w-9 rounded-full" />
           </div>
         ) : user ? (
-          <div className="flex items-center gap-2.5">
-            <div className="hidden flex-col items-end leading-tight sm:flex">
+          <div className="flex items-center gap-2.5 pl-1">
+            <Avatar name={user.name} alt={user.name} size="lg" />
+            <span className="hidden flex-col items-start leading-tight sm:flex">
               <span className="text-text text-sm font-semibold">{user.name}</span>
               {user.email ? <span className="text-text-muted text-xs">{user.email}</span> : null}
-            </div>
-            <span className="ring-border/70 rounded-full ring-2">
-              <Avatar name={user.name} alt={user.name} size="md" />
             </span>
           </div>
         ) : null}
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          aria-label="Sair"
-          className="text-text-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-focus-ring flex items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
-        >
-          <LogOut className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Sair</span>
-        </button>
       </div>
     </header>
   );

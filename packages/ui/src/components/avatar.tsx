@@ -7,14 +7,16 @@ export interface AvatarProps {
   src?: string;
   alt: string;
   name?: string;
-  size?: 'sm' | 'md' | 'lg';
+  /** Spec §7 avatar scale: xs 24 · sm 28 · md 32 · lg 36. */
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 }
 
 const sizeClasses: Record<NonNullable<AvatarProps['size']>, string> = {
-  sm: 'h-8 w-8 text-xs',
-  md: 'h-10 w-10 text-sm',
-  lg: 'h-12 w-12 text-base',
+  xs: 'h-6 w-6 text-[0.625rem]',
+  sm: 'h-7 w-7 text-[0.6875rem]',
+  md: 'h-8 w-8 text-xs',
+  lg: 'h-9 w-9 text-sm',
 };
 
 function initials(name?: string): string {

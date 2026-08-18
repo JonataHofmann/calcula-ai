@@ -27,7 +27,7 @@ export function ProgressBar({ value, tone = 'primary', label, className }: Progr
       aria-valuemin={0}
       aria-valuemax={100}
       aria-label={label}
-      className={cn('bg-border/60 h-2 w-full overflow-hidden rounded-full', className)}
+      className={cn('bg-border h-0.75 w-full overflow-hidden rounded-full', className)}
     >
       <div
         className={cn('h-full rounded-full transition-all', toneClasses[tone])}

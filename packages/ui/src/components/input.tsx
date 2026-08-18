@@ -26,9 +26,9 @@ export function Input({ label, helpText, error, className, id, ...props }: Input
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={cn(
-          'bg-surface text-text placeholder:text-text-muted h-10 rounded-md border px-3 text-sm transition-colors',
+          'bg-surface text-text placeholder:text-text-subtle rounded-btn h-10 border px-3.5 text-sm transition-colors',
           'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:outline-none',
-          'disabled:pointer-events-none disabled:opacity-50',
+          'disabled:pointer-events-none disabled:opacity-45',
           error ? 'border-danger' : 'border-border',
           className,
         )}
