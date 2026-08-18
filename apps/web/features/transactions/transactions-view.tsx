@@ -11,23 +11,23 @@ import type {
   UpdateTransactionInput,
 } from '@finance/contracts';
 import { Button, Card, Skeleton } from '@finance/ui';
-import { ChevronLeft, ChevronRight, Plus, Receipt } from 'lucide-react';
+import { Plus, Receipt } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { PeriodSelector } from '../../components/period-selector';
 import { useAppDispatch, useAppSelector } from '../../hooks/use-store';
+import { periodWindow } from '../../store/period-slice';
 import { useAccounts } from '../accounts/use-accounts';
 import { useCards } from '../cards/use-cards';
 import { useCategories } from '../categories/use-categories';
 import { EffectuateModal } from './effectuate-modal';
 import { GroupScopeModal } from './group-scope-modal';
-import { monthLabel, monthWindow, startOfMonth } from './month-window';
+import { startOfMonth } from './month-window';
 import { OverdueGrid } from './overdue-grid';
 import { TransactionFormModal } from './transaction-form-modal';
 import { TransactionsFilters } from './transactions-filters';
 import { TransactionsTable } from './transactions-table';
 import {
   clearFilters,
-  nextMonth,
-  prevMonth,
   setFilters,
   setShowOverdue,
   type TransactionFilters,
@@ -59,9 +59,8 @@ function toUpdate(input: CreateTransactionInput): UpdateTransactionInput {
 
 export function TransactionsView() {
   const dispatch = useAppDispatch();
-  const { monthOffset, filters, sort, order, showOverdue } = useAppSelector(
-    (s) => s.transactionsUi,
-  );
+  const period = useAppSelector((s) => s.period);
+  const { filters, sort, order, showOverdue } = useAppSelector((s) => s.transactionsUi);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionDto | undefined>(undefined);
   const [effectuating, setEffectuating] = useState<TransactionDto | undefined>(undefined);
@@ -72,9 +71,9 @@ export function TransactionsView() {
   const reduceMotion = useReducedMotion();
 
   const query: ListTransactionsQuery = useMemo(() => {
-    const { dueFrom, dueTo } = monthWindow(reference, monthOffset);
+    const { dueFrom, dueTo } = periodWindow(period);
     return { dueFrom, dueTo, sort, order, ...filters };
-  }, [reference, monthOffset, sort, order, filters]);
+  }, [period, sort, order, filters]);
 
   const overdueBefore = useMemo(() => startOfMonth(reference), [reference]);
   const { data: transactions, isLoading } = useTransactions(query);
@@ -162,25 +161,9 @@ export function TransactionsView() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => dispatch(prevMonth())}
-          aria-label="Mês anterior"
-        >
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        </Button>
-        <span className="text-text min-w-40 text-center text-sm font-medium">
-          {monthLabel(reference, monthOffset)}
-        </span>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => dispatch(nextMonth())}
-          aria-label="Próximo mês"
-        >
-          <ChevronRight className="h-4 w-4" aria-hidden="true" />
-        </Button>
+        <div className="lg:hidden">
+          <PeriodSelector />
+        </div>
         <Button
           variant={showOverdue ? 'primary' : 'ghost'}
           size="sm"

@@ -6,6 +6,7 @@ import { useSession } from '../features/auth/use-session';
 import { useAppDispatch } from '../hooks/use-store';
 import { logout } from '../services/auth-api';
 import { toggleSidebarMobile } from '../store/ui-slice';
+import { PeriodSelector } from './period-selector';
 import { ThemeToggle } from './theme-toggle';
 
 export function Header() {
@@ -19,6 +20,12 @@ export function Header() {
 
   return (
     <header className="bg-surface border-border sticky top-0 z-30 flex h-16 items-center gap-4 border-b px-4 md:px-6">
+      <div className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 lg:block">
+        <div className="pointer-events-auto">
+          <PeriodSelector />
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={() => dispatch(toggleSidebarMobile())}

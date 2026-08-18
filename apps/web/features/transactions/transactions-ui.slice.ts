@@ -13,8 +13,6 @@ export interface TransactionFilters {
 }
 
 export interface TransactionsUIState {
-  /** Months relative to the current month (0 = this month, -1 = previous). */
-  monthOffset: number;
   filters: TransactionFilters;
   sort: TransactionSort;
   order: SortOrder;
@@ -22,7 +20,6 @@ export interface TransactionsUIState {
 }
 
 const initialState: TransactionsUIState = {
-  monthOffset: 0,
   filters: {},
   sort: 'dueDate',
   order: 'asc',
@@ -33,15 +30,6 @@ const transactionsUiSlice = createSlice({
   name: 'transactionsUi',
   initialState,
   reducers: {
-    prevMonth(state) {
-      state.monthOffset -= 1;
-    },
-    nextMonth(state) {
-      state.monthOffset += 1;
-    },
-    resetMonth(state) {
-      state.monthOffset = 0;
-    },
     setFilters(state, action: PayloadAction<TransactionFilters>) {
       // Drop empty strings so they never reach the query.
       const merged = { ...state.filters, ...action.payload };
@@ -66,13 +54,6 @@ const transactionsUiSlice = createSlice({
   },
 });
 
-export const {
-  prevMonth,
-  nextMonth,
-  resetMonth,
-  setFilters,
-  clearFilters,
-  toggleSort,
-  setShowOverdue,
-} = transactionsUiSlice.actions;
+export const { setFilters, clearFilters, toggleSort, setShowOverdue } =
+  transactionsUiSlice.actions;
 export const transactionsUiReducer = transactionsUiSlice.reducer;
