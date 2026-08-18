@@ -35,7 +35,7 @@ export function ActivityList({ items, emptyMessage = 'Nenhuma atividade recente'
     <div className={cn('divide-border divide-y', className)}>
       {items.map((item) => (
         <div key={item.id} className="flex items-start gap-3 py-3">
-          <Avatar {...item.avatar} size="md" />
+          <Avatar {...item.avatar} size="md" alt={item.avatar?.alt ?? 'Avatar'} />
           <div className="min-w-0 flex-1">
             <p className="text-text text-sm">{item.primary}</p>
             {item.secondary ? <p className="text-text-muted text-xs mt-0.5">{item.secondary}</p> : null}

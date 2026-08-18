@@ -1,10 +1,10 @@
 'use client';
 
 import { Avatar, IconButton, SearchField, Skeleton } from '@finance/ui';
-import { Bell, Menu, PanelLeft, Settings } from 'lucide-react';
+import { Bell, Menu, Settings } from 'lucide-react';
 import { useSession } from '../features/auth/use-session';
 import { useAppDispatch } from '../hooks/use-store';
-import { toggleSidebar, toggleSidebarMobile } from '../store/ui-slice';
+import { toggleSidebarMobile } from '../store/ui-slice';
 import { PeriodSelector } from './period-selector';
 import { ThemeToggle } from './theme-toggle';
 
@@ -20,13 +20,6 @@ export function Header() {
         className="md:hidden"
       >
         <Menu />
-      </IconButton>
-      <IconButton
-        aria-label="Recolher menu"
-        onClick={() => dispatch(toggleSidebar())}
-        className="hidden md:inline-flex"
-      >
-        <PanelLeft />
       </IconButton>
 
       <SearchField
