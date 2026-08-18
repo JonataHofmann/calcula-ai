@@ -33,23 +33,28 @@ function setup(onConfirm = vi.fn()) {
   return { onConfirm };
 }
 
+/** Today's 'YYYY-MM' prefix, for picking a day cell in the current calendar month. */
+const YM = new Date().toISOString().slice(0, 7);
+const TODAY = new Date().toISOString().slice(0, 10);
+
 describe('EffectuateModal', () => {
   it('defaults the value to the due amount', () => {
     setup();
-    expect(screen.getByLabelText('Valor')).toHaveValue('1200.00');
-    expect(screen.getByLabelText('Data')).toHaveValue(new Date().toISOString().slice(0, 10));
+    expect(screen.getByLabelText('Valor')).toHaveValue('1.200,00');
+    expect(screen.getByLabelText('Data')).toHaveAttribute('data-value', TODAY);
   });
 
   it('confirms with the chosen date and amount', async () => {
     const { onConfirm } = setup();
-    fireEvent.change(screen.getByLabelText('Data'), { target: { value: '2026-01-15' } });
-    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '1150.00' } });
+    fireEvent.click(screen.getByLabelText('Data'));
+    fireEvent.click(screen.getByLabelText(`${YM}-15`));
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '115000' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(onConfirm).toHaveBeenCalledWith({
-      date: '2026-01-15T00:00:00.000Z',
+      date: `${YM}-15T00:00:00.000Z`,
       amount: '1150.00',
     });
   });

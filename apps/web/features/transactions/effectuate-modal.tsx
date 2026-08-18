@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import type { EffectuateInput, TransactionDto } from '@finance/contracts';
-import { Button, Input, Modal } from '@finance/ui';
+import { Button, CurrencyInput, DatePicker, Modal } from '@finance/ui';
 
 /** Form-level schema: a date (defaults to today) and an effective amount (defaults to the due amount). */
 const formSchema = z.object({
@@ -49,7 +49,6 @@ export function EffectuateModal({
 }: EffectuateModalProps) {
   const {
     control,
-    register,
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>({
@@ -75,31 +74,36 @@ export function EffectuateModal({
       title="Efetivar transação"
       description={transaction ? transaction.description : 'Confirme a data e o valor pagos.'}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form onSubmit={submit} className="grid grid-cols-2 gap-x-4 gap-y-3">
         <Controller
           control={control}
           name="date"
           render={({ field }) => (
-            <Input
-              type="date"
+            <DatePicker
               label="Data"
               error={errors.date?.message}
               value={isoToDate(field.value)}
-              onChange={(e) => field.onChange(dateToIso(e.target.value))}
+              onChange={(v) => field.onChange(dateToIso(v))}
             />
           )}
         />
 
-        <Input
-          label="Valor"
-          placeholder="0,00"
-          error={errors.amount?.message}
-          {...register('amount')}
+        <Controller
+          control={control}
+          name="amount"
+          render={({ field }) => (
+            <CurrencyInput
+              label="Valor"
+              error={errors.amount?.message}
+              value={field.value}
+              onChange={field.onChange}
+            />
+          )}
         />
 
-        {rootError ? <p className="text-danger text-sm">{rootError}</p> : null}
+        {rootError ? <p className="text-danger col-span-2 text-sm">{rootError}</p> : null}
 
-        <div className="mt-2 flex justify-end gap-2">
+        <div className="col-span-2 mt-2 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>

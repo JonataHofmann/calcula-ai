@@ -5,12 +5,25 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
+  findCardBrand,
   type CategoryNodeDto,
   type CategoryTreeDto,
+  type ColorToken,
   type CreateTransactionInput,
+  type IconKey,
   type TransactionDto,
 } from '@finance/contracts';
-import { Button, Input, Modal, Select, type SelectOption } from '@finance/ui';
+import {
+  Button,
+  CurrencyInput,
+  DatePicker,
+  EntitySelect,
+  Input,
+  Modal,
+  Select,
+  type EntityOption,
+  type SelectOption,
+} from '@finance/ui';
 
 /** Form-level schema: mirrors the visible fields, then transformed to CreateTransactionInput on submit. */
 const formSchema = z
@@ -92,10 +105,24 @@ const formSchema = z
     }
   });
 
+export interface AccountLike {
+  id: string;
+  name: string;
+  icon?: IconKey;
+  color?: ColorToken;
+}
+
+export interface CardLike {
+  id: string;
+  name: string;
+  brandId?: string;
+  lastDigits?: string;
+}
+
 export interface TransactionOptionSource {
   categories?: CategoryTreeDto;
-  accounts: { id: string; name: string }[];
-  cards: { id: string; name: string }[];
+  accounts: AccountLike[];
+  cards: CardLike[];
 }
 
 export interface TransactionFormModalProps extends TransactionOptionSource {
@@ -137,11 +164,11 @@ function todayIso(): string {
   return dateToIso(new Date().toISOString().slice(0, 10));
 }
 
-/** Flattens a category tree branch into indented select options. */
-function flatten(nodes: CategoryNodeDto[], depth = 0): SelectOption[] {
-  const out: SelectOption[] = [];
+/** Flattens a category tree branch into indented options carrying icon + color. */
+function flatten(nodes: CategoryNodeDto[], depth = 0): EntityOption[] {
+  const out: EntityOption[] = [];
   for (const node of nodes) {
-    out.push({ value: node.id, label: `${'— '.repeat(depth)}${node.name}` });
+    out.push({ value: node.id, label: node.name, icon: node.icon, color: node.color, depth });
     if (node.children.length > 0) out.push(...flatten(node.children, depth + 1));
   }
   return out;
@@ -261,8 +288,22 @@ export function TransactionFormModal({
     return flatten(type === 'income' ? categories.income : categories.expense);
   }, [categories, type]);
 
-  const accountOptions: SelectOption[] = accounts.map((a) => ({ value: a.id, label: a.name }));
-  const cardOptions: SelectOption[] = cards.map((c) => ({ value: c.id, label: c.name }));
+  const accountOptions: EntityOption[] = accounts.map((a) => ({
+    value: a.id,
+    label: a.name,
+    icon: a.icon ?? 'wallet',
+    color: a.color,
+  }));
+  const cardOptions: EntityOption[] = cards.map((c) => {
+    const brand = c.brandId ? findCardBrand(c.brandId) : undefined;
+    return {
+      value: c.id,
+      label: c.name,
+      icon: 'credit-card',
+      colorHex: brand?.color,
+      hint: c.lastDigits ? `•••• ${c.lastDigits}` : undefined,
+    };
+  });
 
   const submit = handleSubmit(async (values) => {
     setRootError(null);
@@ -281,121 +322,139 @@ export function TransactionFormModal({
       onClose={onClose}
       title={initial ? 'Editar transação' : 'Nova transação'}
       description="Preencha os dados da transação."
+      className="max-w-2xl"
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Controller
-            control={control}
-            name="type"
-            render={({ field }) => (
-              <Select label="Tipo" options={TYPE_OPTIONS} {...field} error={errors.type?.message} />
-            )}
-          />
-          <Controller
-            control={control}
-            name="recurrence"
-            render={({ field }) => (
-              <Select
-                label="Recorrência"
-                options={RECURRENCE_OPTIONS}
-                {...field}
-                error={errors.recurrence?.message}
-              />
-            )}
-          />
-        </div>
-
-        <Input
-          label="Descrição"
-          placeholder="Ex.: Aluguel"
-          error={errors.description?.message}
-          {...register('description')}
-        />
-
-        <div className="grid grid-cols-2 gap-3">
-          <Controller
-            control={control}
-            name="dueDate"
-            render={({ field }) => (
-              <Input
-                type="date"
-                label="Vencimento"
-                error={errors.dueDate?.message}
-                value={isoToDate(field.value)}
-                onChange={(e) => field.onChange(dateToIso(e.target.value))}
-              />
-            )}
-          />
-          {recurrence === 'installment' ? (
-            <Input
-              type="number"
-              min={1}
-              label="Parcelas"
-              error={errors.installmentCount?.message}
-              {...register('installmentCount')}
-            />
-          ) : recurrence === 'fixed' ? (
-            <Controller
-              control={control}
-              name="endDate"
-              render={({ field }) => (
-                <Input
-                  type="date"
-                  label="Término (opcional)"
-                  error={errors.endDate?.message}
-                  value={isoToDate(field.value)}
-                  onChange={(e) => field.onChange(dateToIso(e.target.value))}
-                />
-              )}
-            />
-          ) : null}
-        </div>
-
-        {recurrence === 'installment' ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Valor por parcela"
-              placeholder="0,00"
-              error={errors.amount?.message}
-              {...register('amount')}
-            />
-            <Input
-              label="Valor total"
-              placeholder="0,00"
-              error={errors.totalAmount?.message}
-              {...register('totalAmount')}
-            />
-          </div>
-        ) : (
-          <Input
-            label="Valor"
-            placeholder="0,00"
-            error={errors.amount?.message}
-            {...register('amount')}
-          />
-        )}
-
+      <form onSubmit={submit} className="grid grid-cols-2 gap-x-4 gap-y-3">
         <Controller
           control={control}
-          name="categoryId"
+          name="type"
+          render={({ field }) => (
+            <Select label="Tipo" options={TYPE_OPTIONS} {...field} error={errors.type?.message} />
+          )}
+        />
+        <Controller
+          control={control}
+          name="recurrence"
           render={({ field }) => (
             <Select
-              label="Categoria"
-              placeholder="Selecione"
-              options={categoryOptions}
+              label="Recorrência"
+              options={RECURRENCE_OPTIONS}
               {...field}
-              error={errors.categoryId?.message}
+              error={errors.recurrence?.message}
             />
           )}
         />
+
+        <div className="col-span-2">
+          <Input
+            label="Descrição"
+            placeholder="Ex.: Aluguel"
+            error={errors.description?.message}
+            {...register('description')}
+          />
+        </div>
+
+        <Controller
+          control={control}
+          name="dueDate"
+          render={({ field }) => (
+            <DatePicker
+              label="Vencimento"
+              error={errors.dueDate?.message}
+              value={isoToDate(field.value)}
+              onChange={(v) => field.onChange(dateToIso(v))}
+            />
+          )}
+        />
+        {recurrence === 'installment' ? (
+          <Input
+            type="number"
+            min={1}
+            label="Parcelas"
+            error={errors.installmentCount?.message}
+            {...register('installmentCount')}
+          />
+        ) : recurrence === 'fixed' ? (
+          <Controller
+            control={control}
+            name="endDate"
+            render={({ field }) => (
+              <DatePicker
+                label="Término (opcional)"
+                error={errors.endDate?.message}
+                value={isoToDate(field.value)}
+                onChange={(v) => field.onChange(dateToIso(v))}
+              />
+            )}
+          />
+        ) : (
+          <div aria-hidden="true" />
+        )}
+
+        {recurrence === 'installment' ? (
+          <>
+            <Controller
+              control={control}
+              name="amount"
+              render={({ field }) => (
+                <CurrencyInput
+                  label="Valor por parcela"
+                  error={errors.amount?.message}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="totalAmount"
+              render={({ field }) => (
+                <CurrencyInput
+                  label="Valor total"
+                  error={errors.totalAmount?.message}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </>
+        ) : (
+          <Controller
+            control={control}
+            name="amount"
+            render={({ field }) => (
+              <CurrencyInput
+                label="Valor"
+                error={errors.amount?.message}
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        )}
+
+        <div className={recurrence === 'installment' ? 'col-span-2' : undefined}>
+          <Controller
+            control={control}
+            name="categoryId"
+            render={({ field }) => (
+              <EntitySelect
+                label="Categoria"
+                placeholder="Selecione"
+                options={categoryOptions}
+                value={field.value}
+                onChange={field.onChange}
+                error={errors.categoryId?.message}
+              />
+            )}
+          />
+        </div>
 
         {type === 'expense' ? (
           <Controller
             control={control}
             name="originKind"
-            render={({ field }) => (
-              <Select label="Origem" options={ORIGIN_OPTIONS} {...field} />
-            )}
+            render={({ field }) => <Select label="Origem" options={ORIGIN_OPTIONS} {...field} />}
           />
         ) : null}
 
@@ -404,11 +463,12 @@ export function TransactionFormModal({
             control={control}
             name="accountId"
             render={({ field }) => (
-              <Select
+              <EntitySelect
                 label="Conta"
                 placeholder="Selecione"
                 options={accountOptions}
-                {...field}
+                value={field.value}
+                onChange={field.onChange}
                 error={originError}
               />
             )}
@@ -418,22 +478,29 @@ export function TransactionFormModal({
             control={control}
             name="creditCardId"
             render={({ field }) => (
-              <Select
+              <EntitySelect
                 label="Cartão de crédito"
                 placeholder="Selecione"
                 options={cardOptions}
-                {...field}
+                value={field.value}
+                onChange={field.onChange}
                 error={originError}
               />
             )}
           />
         )}
 
-        <Input label="Observações (opcional)" error={errors.notes?.message} {...register('notes')} />
+        <div className="col-span-2">
+          <Input
+            label="Observações (opcional)"
+            error={errors.notes?.message}
+            {...register('notes')}
+          />
+        </div>
 
-        {rootError ? <p className="text-danger text-sm">{rootError}</p> : null}
+        {rootError ? <p className="text-danger col-span-2 text-sm">{rootError}</p> : null}
 
-        <div className="mt-2 flex justify-end gap-2">
+        <div className="col-span-2 mt-2 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>

@@ -16,6 +16,13 @@ export { Badge, type BadgeProps } from './components/badge.js';
 export { Skeleton } from './components/skeleton.js';
 export { Input, type InputProps } from './components/input.js';
 export { Select, type SelectProps, type SelectOption } from './components/select.js';
+export { CurrencyInput, type CurrencyInputProps } from './components/currency-input.js';
+export { DatePicker, type DatePickerProps } from './components/date-picker.js';
+export {
+  EntitySelect,
+  type EntitySelectProps,
+  type EntityOption,
+} from './components/entity-select.js';
 export { SearchField, type SearchFieldProps } from './components/search-field.js';
 export { Avatar, type AvatarProps } from './components/avatar.js';
 export { Separator, type SeparatorProps } from './components/separator.js';

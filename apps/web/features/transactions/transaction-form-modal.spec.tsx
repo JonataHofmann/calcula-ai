@@ -33,30 +33,36 @@ function setup(onSubmit = vi.fn()) {
   return { onSubmit };
 }
 
+/** Opens an EntitySelect combobox by label and clicks the named option. */
+function pickEntity(label: string, optionName: string) {
+  fireEvent.click(screen.getByRole('combobox', { name: label }));
+  fireEvent.click(screen.getByRole('option', { name: optionName }));
+}
+
 describe('TransactionFormModal', () => {
   it('shows the origin selector for expenses (conta OR cartão)', () => {
     setup();
     expect(screen.getByLabelText('Origem')).toBeInTheDocument();
-    expect(screen.getByLabelText('Conta')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Conta' })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Origem'), { target: { value: 'card' } });
-    expect(screen.getByLabelText('Cartão de crédito')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Cartão de crédito' })).toBeInTheDocument();
   });
 
   it('hides the origin selector and card for income (conta only)', () => {
     setup();
     fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'income' } });
     expect(screen.queryByLabelText('Origem')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Conta')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Cartão de crédito')).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Conta' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Cartão de crédito' })).not.toBeInTheDocument();
   });
 
   it('submits a valid single expense with an account origin', async () => {
     const { onSubmit } = setup();
     fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Aluguel' } });
-    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '1200.00' } });
-    fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: CAT_EXPENSE } });
-    fireEvent.change(screen.getByLabelText('Conta'), { target: { value: ACC } });
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '120000' } });
+    pickEntity('Categoria', 'Moradia');
+    pickEntity('Conta', 'Conta Corrente');
 
     fireEvent.click(screen.getByRole('button', { name: 'Criar transação' }));
 
@@ -77,8 +83,8 @@ describe('TransactionFormModal', () => {
   it('blocks submit and flags the amount when it is missing', async () => {
     const { onSubmit } = setup();
     fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Aluguel' } });
-    fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: CAT_EXPENSE } });
-    fireEvent.change(screen.getByLabelText('Conta'), { target: { value: ACC } });
+    pickEntity('Categoria', 'Moradia');
+    pickEntity('Conta', 'Conta Corrente');
 
     fireEvent.click(screen.getByRole('button', { name: 'Criar transação' }));
 

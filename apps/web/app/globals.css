@@ -2,3 +2,36 @@
 @import '@finance/ui/styles/tokens.css';
 
 @source '../../../packages/ui/src/**/*.{ts,tsx}';
+
+/* Themed scrollbars — thin, rounded, subtle; track transparent, thumb on hover.
+   Colors come from the design tokens so light/dark follow the active theme. */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-text-muted);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
