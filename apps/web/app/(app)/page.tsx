@@ -7,7 +7,7 @@ import {
   WeeklyBarChart,
 } from '@finance/ui';
 import { CreditCard, DollarSign, UserRound } from 'lucide-react';
-import Link from 'next/link';
+import { SectionHeader } from '../../components/section-header';
 import {
   balanceHistory,
   dashboardCards,
@@ -17,22 +17,6 @@ import {
   weeklyActivity,
 } from '../../features/dashboard/dashboard-data';
 import { QuickTransfer } from '../../features/dashboard/quick-transfer';
-
-function SectionHeader({ title, href }: { title: string; href?: string }) {
-  return (
-    <div className="mb-4 flex items-center justify-between gap-3">
-      <h2 className="text-text text-lg font-semibold">{title}</h2>
-      {href ? (
-        <Link
-          href={href}
-          className="text-primary focus-visible:ring-focus-ring rounded text-sm font-medium hover:underline focus-visible:ring-2 focus-visible:outline-none"
-        >
-          Ver todos
-        </Link>
-      ) : null}
-    </div>
-  );
-}
 
 const transactionIcons = [
   <CreditCard key="card" className="h-4 w-4" />,

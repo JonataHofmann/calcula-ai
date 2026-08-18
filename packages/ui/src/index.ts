@@ -48,3 +48,8 @@ export {
   type BalanceLineChartProps,
   type BalancePoint,
 } from './components/balance-line-chart.js';
+export {
+  ProgressBar,
+  type ProgressBarProps,
+  type ProgressTone,
+} from './components/progress-bar.js';
