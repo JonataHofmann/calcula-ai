@@ -1,0 +1,66 @@
+import type {
+  CategoryNodeDto,
+  CategoryTreeDto,
+  CreateCategoryInput,
+  CreateSubcategoryInput,
+  UpdateCategoryInput,
+} from '@finance/contracts';
+import { apiFetch, newIdempotencyKey } from '../../services/api-client';
+
+export function listCategories(): Promise<CategoryTreeDto> {
+  return apiFetch<CategoryTreeDto>('/categories');
+}
+
+export function createCategory(input: CreateCategoryInput): Promise<CategoryNodeDto> {
+  return apiFetch<CategoryNodeDto>('/categories', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+    body: JSON.stringify(input),
+  });
+}
+
+export function addSubcategory(
+  parentId: string,
+  input: CreateSubcategoryInput,
+): Promise<CategoryNodeDto> {
+  return apiFetch<CategoryNodeDto>(`/categories/${parentId}/subcategories`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateCategory(
+  id: string,
+  input: UpdateCategoryInput,
+): Promise<CategoryNodeDto> {
+  return apiFetch<CategoryNodeDto>(`/categories/${id}`, {
+    method: 'PATCH',
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+    body: JSON.stringify(input),
+  });
+}
+
+/** Deletes a custom category, or hides a default one — the API decides by source. */
+export function deleteCategory(id: string): Promise<void> {
+  return apiFetch<void>(`/categories/${id}`, {
+    method: 'DELETE',
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  });
+}
+
+/** Un-hides a previously hidden default category. */
+export function restoreCategory(id: string): Promise<void> {
+  return apiFetch<void>(`/categories/${id}/restore`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  });
+}
+
+/** Drops the per-user override on a default category. */
+export function revertOverride(id: string): Promise<void> {
+  return apiFetch<void>(`/categories/${id}/override`, {
+    method: 'DELETE',
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  });
+}

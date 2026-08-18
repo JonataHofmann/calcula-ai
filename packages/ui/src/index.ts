@@ -1,5 +1,15 @@
 export { cn } from './lib/cn.js';
 export { formatBRL, formatPercent } from './lib/format.js';
+export { ICON_MAP, getIcon } from './lib/icon-map.js';
+export {
+  COLOR_TOKEN_BG,
+  COLOR_TOKEN_SOFT_BG,
+  COLOR_TOKEN_TEXT,
+} from './lib/color-token.js';
+export { Modal, type ModalProps } from './components/modal.js';
+export { IconPicker, type IconPickerProps } from './components/icon-picker.js';
+export { ColorPicker, type ColorPickerProps } from './components/color-picker.js';
+export { BankSelect, type BankSelectProps } from './components/bank-select.js';
 export { Button, type ButtonProps } from './components/button.js';
 export { Card, CardHeader, CardTitle, CardContent } from './components/card.js';
 export { Badge, type BadgeProps } from './components/badge.js';

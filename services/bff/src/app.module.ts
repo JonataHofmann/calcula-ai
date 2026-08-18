@@ -3,6 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { SessionEntity } from './auth/session/session.entity';
 import { HealthModule } from './health/health.module';
+import { SharedModule } from './shared/shared.module';
+import { ReferenceModule } from './reference/reference.module';
+import { AccountsModule } from './accounts/accounts.module';
+import { CategoriesModule } from './categories/categories.module';
+import { CardsModule } from './cards/cards.module';
 
 @Module({
   imports: [
@@ -15,6 +20,11 @@ import { HealthModule } from './health/health.module';
     }),
     AuthModule,
     HealthModule,
+    SharedModule,
+    ReferenceModule,
+    AccountsModule,
+    CategoriesModule,
+    CardsModule,
   ],
 })
 export class AppModule {}

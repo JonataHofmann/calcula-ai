@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   PiggyBank,
   Receipt,
+  Tags,
   Target,
   Wallet,
   type LucideIcon,
@@ -17,6 +18,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Visão Geral', href: '/', icon: LayoutDashboard },
   { label: 'Contas', href: '/contas', icon: Wallet },
+  { label: 'Categorias', href: '/categorias', icon: Tags },
   { label: 'Transações', href: '/transacoes', icon: Receipt },
   { label: 'Cartões', href: '/cartoes', icon: CreditCard },
   { label: 'Orçamentos', href: '/orcamentos', icon: PiggyBank },
