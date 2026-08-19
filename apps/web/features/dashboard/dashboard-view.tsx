@@ -2,7 +2,7 @@
 
 import { createElement, useMemo } from 'react';
 import type { CategoryNodeDto, ColorToken, ListTransactionsQuery } from '@finance/contracts';
-import { Card, ChartContainer, formatBRL, TransactionList, WeeklyBarChart, cn, getIcon } from '@finance/ui';
+import { BalanceBarChart, Card, ChartContainer, formatBRL, TransactionList, cn, getIcon } from '@finance/ui';
 import { Receipt } from 'lucide-react';
 import { PeriodSelector } from '../../components/period-selector';
 import { useAppSelector } from '../../hooks/use-store';
@@ -142,14 +142,15 @@ export function DashboardView() {
   }, [expenses, cards]);
 
   const yearlyBalance = useMemo(() => {
-    const buckets = MONTH_LABELS.map((label) => ({ label, deposit: 0, withdraw: 0 }));
+    const buckets = MONTH_LABELS.map((label) => ({ label, income: 0, expense: 0, balance: 0 }));
     for (const t of yearTransactions ?? []) {
       const bucket = buckets[new Date(t.dueDate).getUTCMonth()];
       if (!bucket) continue;
       const value = toCents(t.amount) / 100;
-      if (t.type === 'income') bucket.deposit += value;
-      else bucket.withdraw += value;
+      if (t.type === 'income') bucket.income += value;
+      else bucket.expense += value;
     }
+    for (const bucket of buckets) bucket.balance = bucket.income - bucket.expense;
     return buckets;
   }, [yearTransactions]);
 
@@ -194,10 +195,6 @@ export function DashboardView() {
         <>
           <ChartContainer
             title={`Balanço do ano de ${period.year}`}
-            legend={[
-              { label: 'Receitas', colorToken: 'success' },
-              { label: 'Despesas', colorToken: 'danger' },
-            ]}
             actions={
               <span
                 className={cn(
@@ -209,7 +206,7 @@ export function DashboardView() {
               </span>
             }
           >
-            <WeeklyBarChart
+            <BalanceBarChart
               data={yearlyBalance}
               height={280}
               valueFormatter={(value) => formatBRL(value.toFixed(2)).replace(',00', '')}

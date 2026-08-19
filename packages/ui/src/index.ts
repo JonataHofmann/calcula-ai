@@ -57,6 +57,11 @@ export {
   type WeeklyBarDatum,
 } from './components/weekly-bar-chart.js';
 export {
+  BalanceBarChart,
+  type BalanceBarChartProps,
+  type BalanceBarDatum,
+} from './components/balance-bar-chart.js';
+export {
   ExpensePieChart,
   type ExpensePieChartProps,
   type ExpenseSlice,
