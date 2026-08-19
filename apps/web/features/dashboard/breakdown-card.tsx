@@ -13,6 +13,7 @@ import {
   formatBRL,
   type ExpenseSlice,
 } from '@finance/ui';
+import { centsToMoney } from '../../util/money';
 
 export interface BreakdownRow {
   id: string;
@@ -27,13 +28,6 @@ export interface BreakdownCardProps {
   title: string;
   rows: BreakdownRow[];
   emptyMessage?: string;
-}
-
-/** Formats integer cents ("64035") as a money string ("640.35") for formatBRL. */
-function centsToMoney(cents: number): string {
-  const sign = cents < 0 ? '-' : '';
-  const abs = Math.abs(cents);
-  return `${sign}${Math.trunc(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
 }
 
 export function BreakdownCard({

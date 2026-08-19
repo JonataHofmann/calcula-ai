@@ -18,6 +18,9 @@ import {
   type BadgeProps,
 } from '@finance/ui';
 import { ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Pencil, Trash2 } from 'lucide-react';
+import { buildCategoryMap } from '../../util/category';
+import { day } from '../../util/date';
+import { money } from '../../util/money';
 
 export interface TransactionsTableProps {
   transactions: TransactionDto[];
@@ -73,33 +76,6 @@ const RECURRENCE_VARIANT: Record<TransactionDto['recurrence'], BadgeProps['varia
 
 const CELL = 'py-2';
 const HEAD = 'h-9';
-
-/** Formats a decimal-string amount as pt-BR currency. */
-function money(value: string): string {
-  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-/** Formats an ISO instant as a pt-BR date (day/month/year). */
-function day(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-}
-
-/** Flattens a category tree into an id → node lookup, including nested children. */
-function indexCategories(nodes: CategoryNodeDto[], map: Map<string, CategoryNodeDto>): void {
-  for (const node of nodes) {
-    map.set(node.id, node);
-    if (node.children.length > 0) indexCategories(node.children, map);
-  }
-}
-
-function buildCategoryMap(tree?: CategoryTreeDto): Map<string, CategoryNodeDto> {
-  const map = new Map<string, CategoryNodeDto>();
-  if (tree) {
-    indexCategories(tree.expense, map);
-    indexCategories(tree.income, map);
-  }
-  return map;
-}
 
 function CategoryTag({ category }: { category?: CategoryNodeDto }) {
   if (!category) return <span className="text-text-muted text-xs">—</span>;

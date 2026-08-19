@@ -10,14 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from '@finance/ui';
+import { money } from '../../util/money';
 
 export interface ForecastReportProps {
   forecast: ForecastResponse;
-}
-
-/** Formats a decimal-string amount as pt-BR currency. */
-function money(value: string): string {
-  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 /** Formats a `YYYY-MM` month key as a pt-BR month/year label. */

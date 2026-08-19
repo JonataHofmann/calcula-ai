@@ -1,12 +1,15 @@
 'use client';
 
 import { createElement, useMemo } from 'react';
-import type { CategoryNodeDto, ColorToken, ListTransactionsQuery } from '@finance/contracts';
+import type { ColorToken, ListTransactionsQuery } from '@finance/contracts';
 import { BalanceBarChart, Card, ChartContainer, formatBRL, TransactionList, cn, getIcon } from '@finance/ui';
 import { Receipt } from 'lucide-react';
 import { PeriodSelector } from '../../components/period-selector';
 import { useAppSelector } from '../../hooks/use-store';
 import { periodLabel, periodWindow } from '../../store/period-slice';
+import { centsToMoney, toCents } from '../../util/money';
+import { MONTH_LABELS, yearWindow } from '../../util/date';
+import { flattenCategories, type CategoryMeta } from '../../util/category';
 import { useAccounts } from '../accounts/use-accounts';
 import { useCards } from '../cards/use-cards';
 import { useCategories } from '../categories/use-categories';
@@ -15,46 +18,6 @@ import { BreakdownCard, type BreakdownRow } from './breakdown-card';
 
 /** Palette cycled for entities that carry no color token of their own (credit cards). */
 const CARD_PALETTE: ColorToken[] = ['primary', 'accent', 'indigo', 'teal', 'pink', 'sky', 'orange'];
-
-const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-/** Parses a money string ("640.35") into integer cents. */
-function toCents(amount: string): number {
-  const [int = '0', frac = ''] = amount.split('.');
-  const negative = int.startsWith('-');
-  const units = BigInt(negative ? int.slice(1) : int);
-  const cents = Number(frac.padEnd(2, '0').slice(0, 2));
-  const total = Number(units) * 100 + cents;
-  return negative ? -total : total;
-}
-
-/** Formats integer cents ("64035") as a money string ("640.35") for formatBRL. */
-function centsToMoney(cents: number): string {
-  const sign = cents < 0 ? '-' : '';
-  const abs = Math.abs(cents);
-  return `${sign}${Math.trunc(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
-}
-
-/** Query window ({ dueFrom, dueTo }) spanning the whole year, local midnights as UTC instants. */
-function yearWindow(year: number): { dueFrom: string; dueTo: string } {
-  const start = new Date(year, 0, 1);
-  const end = new Date(year + 1, 0, 1);
-  return { dueFrom: start.toISOString(), dueTo: end.toISOString() };
-}
-
-interface CategoryMeta {
-  name: string;
-  color: ColorToken;
-  icon: CategoryNodeDto['icon'];
-}
-
-/** Flattens the category tree into id → {name, color, icon} (roots and subcategories). */
-function flattenCategories(nodes: CategoryNodeDto[], out: Map<string, CategoryMeta>): void {
-  for (const node of nodes) {
-    out.set(node.id, { name: node.name, color: node.color, icon: node.icon });
-    if (node.children.length > 0) flattenCategories(node.children, out);
-  }
-}
 
 export function DashboardView() {
   const period = useAppSelector((s) => s.period);

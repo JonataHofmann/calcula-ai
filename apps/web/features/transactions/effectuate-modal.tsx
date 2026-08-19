@@ -6,6 +6,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import type { EffectuateInput, TransactionDto } from '@finance/contracts';
 import { Button, CurrencyInput, DatePicker, Modal } from '@finance/ui';
+import { dateToIso, isoToDate, todayIso } from '../../util/date';
 
 /** Form-level schema: a date (defaults to today) and an effective amount (defaults to the due amount). */
 const formSchema = z.object({
@@ -24,20 +25,6 @@ export interface EffectuateModalProps {
   onConfirm: (input: EffectuateInput) => Promise<void> | void;
   transaction?: TransactionDto;
   submitting?: boolean;
-}
-
-/** 'YYYY-MM-DD' → ISO instant at UTC midnight; '' → ''. */
-function dateToIso(date: string): string {
-  return date ? `${date}T00:00:00.000Z` : '';
-}
-
-/** ISO instant → 'YYYY-MM-DD' for a native date input. */
-function isoToDate(iso: string): string {
-  return iso ? iso.slice(0, 10) : '';
-}
-
-function todayIso(): string {
-  return dateToIso(new Date().toISOString().slice(0, 10));
 }
 
 export function EffectuateModal({

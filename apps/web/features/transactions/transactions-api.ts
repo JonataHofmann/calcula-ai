@@ -7,6 +7,7 @@ import type {
   UpdateTransactionInput,
 } from '@finance/contracts';
 import { apiFetch, newIdempotencyKey } from '../../services/api-client';
+import { withQuery } from '../../util/http';
 
 /** BFF create response — installment yields N rows, single/fixed yield one. */
 export interface CreateTransactionResponse {
@@ -17,16 +18,6 @@ export interface CreateTransactionResponse {
 export interface EffectuateResponse {
   transaction: TransactionDto;
   next: TransactionDto | null;
-}
-
-/** Builds `path?a=1&b=2`, skipping undefined/null/empty values. */
-function withQuery(path: string, query: Record<string, string | undefined>): string {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== null && value !== '') params.set(key, value);
-  }
-  const qs = params.toString();
-  return qs ? `${path}?${qs}` : path;
 }
 
 export function listTransactions(query: ListTransactionsQuery): Promise<TransactionDto[]> {

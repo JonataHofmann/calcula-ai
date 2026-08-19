@@ -25,6 +25,7 @@ import {
   type EntityOption,
   type SelectOption,
 } from '@finance/ui';
+import { dateToIso, isoToDate, todayIso } from '../../util/date';
 
 /** Form-level schema: mirrors the visible fields, then transformed to CreateTransactionInput on submit. */
 const formSchema = z
@@ -149,20 +150,6 @@ interface FormValues {
   accountId: string;
   creditCardId: string;
   notes: string;
-}
-
-/** 'YYYY-MM-DD' → ISO instant at UTC midnight; '' → ''. */
-function dateToIso(date: string): string {
-  return date ? `${date}T00:00:00.000Z` : '';
-}
-
-/** ISO instant → 'YYYY-MM-DD' for a native date input. */
-function isoToDate(iso: string): string {
-  return iso ? iso.slice(0, 10) : '';
-}
-
-function todayIso(): string {
-  return dateToIso(new Date().toISOString().slice(0, 10));
 }
 
 /** Flattens a category tree branch into indented options carrying icon + color. */
