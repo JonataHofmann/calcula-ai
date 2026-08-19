@@ -40,13 +40,21 @@ describe('TransactionsFilters', () => {
     expect(onChange).toHaveBeenCalledWith({ search: undefined });
   });
 
+  it('hides advanced filters until the toggle is opened', () => {
+    setup();
+    expect(screen.queryByLabelText('Recorrência')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Filtros/ }));
+    expect(screen.getByLabelText('Recorrência')).toBeInTheDocument();
+  });
+
   it('emits the chosen recurrence', () => {
     const { onChange } = setup();
+    fireEvent.click(screen.getByRole('button', { name: /Filtros/ }));
     fireEvent.change(screen.getByLabelText('Recorrência'), { target: { value: 'fixed' } });
     expect(onChange).toHaveBeenCalledWith({ recurrence: 'fixed' });
   });
 
-  it('shows the clear button only when filters are active', () => {
+  it('auto-expands and shows the clear button when an advanced filter is active', () => {
     const { onClear } = setup({ type: 'expense' });
     fireEvent.click(screen.getByRole('button', { name: /Limpar filtros/ }));
     expect(onClear).toHaveBeenCalledTimes(1);

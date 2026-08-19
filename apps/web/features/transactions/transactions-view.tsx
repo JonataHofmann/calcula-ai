@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo, useState } from 'react';
 import type {
   CreateTransactionInput,
   EffectuateInput,
@@ -13,6 +12,7 @@ import type {
 import { Button, Card, Skeleton } from '@finance/ui';
 import { Plus, Receipt } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useMemo, useState } from 'react';
 import { PeriodSelector } from '../../components/period-selector';
 import { useAppDispatch, useAppSelector } from '../../hooks/use-store';
 import { periodWindow } from '../../store/period-slice';
@@ -30,8 +30,8 @@ import {
   clearFilters,
   setFilters,
   setShowOverdue,
-  type TransactionFilters,
   toggleSort,
+  type TransactionFilters,
 } from './transactions-ui.slice';
 import {
   useCreateTransaction,
@@ -159,7 +159,16 @@ export function TransactionsView() {
           Nova transação
         </Button>
       </div>
-
+      <Card className="p-4">
+        <TransactionsFilters
+          filters={filters}
+          onChange={(patch: TransactionFilters) => dispatch(setFilters(patch))}
+          onClear={() => dispatch(clearFilters())}
+          categories={categories}
+          accounts={accounts ?? []}
+          cards={cards ?? []}
+        />
+      </Card>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="lg:hidden">
           <PeriodSelector />
@@ -191,17 +200,6 @@ export function TransactionsView() {
         ) : null}
       </AnimatePresence>
 
-      <Card className="p-4">
-        <TransactionsFilters
-          filters={filters}
-          onChange={(patch: TransactionFilters) => dispatch(setFilters(patch))}
-          onClear={() => dispatch(clearFilters())}
-          categories={categories}
-          accounts={accounts ?? []}
-          cards={cards ?? []}
-        />
-      </Card>
-
       {isLoading ? (
         <div className="flex flex-col gap-2">
           {[0, 1, 2, 3].map((i) => (
@@ -227,9 +225,7 @@ export function TransactionsView() {
           </span>
           <div>
             <p className="text-text text-sm font-semibold">Nenhuma transação neste mês</p>
-            <p className="text-text-muted text-sm">
-              Cadastre sua primeira transação para começar.
-            </p>
+            <p className="text-text-muted text-sm">Cadastre sua primeira transação para começar.</p>
           </div>
         </Card>
       )}
