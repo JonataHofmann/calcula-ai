@@ -5,6 +5,7 @@ import type { ColorToken, ListTransactionsQuery } from '@finance/contracts';
 import { BalanceBarChart, Card, ChartContainer, formatBRL, TransactionList, cn, getIcon } from '@finance/ui';
 import { Receipt } from 'lucide-react';
 import { PeriodSelector } from '../../components/period-selector';
+import { SummaryCards } from '../../components/summary-cards';
 import { useAppSelector } from '../../hooks/use-store';
 import { periodLabel, periodWindow } from '../../store/period-slice';
 import { centsToMoney, toCents } from '../../util/money';
@@ -156,6 +157,8 @@ export function DashboardView() {
         <DashboardSkeleton />
       ) : (
         <>
+          <SummaryCards transactions={transactions ?? []} />
+
           <ChartContainer
             title={`Balanço do ano de ${period.year}`}
             actions={

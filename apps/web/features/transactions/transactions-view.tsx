@@ -14,6 +14,7 @@ import { Plus, Receipt } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { PeriodSelector } from '../../components/period-selector';
+import { SummaryCards } from '../../components/summary-cards';
 import { useAppDispatch, useAppSelector } from '../../hooks/use-store';
 import { periodWindow } from '../../store/period-slice';
 import { startOfMonth } from '../../util/date';
@@ -75,8 +76,15 @@ export function TransactionsView() {
     return { dueFrom, dueTo, sort, order, ...filters };
   }, [period, sort, order, filters]);
 
+  // Period-only, filter-independent — summary cards reflect the selected period regardless of table filters.
+  const periodQuery: ListTransactionsQuery = useMemo(() => {
+    const { dueFrom, dueTo } = periodWindow(period);
+    return { dueFrom, dueTo, sort: 'dueDate', order: 'desc' };
+  }, [period]);
+
   const overdueBefore = useMemo(() => startOfMonth(reference), [reference]);
   const { data: transactions, isLoading } = useTransactions(query);
+  const { data: periodTransactions } = useTransactions(periodQuery);
   const { data: overdue } = useOverdue(overdueBefore, showOverdue);
   const { data: accounts } = useAccounts();
   const { data: cards } = useCards();
@@ -159,6 +167,9 @@ export function TransactionsView() {
           Nova transação
         </Button>
       </div>
+
+      <SummaryCards transactions={periodTransactions ?? []} />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="lg:hidden">
           <PeriodSelector />
