@@ -66,10 +66,13 @@ export function Sidebar() {
       <Link
         href="/"
         aria-label="Início"
-        className="focus-visible:ring-nav-item-on rounded-icon focus-visible:ring-2 focus-visible:outline-none group"
+        className="focus-visible:ring-nav-item-on relative rounded-icon focus-visible:ring-2 focus-visible:outline-none group"
       >
         <BrandGlyph />
-        <span className="absolute -left-56 top-1/2 -translate-y-1/2 bg-text text-text-foreground text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+        <span
+          role="tooltip"
+          className="bg-text text-text-foreground pointer-events-none absolute top-1/2 left-full z-50 ml-3 -translate-y-1/2 rounded-md px-2 py-1 text-xs whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        >
           Calcula aí
         </span>
       </Link>
@@ -96,7 +99,10 @@ export function Sidebar() {
                 />
               ) : null}
               <Icon className="h-5.5 w-5.5" aria-hidden="true" />
-              <span className="absolute -left-56 top-1/2 -translate-y-1/2 bg-text text-text-foreground text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              <span
+                role="tooltip"
+                className="bg-text text-text-foreground pointer-events-none absolute top-1/2 left-full z-50 ml-3 -translate-y-1/2 rounded-md px-2 py-1 text-xs whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+              >
                 {item.label}
               </span>
             </Link>
@@ -107,10 +113,13 @@ export function Sidebar() {
         type="button"
         onClick={handleLogout}
         aria-label="Sair"
-        className="text-nav-item hover:bg-nav-bg-deep hover:text-nav-item-on focus-visible:ring-nav-item-on flex h-11 w-11 items-center justify-center rounded-icon transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none group"
+        className="text-nav-item hover:bg-nav-bg-deep hover:text-nav-item-on focus-visible:ring-nav-item-on relative flex h-11 w-11 items-center justify-center rounded-icon transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none group"
       >
         <LogOut className="h-5 w-5" aria-hidden="true" />
-        <span className="absolute -left-56 top-1/2 -translate-y-1/2 bg-text text-text-foreground text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+        <span
+          role="tooltip"
+          className="bg-text text-text-foreground pointer-events-none absolute top-1/2 left-full z-50 ml-3 -translate-y-1/2 rounded-md px-2 py-1 text-xs whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        >
           Sair
         </span>
       </button>

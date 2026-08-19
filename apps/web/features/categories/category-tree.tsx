@@ -52,10 +52,7 @@ function CategoryNode({ node, depth, ...cb }: CategoryNodeProps) {
       exit={reduce ? undefined : { opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.16 }}
     >
-      <div
-        className="group border-border/60 hover:bg-surface-2 flex items-center gap-3 rounded-card border px-3 py-2 transition-colors"
-        style={{ marginLeft: depth * 20 }}
-      >
+      <div className="border-border/60 hover:border-border hover:bg-surface-2 hover:shadow-card flex items-center gap-3 rounded-card border px-3 py-2 transition-all">
         <span
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${COLOR_TOKEN_SOFT_BG[node.color]} ${COLOR_TOKEN_TEXT[node.color]}`}
         >
@@ -71,7 +68,7 @@ function CategoryNode({ node, depth, ...cb }: CategoryNodeProps) {
           ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <div className="flex shrink-0 items-center gap-0.5">
           <IconButton
             label={`Adicionar subcategoria em ${node.name}`}
             onClick={() => cb.onAddSub(node)}
@@ -100,13 +97,15 @@ function CategoryNode({ node, depth, ...cb }: CategoryNodeProps) {
       </div>
 
       {node.children.length > 0 ? (
-        <motion.ul layout className="mt-1 flex flex-col gap-1">
-          <AnimatePresence mode="popLayout" initial={false}>
-            {node.children.map((child) => (
-              <CategoryNode key={child.id} node={child} depth={depth + 1} {...cb} />
-            ))}
-          </AnimatePresence>
-        </motion.ul>
+        <div className="border-border/60 mt-1 ml-[18px] border-l pl-4">
+          <motion.ul layout className="flex flex-col gap-1">
+            <AnimatePresence mode="popLayout" initial={false}>
+              {node.children.map((child) => (
+                <CategoryNode key={child.id} node={child} depth={depth + 1} {...cb} />
+              ))}
+            </AnimatePresence>
+          </motion.ul>
+        </div>
       ) : null}
     </motion.li>
   );

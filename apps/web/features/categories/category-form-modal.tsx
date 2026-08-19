@@ -12,7 +12,10 @@ import {
 } from '@finance/contracts';
 import {
   Button,
+  COLOR_TOKEN_SOFT_BG,
+  COLOR_TOKEN_TEXT,
   ColorPicker,
+  getIcon,
   IconPicker,
   Input,
   Modal,
@@ -66,11 +69,17 @@ export function CategoryFormModal({
     control,
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<CreateCategoryInput>({
     resolver: zodResolver(withType ? createCategoryInput : createSubcategoryInput),
     values: initial ?? EMPTY,
   });
+
+  const previewName = watch('name');
+  const previewIcon = watch('icon');
+  const previewColor = watch('color');
+  const PreviewIcon = getIcon(previewIcon);
 
   const submit = handleSubmit(async (values) => {
     await onSubmit({
@@ -97,6 +106,17 @@ export function CategoryFormModal({
   return (
     <Modal open={open} onClose={onClose} title={title} description={description}>
       <form onSubmit={submit} className="flex flex-col gap-4">
+        <div className="bg-surface-2 rounded-card flex items-center gap-3 p-3">
+          <span
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${COLOR_TOKEN_SOFT_BG[previewColor]} ${COLOR_TOKEN_TEXT[previewColor]}`}
+          >
+            <PreviewIcon className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className="text-text truncate text-sm font-medium">
+            {previewName || 'Pré-visualização'}
+          </span>
+        </div>
+
         <Input
           label="Nome"
           placeholder="Ex.: Alimentação"

@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import type { CategoryNodeDto } from '@finance/contracts';
-import { Button, Card, Modal, Skeleton } from '@finance/ui';
-import { FolderTree, Plus } from 'lucide-react';
+import { Badge, Button, Card, CardHeader, Modal, Skeleton, type BadgeProps } from '@finance/ui';
+import { FolderTree, Plus, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
 import { CategoryTree, type CategoryTreeCallbacks } from './category-tree';
 import {
   CategoryFormModal,
@@ -138,11 +138,15 @@ export function CategoriesView() {
         <div className="grid gap-6 lg:grid-cols-2">
           <CategorySection
             title="Despesas"
+            icon={TrendingDown}
+            tone="danger"
             nodes={tree?.expense ?? []}
             callbacks={callbacks}
           />
           <CategorySection
             title="Receitas"
+            icon={TrendingUp}
+            tone="success"
             nodes={tree?.income ?? []}
             callbacks={callbacks}
           />
@@ -203,23 +207,43 @@ export function CategoriesView() {
 
 interface CategorySectionProps {
   title: string;
+  icon: LucideIcon;
+  tone: 'danger' | 'success';
   nodes: CategoryNodeDto[];
   callbacks: CategoryTreeCallbacks;
 }
 
-function CategorySection({ title, nodes, callbacks }: CategorySectionProps) {
+const TONE_BADGE: Record<CategorySectionProps['tone'], BadgeProps['variant']> = {
+  danger: 'danger',
+  success: 'success',
+};
+
+const TONE_ICON_BG: Record<CategorySectionProps['tone'], string> = {
+  danger: 'bg-danger-soft text-danger',
+  success: 'bg-success-soft text-success',
+};
+
+function CategorySection({ title, icon: Icon, tone, nodes, callbacks }: CategorySectionProps) {
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-text-muted text-xs font-semibold tracking-wide uppercase">
-        {title}
-      </h2>
+    <Card className="flex flex-col gap-4 p-5">
+      <CardHeader className="flex-row items-center justify-between gap-3 p-0">
+        <div className="flex items-center gap-2.5">
+          <span
+            className={`flex h-8 w-8 items-center justify-center rounded-full ${TONE_ICON_BG[tone]}`}
+          >
+            <Icon className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <h2 className="text-text text-sm font-semibold">{title}</h2>
+        </div>
+        <Badge variant={TONE_BADGE[tone]}>{nodes.length}</Badge>
+      </CardHeader>
       {nodes.length > 0 ? (
         <CategoryTree nodes={nodes} {...callbacks} />
       ) : (
-        <Card className="text-text-muted p-6 text-center text-sm">
+        <p className="text-text-muted py-6 text-center text-sm">
           Nenhuma categoria de {title.toLowerCase()}.
-        </Card>
+        </p>
       )}
-    </section>
+    </Card>
   );
 }
