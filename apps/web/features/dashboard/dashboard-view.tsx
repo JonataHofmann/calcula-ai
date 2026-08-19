@@ -118,13 +118,13 @@ export function DashboardView() {
     return buckets;
   }, [yearTransactions]);
 
-  const monthBalanceCents = useMemo(
+  const yearBalanceCents = useMemo(
     () =>
-      (transactions ?? []).reduce(
+      (yearTransactions ?? []).reduce(
         (sum, t) => sum + (t.type === 'income' ? toCents(t.amount) : -toCents(t.amount)),
         0,
       ),
-    [transactions],
+    [yearTransactions],
   );
 
   const latest = useMemo(
@@ -165,10 +165,10 @@ export function DashboardView() {
               <span
                 className={cn(
                   'text-sm font-semibold',
-                  monthBalanceCents >= 0 ? 'text-success' : 'text-danger',
+                  yearBalanceCents >= 0 ? 'text-success' : 'text-danger',
                 )}
               >
-                Balanço do mês: {formatBRL(centsToMoney(monthBalanceCents))}
+                Balanço do ano: {formatBRL(centsToMoney(yearBalanceCents))}
               </span>
             }
           >
