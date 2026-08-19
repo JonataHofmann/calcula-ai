@@ -14,6 +14,8 @@ import {
 import type {
   CreateTransactionInput,
   EffectuateInput,
+  ForecastQuery,
+  ForecastResponse,
   TransactionDto,
   UpdateTransactionInput,
 } from '@finance/contracts';
@@ -66,6 +68,16 @@ export class TransactionsController {
     @Query() query: Record<string, unknown>,
   ): Promise<TransactionDto[]> {
     return this.api.get<TransactionDto[]>(withQuery('/transactions/overdue', query), {
+      token: tokenOf(req),
+    });
+  }
+
+  @Get('forecast')
+  forecast(
+    @Req() req: SessionRequest,
+    @Query() query: ForecastQuery,
+  ): Promise<ForecastResponse> {
+    return this.api.get<ForecastResponse>(withQuery('/transactions/forecast', query), {
       token: tokenOf(req),
     });
   }

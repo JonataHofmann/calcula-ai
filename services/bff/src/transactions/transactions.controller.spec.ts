@@ -51,6 +51,15 @@ describe('BFF TransactionsController (proxy)', () => {
     );
   });
 
+  it('places forecast before :id and forwards from/months', async () => {
+    const api = makeApi();
+    const controller = new TransactionsController(api);
+    await controller.forecast(makeReq(), { from: '2026-08', months: 3 });
+    expect(api.get).toHaveBeenCalledWith('/transactions/forecast?from=2026-08&months=3', {
+      token: TOKEN,
+    });
+  });
+
   it('forwards the create body and Idempotency-Key header', async () => {
     const api = makeApi();
     const controller = new TransactionsController(api);
