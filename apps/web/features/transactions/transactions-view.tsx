@@ -159,16 +159,6 @@ export function TransactionsView() {
           Nova transação
         </Button>
       </div>
-      <Card className="p-4">
-        <TransactionsFilters
-          filters={filters}
-          onChange={(patch: TransactionFilters) => dispatch(setFilters(patch))}
-          onClear={() => dispatch(clearFilters())}
-          categories={categories}
-          accounts={accounts ?? []}
-          cards={cards ?? []}
-        />
-      </Card>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="lg:hidden">
           <PeriodSelector />
@@ -200,14 +190,23 @@ export function TransactionsView() {
         ) : null}
       </AnimatePresence>
 
-      {isLoading ? (
-        <div className="flex flex-col gap-2">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-card" />
-          ))}
-        </div>
-      ) : transactions && transactions.length > 0 ? (
-        <Card className="p-2">
+      <Card className="flex flex-col gap-4 p-4">
+        <TransactionsFilters
+          filters={filters}
+          onChange={(patch: TransactionFilters) => dispatch(setFilters(patch))}
+          onClear={() => dispatch(clearFilters())}
+          categories={categories}
+          accounts={accounts ?? []}
+          cards={cards ?? []}
+        />
+
+        {isLoading ? (
+          <div className="flex flex-col gap-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-12 w-full rounded-card" />
+            ))}
+          </div>
+        ) : transactions && transactions.length > 0 ? (
           <TransactionsTable
             transactions={transactions}
             onEdit={openEdit}
@@ -217,18 +216,18 @@ export function TransactionsView() {
             order={order}
             onSort={(column: TransactionSort) => dispatch(toggleSort(column))}
           />
-        </Card>
-      ) : (
-        <Card className="flex flex-col items-center gap-3 p-10 text-center">
-          <span className="bg-info-soft text-info flex h-14 w-14 items-center justify-center rounded-full">
-            <Receipt className="h-7 w-7" aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-text text-sm font-semibold">Nenhuma transação neste mês</p>
-            <p className="text-text-muted text-sm">Cadastre sua primeira transação para começar.</p>
+        ) : (
+          <div className="flex flex-col items-center gap-3 p-10 text-center">
+            <span className="bg-info-soft text-info flex h-14 w-14 items-center justify-center rounded-full">
+              <Receipt className="h-7 w-7" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-text text-sm font-semibold">Nenhuma transação neste mês</p>
+              <p className="text-text-muted text-sm">Cadastre sua primeira transação para começar.</p>
+            </div>
           </div>
-        </Card>
-      )}
+        )}
+      </Card>
 
       <TransactionFormModal
         open={modalOpen}
