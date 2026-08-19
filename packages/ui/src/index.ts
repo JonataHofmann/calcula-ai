@@ -5,6 +5,7 @@ export {
   COLOR_TOKEN_BG,
   COLOR_TOKEN_SOFT_BG,
   COLOR_TOKEN_TEXT,
+  COLOR_TOKEN_HEX,
 } from './lib/color-token.js';
 export { Modal, type ModalProps } from './components/modal.js';
 export { IconPicker, type IconPickerProps } from './components/icon-picker.js';

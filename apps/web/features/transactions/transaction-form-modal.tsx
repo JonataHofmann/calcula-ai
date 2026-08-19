@@ -351,7 +351,7 @@ export function TransactionFormModal({
       }
     >
       <form id="transaction-form" onSubmit={submit} className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
           <Controller
             control={control}
             name="type"
@@ -389,8 +389,8 @@ export function TransactionFormModal({
 
         <section className="border-border border-t pt-5">
           <SectionHeading icon={CalendarRange}>Valores e prazo</SectionHeading>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div className={recurrence === 'single' ? 'col-span-2' : undefined}>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+            <div className={recurrence === 'single' ? 'sm:col-span-2' : undefined}>
               <Controller
                 control={control}
                 name="dueDate"
@@ -428,7 +428,7 @@ export function TransactionFormModal({
             ) : null}
 
             {recurrence === 'installment' ? (
-              <div className="bg-surface-2 rounded-card col-span-2 grid grid-cols-2 gap-x-4 gap-y-1 p-3">
+              <div className="bg-surface-2 rounded-card grid grid-cols-1 gap-x-4 gap-y-1 p-3 sm:col-span-2 sm:grid-cols-2">
                 <Controller
                   control={control}
                   name="amount"
@@ -453,7 +453,7 @@ export function TransactionFormModal({
                     />
                   )}
                 />
-                <p className="text-text-muted col-span-2 text-xs">
+                <p className="text-text-muted text-xs sm:col-span-2">
                   Informe o valor por parcela ou o valor total — o outro é calculado.
                 </p>
               </div>
@@ -476,8 +476,8 @@ export function TransactionFormModal({
 
         <section className="border-border border-t pt-5">
           <SectionHeading icon={Tags}>Classificação e origem</SectionHeading>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div className={recurrence === 'installment' ? 'col-span-2' : undefined}>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+            <div className={recurrence === 'installment' ? 'sm:col-span-2' : undefined}>
               <Controller
                 control={control}
                 name="categoryId"

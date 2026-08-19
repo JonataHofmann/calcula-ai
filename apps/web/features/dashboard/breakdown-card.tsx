@@ -2,7 +2,17 @@
 
 import type { ReactNode } from 'react';
 import type { ColorToken } from '@finance/contracts';
-import { Card, COLOR_TOKEN_BG, COLOR_TOKEN_SOFT_BG, COLOR_TOKEN_TEXT, cn, formatBRL } from '@finance/ui';
+import {
+  Card,
+  COLOR_TOKEN_BG,
+  COLOR_TOKEN_HEX,
+  COLOR_TOKEN_SOFT_BG,
+  COLOR_TOKEN_TEXT,
+  cn,
+  ExpensePieChart,
+  formatBRL,
+  type ExpenseSlice,
+} from '@finance/ui';
 
 export interface BreakdownRow {
   id: string;
@@ -33,6 +43,11 @@ export function BreakdownCard({
 }: BreakdownCardProps) {
   const total = rows.reduce((sum, r) => sum + r.cents, 0);
   const sorted = [...rows].sort((a, b) => b.cents - a.cents);
+  const slices: ExpenseSlice[] = sorted.map((row) => ({
+    label: row.label,
+    value: row.cents,
+    color: COLOR_TOKEN_HEX[row.color],
+  }));
 
   return (
     <Card className="flex flex-col gap-4 p-5">
@@ -46,7 +61,9 @@ export function BreakdownCard({
       {sorted.length === 0 || total === 0 ? (
         <p className="text-text-muted py-6 text-center text-sm">{emptyMessage}</p>
       ) : (
-        <ul className="flex flex-col gap-3.5">
+        <>
+          <ExpensePieChart data={slices} height={180} />
+          <ul className="flex flex-col gap-3.5">
           {sorted.map((row) => {
             const pct = total > 0 ? Math.round((row.cents / total) * 100) : 0;
             return (
@@ -85,7 +102,8 @@ export function BreakdownCard({
               </li>
             );
           })}
-        </ul>
+          </ul>
+        </>
       )}
     </Card>
   );

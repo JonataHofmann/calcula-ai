@@ -8,7 +8,7 @@ import {
   type CreateCreditCardInput,
   type CreditCardDto,
 } from '@finance/contracts';
-import { Button, Input, Modal, Select, type SelectOption } from '@finance/ui';
+import { Button, CurrencyInput, Input, Modal, Select, type SelectOption } from '@finance/ui';
 
 export interface CardFormModalProps {
   open: boolean;
@@ -121,13 +121,17 @@ export function CardFormModal({
           />
         </div>
 
-        <Input
-          label="Limite"
-          inputMode="decimal"
-          placeholder="0.00"
-          helpText="Valor em reais, com duas casas decimais (ex.: 5000.00)."
-          error={errors.limit?.message}
-          {...register('limit')}
+        <Controller
+          control={control}
+          name="limit"
+          render={({ field }) => (
+            <CurrencyInput
+              label="Limite"
+              error={errors.limit?.message}
+              value={field.value}
+              onChange={field.onChange}
+            />
+          )}
         />
 
         <div className="mt-2 flex justify-end gap-2">

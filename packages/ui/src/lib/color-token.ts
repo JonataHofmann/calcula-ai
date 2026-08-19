@@ -57,3 +57,25 @@ export const COLOR_TOKEN_TEXT: Record<ColorToken, string> = {
   fuchsia: 'text-fuchsia-600',
   slate: 'text-slate-600',
 };
+
+/**
+ * Real CSS color values per color token, for contexts that can't use Tailwind
+ * classes (e.g. recharts `fill`/`stroke` props, which need an actual color string).
+ */
+export const COLOR_TOKEN_HEX: Record<ColorToken, string> = {
+  primary: 'var(--color-primary)',
+  accent: 'var(--color-accent)',
+  success: 'var(--color-success)',
+  danger: 'var(--color-danger)',
+  warning: 'var(--color-warning)',
+  info: 'var(--color-info)',
+  orange: '#f97316',
+  teal: '#14b8a6',
+  indigo: '#6366f1',
+  pink: '#ec4899',
+  lime: '#84cc16',
+  emerald: '#10b981',
+  sky: '#0ea5e9',
+  fuchsia: '#d946ef',
+  slate: '#64748b',
+};
