@@ -2,7 +2,7 @@
 
 import { createElement, useMemo } from 'react';
 import type { CategoryNodeDto, ColorToken, ListTransactionsQuery } from '@finance/contracts';
-import { Card, TransactionList, cn, getIcon } from '@finance/ui';
+import { Card, ChartContainer, formatBRL, TransactionList, WeeklyBarChart, cn, getIcon } from '@finance/ui';
 import { Receipt } from 'lucide-react';
 import { PeriodSelector } from '../../components/period-selector';
 import { useAppSelector } from '../../hooks/use-store';
@@ -16,6 +16,8 @@ import { BreakdownCard, type BreakdownRow } from './breakdown-card';
 /** Palette cycled for entities that carry no color token of their own (credit cards). */
 const CARD_PALETTE: ColorToken[] = ['primary', 'accent', 'indigo', 'teal', 'pink', 'sky', 'orange'];
 
+const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
 /** Parses a money string ("640.35") into integer cents. */
 function toCents(amount: string): number {
   const [int = '0', frac = ''] = amount.split('.');
@@ -24,6 +26,20 @@ function toCents(amount: string): number {
   const cents = Number(frac.padEnd(2, '0').slice(0, 2));
   const total = Number(units) * 100 + cents;
   return negative ? -total : total;
+}
+
+/** Formats integer cents ("64035") as a money string ("640.35") for formatBRL. */
+function centsToMoney(cents: number): string {
+  const sign = cents < 0 ? '-' : '';
+  const abs = Math.abs(cents);
+  return `${sign}${Math.trunc(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
+}
+
+/** Query window ({ dueFrom, dueTo }) spanning the whole year, local midnights as UTC instants. */
+function yearWindow(year: number): { dueFrom: string; dueTo: string } {
+  const start = new Date(year, 0, 1);
+  const end = new Date(year + 1, 0, 1);
+  return { dueFrom: start.toISOString(), dueTo: end.toISOString() };
 }
 
 interface CategoryMeta {
@@ -48,7 +64,13 @@ export function DashboardView() {
     return { dueFrom, dueTo, sort: 'dueDate', order: 'desc' };
   }, [period]);
 
+  const yearQuery: ListTransactionsQuery = useMemo(() => {
+    const { dueFrom, dueTo } = yearWindow(period.year);
+    return { dueFrom, dueTo, sort: 'dueDate', order: 'asc' };
+  }, [period.year]);
+
   const { data: transactions, isLoading } = useTransactions(query);
+  const { data: yearTransactions } = useTransactions(yearQuery);
   const { data: accounts } = useAccounts();
   const { data: cards } = useCards();
   const { data: categories } = useCategories();
@@ -119,6 +141,27 @@ export function DashboardView() {
     });
   }, [expenses, cards]);
 
+  const yearlyBalance = useMemo(() => {
+    const buckets = MONTH_LABELS.map((label) => ({ label, deposit: 0, withdraw: 0 }));
+    for (const t of yearTransactions ?? []) {
+      const bucket = buckets[new Date(t.dueDate).getUTCMonth()];
+      if (!bucket) continue;
+      const value = toCents(t.amount) / 100;
+      if (t.type === 'income') bucket.deposit += value;
+      else bucket.withdraw += value;
+    }
+    return buckets;
+  }, [yearTransactions]);
+
+  const monthBalanceCents = useMemo(
+    () =>
+      (transactions ?? []).reduce(
+        (sum, t) => sum + (t.type === 'income' ? toCents(t.amount) : -toCents(t.amount)),
+        0,
+      ),
+    [transactions],
+  );
+
   const latest = useMemo(
     () =>
       (transactions ?? []).slice(0, 8).map((t) => ({
@@ -149,6 +192,30 @@ export function DashboardView() {
         <DashboardSkeleton />
       ) : (
         <>
+          <ChartContainer
+            title={`Balanço do ano de ${period.year}`}
+            legend={[
+              { label: 'Receitas', colorToken: 'success' },
+              { label: 'Despesas', colorToken: 'danger' },
+            ]}
+            actions={
+              <span
+                className={cn(
+                  'text-sm font-semibold',
+                  monthBalanceCents >= 0 ? 'text-success' : 'text-danger',
+                )}
+              >
+                Balanço do mês: {formatBRL(centsToMoney(monthBalanceCents))}
+              </span>
+            }
+          >
+            <WeeklyBarChart
+              data={yearlyBalance}
+              height={280}
+              valueFormatter={(value) => formatBRL(value.toFixed(2)).replace(',00', '')}
+            />
+          </ChartContainer>
+
           <div className="grid gap-6 lg:grid-cols-3">
             <BreakdownCard title="Despesas por categoria" rows={byCategory} />
             <BreakdownCard title="Despesas por conta" rows={byAccount} />
