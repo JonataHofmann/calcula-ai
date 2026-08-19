@@ -184,7 +184,15 @@ export function TransactionsView() {
             className="overflow-hidden"
           >
             <Card className="p-4">
-              <OverdueGrid transactions={overdue ?? []} onEffectuate={setEffectuating} />
+              <OverdueGrid
+                transactions={overdue ?? []}
+                categories={categories}
+                accounts={accounts ?? []}
+                cards={cards ?? []}
+                onEdit={openEdit}
+                onDelete={del}
+                onEffectuate={setEffectuating}
+              />
             </Card>
           </motion.div>
         ) : null}
@@ -209,6 +217,9 @@ export function TransactionsView() {
         ) : transactions && transactions.length > 0 ? (
           <TransactionsTable
             transactions={transactions}
+            categories={categories}
+            accounts={accounts ?? []}
+            cards={cards ?? []}
             onEdit={openEdit}
             onDelete={del}
             onEffectuate={setEffectuating}

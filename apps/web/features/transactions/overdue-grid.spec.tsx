@@ -31,15 +31,42 @@ function tx(over: Partial<TransactionDto> = {}): TransactionDto {
 describe('OverdueGrid', () => {
   it('lists overdue rows and effectuates the clicked one', () => {
     const onEffectuate = vi.fn();
-    render(<OverdueGrid transactions={[tx()]} onEffectuate={onEffectuate} />);
+    render(
+      <OverdueGrid
+        transactions={[tx()]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onEffectuate={onEffectuate}
+      />,
+    );
 
     expect(screen.getByText('Aluguel')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Efetivar Aluguel' }));
     expect(onEffectuate).toHaveBeenCalledTimes(1);
   });
 
+  it('fires onEdit and onDelete with the row transaction', () => {
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+    const row = tx();
+    render(
+      <OverdueGrid
+        transactions={[row]}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onEffectuate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar Aluguel' }));
+    expect(onEdit).toHaveBeenCalledWith(row);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir Aluguel' }));
+    expect(onDelete).toHaveBeenCalledWith(row);
+  });
+
   it('shows an empty state when there are no overdue items', () => {
-    render(<OverdueGrid transactions={[]} onEffectuate={vi.fn()} />);
+    render(<OverdueGrid transactions={[]} onEdit={vi.fn()} onDelete={vi.fn()} onEffectuate={vi.fn()} />);
     expect(screen.getByText(/Nenhuma pendência de meses anteriores/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Efetivar/ })).toBeNull();
   });
