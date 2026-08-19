@@ -86,3 +86,72 @@ export {
 } from './components/avatar-stack.js';
 export { DropdownPill, type DropdownPillProps } from './components/dropdown-pill.js';
 export { Legend, type LegendProps, type LegendItem } from './components/legend.js';
+export {
+  BoardColumn,
+  type BoardColumnProps,
+} from './components/board-column.js';
+export {
+  BoardCard,
+  type BoardCardProps,
+} from './components/board-card.js';
+export {
+  ListRow,
+  List,
+  type ListRowProps,
+  type ListProps,
+} from './components/list-row.js';
+export {
+  MetricPanel,
+  type MetricPanelProps,
+} from './components/metric-panel.js';
+export {
+  ActivityList,
+  type ActivityListProps,
+  type ActivityItem,
+} from './components/activity-list.js';
+export {
+  TimelineTrack,
+  type TimelineTrackProps,
+  type TimelineEvent,
+} from './components/timeline-track.js';
+export {
+  MiniCalendar,
+  type MiniCalendarProps,
+} from './components/mini-calendar.js';
+export {
+  AgendaList,
+  type AgendaListProps,
+  type AgendaDay,
+  type AgendaEvent,
+} from './components/agenda-list.js';
+export {
+  SidePanelList,
+  SidePanelItem,
+  type SidePanelListProps,
+  type SidePanelItemProps,
+} from './components/side-panel-list.js';
+export {
+  MediaCard,
+  type MediaCardProps,
+} from './components/media-card.js';
+export {
+  PageHeader,
+  type PageHeaderProps,
+} from './components/page-header.js';
+export {
+  HighlightPanel,
+  type HighlightPanelProps,
+} from './components/highlight-panel.js';
+export {
+  TopBar,
+  type TopBarProps,
+} from './components/top-bar.js';
+export {
+  MetaRow,
+  type MetaRowProps,
+  type MetaItem,
+} from './components/meta-row.js';
+export {
+  DragGhost,
+  type DragGhostProps,
+} from './components/drag-ghost.js';

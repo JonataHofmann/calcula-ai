@@ -16,6 +16,9 @@ import {
   type CreateTransactionInput,
   effectuateInput,
   type EffectuateInput,
+  forecastQuerySchema,
+  type ForecastQuery,
+  type ForecastResponse,
   groupScopeSchema,
   type GroupScope,
   listTransactionsQuery,
@@ -36,6 +39,7 @@ import { UpdateTransactionUseCase } from '../application/use-cases/update-transa
 import { DeleteTransactionUseCase } from '../application/use-cases/delete-transaction/delete-transaction';
 import { EffectuateTransactionUseCase } from '../application/use-cases/effectuate-transaction/effectuate-transaction';
 import { ListOverdueUseCase } from '../application/use-cases/list-overdue/list-overdue';
+import { GetForecastUseCase } from '../application/use-cases/get-forecast/get-forecast';
 
 const scopePipe = new ZodValidationPipe(groupScopeSchema.optional());
 
@@ -49,6 +53,7 @@ export class TransactionsController {
     private readonly deleteTransaction: DeleteTransactionUseCase,
     private readonly effectuateTransaction: EffectuateTransactionUseCase,
     private readonly listOverdue: ListOverdueUseCase,
+    private readonly getForecast: GetForecastUseCase,
   ) {}
 
   @Post()
@@ -76,6 +81,14 @@ export class TransactionsController {
   ): Promise<TransactionDto[]> {
     const transactions = await this.listOverdue.execute(user.id, query);
     return transactions.map(toDto);
+  }
+
+  @Get('forecast')
+  async forecast(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(forecastQuerySchema)) query: ForecastQuery,
+  ): Promise<ForecastResponse> {
+    return this.getForecast.execute(user.id, query);
   }
 
   @Get(':id')

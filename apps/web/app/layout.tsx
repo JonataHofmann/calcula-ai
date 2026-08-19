@@ -20,8 +20,8 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Finance Platform',
-  description: 'Personal finance control with AI assistant',
+  title: 'Calcula aí',
+  description: 'Controle financeiro pessoal com assistente IA',
 };
 
 const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||((t===null||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;

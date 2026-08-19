@@ -5,6 +5,7 @@ import {
   Receipt,
   Tags,
   Target,
+  TrendingDown,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Contas', href: '/contas', icon: Wallet },
   { label: 'Categorias', href: '/categorias', icon: Tags },
   { label: 'Transações', href: '/transacoes', icon: Receipt },
+  { label: 'Previsão de Despesas', href: '/previsao-despesas', icon: TrendingDown },
   { label: 'Cartões', href: '/cartoes', icon: CreditCard },
   { label: 'Orçamentos', href: '/orcamentos', icon: PiggyBank },
   { label: 'Metas', href: '/metas', icon: Target },

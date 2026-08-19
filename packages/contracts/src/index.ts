@@ -10,3 +10,4 @@ export * from './accounts/account.js';
 export * from './categories/category.js';
 export * from './cards/credit-card.js';
 export * from './transactions/transaction.js';
+export * from './transactions/forecast.js';

@@ -17,6 +17,7 @@ import { UpdateTransactionUseCase } from './application/use-cases/update-transac
 import { DeleteTransactionUseCase } from './application/use-cases/delete-transaction/delete-transaction';
 import { EffectuateTransactionUseCase } from './application/use-cases/effectuate-transaction/effectuate-transaction';
 import { ListOverdueUseCase } from './application/use-cases/list-overdue/list-overdue';
+import { GetForecastUseCase } from './application/use-cases/get-forecast/get-forecast';
 import { TransactionsController } from './presentation/transactions.controller';
 
 @Module({
@@ -41,6 +42,7 @@ import { TransactionsController } from './presentation/transactions.controller';
     DeleteTransactionUseCase,
     EffectuateTransactionUseCase,
     ListOverdueUseCase,
+    GetForecastUseCase,
   ],
 })
 export class TransactionsModule {}
