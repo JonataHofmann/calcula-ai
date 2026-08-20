@@ -1,5 +1,6 @@
 import {
   CreditCard,
+  Landmark,
   LayoutDashboard,
   PiggyBank,
   Receipt,
@@ -23,6 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Transações', href: '/transacoes', icon: Receipt },
   { label: 'Previsão de Despesas', href: '/previsao-despesas', icon: TrendingDown },
   { label: 'Cartões', href: '/cartoes', icon: CreditCard },
+  { label: 'Bancos', href: '/bancos', icon: Landmark },
   { label: 'Orçamentos', href: '/orcamentos', icon: PiggyBank },
   { label: 'Metas', href: '/metas', icon: Target },
 ];

@@ -18,4 +18,12 @@ export class TypeOrmCategoryLookup implements CategoryLookup {
     const row = own ?? (await this.repo.findOne({ where: { id, ownerId: IsNull() } }));
     return row ? (row.type as TransactionType) : null;
   }
+
+  /** "Outros" system category is the fixed catch-all seeded per type (2000000000000, 5000000000000). */
+  async findDefaultId(type: TransactionType): Promise<string | null> {
+    const row = await this.repo.findOne({
+      where: { ownerId: IsNull(), type, name: 'Outros', isSystem: true },
+    });
+    return row?.id ?? null;
+  }
 }

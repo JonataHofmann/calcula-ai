@@ -67,6 +67,12 @@ export class TransactionEntity {
   @Column({ name: 'credit_card_id', type: 'uuid', nullable: true })
   creditCardId!: string | null;
 
+  @Column({ type: 'varchar', length: 16, default: 'manual' })
+  source!: string;
+
+  @Column({ name: 'external_id', type: 'uuid', nullable: true })
+  externalId!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

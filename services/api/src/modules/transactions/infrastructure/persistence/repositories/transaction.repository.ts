@@ -82,6 +82,11 @@ export class TypeOrmTransactionRepository implements TransactionRepository {
     return rows.map(toDomain);
   }
 
+  async findByExternalId(externalId: string, userId: string): Promise<Transaction | null> {
+    const row = await this.repo.findOne({ where: { externalId, userId } });
+    return row ? toDomain(row) : null;
+  }
+
   async findOverdue(userId: string, before: Date): Promise<Transaction[]> {
     const rows = await this.repo
       .createQueryBuilder('t')
@@ -134,6 +139,8 @@ function toEntity(transaction: Transaction): TransactionEntity {
   entity.categoryId = props.categoryId;
   entity.accountId = props.accountId;
   entity.creditCardId = props.creditCardId;
+  entity.source = props.source;
+  entity.externalId = props.externalId;
   entity.createdAt = props.createdAt;
   entity.updatedAt = props.updatedAt;
   return entity;
@@ -159,6 +166,8 @@ function toDomain(row: TransactionEntity): Transaction {
     categoryId: row.categoryId,
     accountId: row.accountId,
     creditCardId: row.creditCardId,
+    source: row.source as Transaction['source'],
+    externalId: row.externalId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });

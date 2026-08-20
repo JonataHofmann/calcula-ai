@@ -24,6 +24,8 @@ function tx(over: Partial<TransactionDto> = {}): TransactionDto {
     categoryId: '22222222-2222-2222-2222-222222222222',
     accountId: '33333333-3333-3333-3333-333333333333',
     creditCardId: null,
+    source: 'manual',
+    externalId: null,
     ...over,
   };
 }
@@ -50,6 +52,48 @@ describe('TransactionsTable', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Excluir Aluguel' }));
     expect(onDelete).toHaveBeenCalledWith(row);
+  });
+
+  it('shows a synced indicator for synced transactions but not manual ones', () => {
+    render(
+      <TransactionsTable
+        transactions={[
+          tx(),
+          tx({ id: 'synced-1', description: 'Compra no débito', source: 'synced', externalId: 'ext-1' }),
+        ]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByTitle('Sincronizado automaticamente')).toHaveLength(1);
+  });
+
+  it('shows installment info and a direction icon for card transactions', () => {
+    render(
+      <TransactionsTable
+        transactions={[
+          tx({
+            id: 'card-1',
+            description: 'Parcela do sofá',
+            creditCardId: '44444444-4444-4444-4444-444444444444',
+            installmentNumber: 2,
+            installmentCount: 3,
+            type: 'expense',
+          }),
+          tx({
+            id: 'card-2',
+            description: 'Estorno da loja',
+            creditCardId: '44444444-4444-4444-4444-444444444444',
+            type: 'income',
+          }),
+        ]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('(2/3)')).toBeInTheDocument();
+    expect(screen.getByTitle('Aumenta a fatura')).toBeInTheDocument();
+    expect(screen.getByTitle('Reduz a fatura')).toBeInTheDocument();
   });
 
   it('shows the effectuate action only for pending rows when handler is given', () => {

@@ -1,4 +1,9 @@
-import type { Recurrence, TransactionStatus, TransactionType } from '@finance/contracts';
+import type {
+  Recurrence,
+  TransactionSource,
+  TransactionStatus,
+  TransactionType,
+} from '@finance/contracts';
 import { InvalidTransactionError, AlreadyPaidError } from './errors';
 import { toCents } from './recurrence';
 
@@ -21,6 +26,8 @@ export interface TransactionProps {
   categoryId: string;
   accountId: string | null;
   creditCardId: string | null;
+  source: TransactionSource;
+  externalId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +42,8 @@ export interface UpdateTransactionAttributes {
   accountId: string | null;
   creditCardId: string | null;
   endDate: Date | null;
+  installmentCount: number | null;
+  installmentNumber: number | null;
 }
 
 export interface CreateTransactionData {
@@ -53,6 +62,8 @@ export interface CreateTransactionData {
   installmentCount?: number | null;
   installmentNumber?: number | null;
   groupId?: string | null;
+  source?: TransactionSource;
+  externalId?: string | null;
   now?: Date;
 }
 
@@ -96,6 +107,8 @@ export class Transaction {
       categoryId: input.categoryId,
       accountId: input.accountId ?? null,
       creditCardId: input.creditCardId ?? null,
+      source: input.source ?? 'manual',
+      externalId: input.externalId ?? null,
       createdAt: now,
       updatedAt: now,
     });
@@ -121,13 +134,18 @@ export class Transaction {
     if (patch.accountId !== undefined) next.accountId = patch.accountId;
     if (patch.creditCardId !== undefined) next.creditCardId = patch.creditCardId;
     if (patch.endDate !== undefined) next.endDate = patch.endDate;
+    if (patch.installmentCount !== undefined) next.installmentCount = patch.installmentCount;
+    if (patch.installmentNumber !== undefined) next.installmentNumber = patch.installmentNumber;
 
     assertOrigin(next.type, next.accountId, next.creditCardId);
-    if (next.recurrence === 'fixed' && next.endDate) {
-      if (next.endDate.getTime() < next.dueDate.getTime()) {
-        throw new InvalidTransactionError('endDate must be >= dueDate');
-      }
-    }
+    assertRecurrence({
+      recurrence: next.recurrence,
+      dueDate: next.dueDate,
+      endDate: next.endDate,
+      installmentCount: next.installmentCount,
+      installmentNumber: next.installmentNumber,
+      groupId: next.groupId,
+    });
     next.updatedAt = now;
     this.props = next;
   }
@@ -201,6 +219,12 @@ export class Transaction {
   get creditCardId(): string | null {
     return this.props.creditCardId;
   }
+  get source(): TransactionSource {
+    return this.props.source;
+  }
+  get externalId(): string | null {
+    return this.props.externalId;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -237,6 +261,22 @@ function assertOrigin(
   }
 }
 
+/** installmentNumber/installmentCount must be provided together, in range (used on 'single' rows carrying informational Pluggy card-installment metadata). */
+function assertInstallmentPair(
+  installmentNumber: number | null,
+  installmentCount: number | null,
+): void {
+  if ((installmentNumber === null) !== (installmentCount === null)) {
+    throw new InvalidTransactionError('installmentNumber and installmentCount must be provided together');
+  }
+  if (installmentNumber !== null && installmentCount !== null) {
+    if (installmentCount < 1) throw new InvalidTransactionError('installmentCount must be >= 1');
+    if (installmentNumber < 1 || installmentNumber > installmentCount) {
+      throw new InvalidTransactionError('installmentNumber must be within 1..installmentCount');
+    }
+  }
+}
+
 function assertRecurrence(data: {
   recurrence: Recurrence;
   dueDate: Date;
@@ -247,9 +287,10 @@ function assertRecurrence(data: {
 }): void {
   switch (data.recurrence) {
     case 'single':
-      if (data.groupId || data.installmentCount || data.installmentNumber || data.endDate) {
-        throw new InvalidTransactionError('Single transaction cannot carry group/installment/end fields');
+      if (data.groupId || data.endDate) {
+        throw new InvalidTransactionError('Single transaction cannot carry group/end fields');
       }
+      assertInstallmentPair(data.installmentNumber, data.installmentCount);
       break;
     case 'installment':
       if (!data.installmentCount || data.installmentCount < 1) {

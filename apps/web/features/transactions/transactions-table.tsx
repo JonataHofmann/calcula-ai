@@ -17,7 +17,17 @@ import {
   TableRow,
   type BadgeProps,
 } from '@finance/ui';
-import { ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Pencil, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CheckCircle2,
+  Link2,
+  Pencil,
+  TrendingDown,
+  TrendingUp,
+  Trash2,
+} from 'lucide-react';
 import { buildCategoryMap } from '../../util/category';
 import { day } from '../../util/date';
 import { money } from '../../util/money';
@@ -76,6 +86,18 @@ const RECURRENCE_VARIANT: Record<TransactionDto['recurrence'], BadgeProps['varia
 
 const CELL = 'py-2';
 const HEAD = 'h-9';
+
+function CardDirectionIcon({ type }: { type: TransactionDto['type'] }) {
+  return type === 'expense' ? (
+    <span className="mr-1 inline-flex align-middle" title="Aumenta a fatura">
+      <TrendingUp className="text-danger h-3 w-3" aria-hidden="true" />
+    </span>
+  ) : (
+    <span className="mr-1 inline-flex align-middle" title="Reduz a fatura">
+      <TrendingDown className="text-success h-3 w-3" aria-hidden="true" />
+    </span>
+  );
+}
 
 function CategoryTag({ category }: { category?: CategoryNodeDto }) {
   if (!category) return <span className="text-text-muted text-xs">—</span>;
@@ -156,6 +178,11 @@ export function TransactionsTable({
           transactions.map((t) => (
             <TableRow key={t.id}>
               <TableCell className={cn(CELL, 'text-text font-medium')}>
+                {t.source === 'synced' ? (
+                  <span className="mr-1 inline-flex align-middle" title="Sincronizado automaticamente">
+                    <Link2 className="text-text-muted h-3 w-3" aria-hidden="true" />
+                  </span>
+                ) : null}
                 {t.description}
                 {t.installmentNumber && t.installmentCount ? (
                   <span className="text-text-muted ml-1 text-xs">
@@ -168,6 +195,7 @@ export function TransactionsTable({
               </TableCell>
               <TableCell className={cn(CELL, 'text-text-muted')}>{day(t.dueDate)}</TableCell>
               <TableCell className={cn(CELL, t.type === 'income' ? 'text-success' : 'text-text')}>
+                {t.creditCardId ? <CardDirectionIcon type={t.type} /> : null}
                 {money(t.amount)}
               </TableCell>
               <TableCell className={cn(CELL, 'text-text-muted')}>{origin(t)}</TableCell>

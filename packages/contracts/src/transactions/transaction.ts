@@ -21,6 +21,10 @@ export type TransactionStatus = z.infer<typeof transactionStatusSchema>;
 export const groupScopeSchema = z.enum(['one', 'future', 'all']);
 export type GroupScope = z.infer<typeof groupScopeSchema>;
 
+/** Origin of the transaction. `synced` = imported from a bank connection (R7). Default `manual`. */
+export const transactionSourceSchema = z.enum(['manual', 'synced']).default('manual');
+export type TransactionSource = z.infer<typeof transactionSourceSchema>;
+
 /**
  * Transaction as exposed by the BFF (no `userId`/`createdAt`/`updatedAt` — regra 9).
  * Money values are decimal strings (`moneyAmountSchema`), never numbers.
@@ -44,6 +48,8 @@ export const transactionSchema = z.object({
   categoryId: z.string().uuid(),
   accountId: z.string().uuid().nullable(),
   creditCardId: z.string().uuid().nullable(),
+  source: transactionSourceSchema,
+  externalId: z.string().uuid().nullable(),
 });
 
 export type TransactionDto = z.infer<typeof transactionSchema>;

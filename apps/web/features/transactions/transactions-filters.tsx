@@ -55,7 +55,7 @@ export function TransactionsFilters({
   const accountOptions: SelectOption[] = accounts.map((a) => ({ value: a.id, label: a.name }));
   const cardOptions: SelectOption[] = cards.map((c) => ({ value: c.id, label: c.name }));
 
-  const { search, ...advancedFilters } = filters;
+  const { search: _search, ...advancedFilters } = filters;
   const advancedCount = Object.keys(advancedFilters).length;
   const [expanded, setExpanded] = useState(advancedCount > 0);
 

@@ -28,6 +28,7 @@ export interface TransactionRepository {
   save(transaction: Transaction): Promise<void>;
   saveMany(transactions: Transaction[]): Promise<void>;
   findById(id: string, userId: string): Promise<Transaction | null>;
+  findByExternalId(externalId: string, userId: string): Promise<Transaction | null>;
   find(userId: string, filter: FindTransactionsFilter): Promise<Transaction[]>;
   findOverdue(userId: string, before: Date): Promise<Transaction[]>;
   findGroup(groupId: string, userId: string): Promise<Transaction[]>;

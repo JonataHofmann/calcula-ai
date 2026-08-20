@@ -13,6 +13,13 @@ const envSchema = z.object({
   NEXT_PUBLIC_BFF_URL: z.string().url().optional(),
   AI_ROUTER_URL: z.string().url().optional(),
   AI_ROUTER_API_KEY: z.string().optional(),
+  PLUGGY_CLIENT_ID: z.string().optional(),
+  PLUGGY_CLIENT_SECRET: z.string().optional(),
+  PLUGGY_WEBHOOK_SECRET: z.string().optional(),
+  PLUGGY_API_BASE_URL: z.string().url().optional(),
+  BANKING_MS_KEYCLOAK_CLIENT_ID: z.string().optional(),
+  BANKING_MS_KEYCLOAK_CLIENT_SECRET: z.string().optional(),
+  TRANSACTIONS_MS_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

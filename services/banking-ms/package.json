@@ -1,0 +1,50 @@
+{
+  "name": "@finance/banking-ms",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "jest",
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/infrastructure/database/data-source.ts",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/infrastructure/database/data-source.ts"
+  },
+  "dependencies": {
+    "@finance/auth": "workspace:*",
+    "@finance/config": "workspace:*",
+    "@finance/contracts": "workspace:*",
+    "@finance/logger": "workspace:*",
+    "@finance/observability": "workspace:*",
+    "@nestjs/common": "^11.0.8",
+    "@nestjs/core": "^11.0.8",
+    "@nestjs/platform-express": "^11.0.8",
+    "@nestjs/schedule": "^5.0.1",
+    "@nestjs/swagger": "^11.0.3",
+    "@nestjs/typeorm": "^11.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "helmet": "^8.0.0",
+    "pg": "^8.13.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.20",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@finance/eslint-config": "workspace:*",
+    "@finance/tsconfig": "workspace:*",
+    "@nestjs/cli": "^11.0.2",
+    "@nestjs/testing": "^11.0.8",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.1",
+    "eslint": "^9.20.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

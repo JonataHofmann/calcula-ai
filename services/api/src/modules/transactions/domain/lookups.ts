@@ -11,6 +11,8 @@ export const CARD_LOOKUP = Symbol('CARD_LOOKUP');
 export interface CategoryLookup {
   /** Returns the category's type if it exists and belongs to the user, else null. */
   findType(id: string, userId: string): Promise<TransactionType | null>;
+  /** System catch-all category id for a type (e.g. synced imports with no category), else null. */
+  findDefaultId(type: TransactionType): Promise<string | null>;
 }
 
 export interface AccountLookup {

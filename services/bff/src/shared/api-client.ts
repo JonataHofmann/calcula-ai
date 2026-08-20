@@ -7,55 +7,58 @@ export interface ApiRequestOptions {
 }
 
 /**
- * Thin HTTP client for BFF -> API-MS calls. Forwards the user's access token as a
- * Bearer credential and propagates the Idempotency-Key on writes. API error
- * statuses are re-thrown as Nest HttpExceptions so the BFF mirrors them (e.g. 404).
+ * Shared fetch-based proxy logic for BFF -> upstream microservice calls. Forwards
+ * the user's access token as a Bearer credential and propagates the Idempotency-Key
+ * on writes. Upstream error statuses are re-thrown as Nest HttpExceptions so the
+ * BFF mirrors them (e.g. 404).
  */
+export async function proxyRequest<T>(
+  base: string,
+  method: string,
+  path: string,
+  { token, body, idempotencyKey }: ApiRequestOptions,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+
+  const res = await fetch(`${base}${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  if (res.status === 204) return undefined as T;
+
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : undefined;
+
+  if (!res.ok) {
+    throw new HttpException(data ?? { message: res.statusText }, res.status);
+  }
+  return data as T;
+}
+
+/** Thin HTTP client for BFF -> API-MS calls. */
 @Injectable()
 export class ApiClient {
   private readonly base = process.env.API_URL ?? 'http://localhost:3001';
 
   async get<T>(path: string, opts: ApiRequestOptions): Promise<T> {
-    return this.request<T>('GET', path, opts);
+    return proxyRequest<T>(this.base, 'GET', path, opts);
   }
 
   async post<T>(path: string, opts: ApiRequestOptions): Promise<T> {
-    return this.request<T>('POST', path, opts);
+    return proxyRequest<T>(this.base, 'POST', path, opts);
   }
 
   async patch<T>(path: string, opts: ApiRequestOptions): Promise<T> {
-    return this.request<T>('PATCH', path, opts);
+    return proxyRequest<T>(this.base, 'PATCH', path, opts);
   }
 
   async delete<T>(path: string, opts: ApiRequestOptions): Promise<T> {
-    return this.request<T>('DELETE', path, opts);
-  }
-
-  private async request<T>(
-    method: string,
-    path: string,
-    { token, body, idempotencyKey }: ApiRequestOptions,
-  ): Promise<T> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
-    };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
-    if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
-
-    const res = await fetch(`${this.base}${path}`, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-
-    if (res.status === 204) return undefined as T;
-
-    const text = await res.text();
-    const data = text ? JSON.parse(text) : undefined;
-
-    if (!res.ok) {
-      throw new HttpException(data ?? { message: res.statusText }, res.status);
-    }
-    return data as T;
+    return proxyRequest<T>(this.base, 'DELETE', path, opts);
   }
 }

@@ -62,6 +62,12 @@ export class FakeTransactionRepository implements TransactionRepository {
     });
     return rows;
   }
+  async findByExternalId(externalId: string, userId: string): Promise<Transaction | null> {
+    const t = [...this.store.values()].find(
+      (row) => row.externalId === externalId && row.userId === userId,
+    );
+    return t ?? null;
+  }
   async findOverdue(userId: string, before: Date): Promise<Transaction[]> {
     return [...this.store.values()].filter(
       (t) =>
@@ -89,16 +95,24 @@ export class FakeTransactionRepository implements TransactionRepository {
 /** Category lookup backed by a map of id -> {type, ownerId}; system categories use ownerId null. */
 export class FakeCategoryLookup implements CategoryLookup {
   private readonly rows = new Map<string, { type: TransactionType; ownerId: string | null }>();
+  private readonly defaults = new Map<TransactionType, string>();
 
   add(id: string, type: TransactionType, ownerId: string | null = null): this {
     this.rows.set(id, { type, ownerId });
     return this;
+  }
+  addDefault(type: TransactionType, id: string): this {
+    this.defaults.set(type, id);
+    return this.add(id, type, null);
   }
   async findType(id: string, userId: string): Promise<TransactionType | null> {
     const row = this.rows.get(id);
     if (!row) return null;
     if (row.ownerId === null || row.ownerId === userId) return row.type;
     return null;
+  }
+  async findDefaultId(type: TransactionType): Promise<string | null> {
+    return this.defaults.get(type) ?? null;
   }
 }
 

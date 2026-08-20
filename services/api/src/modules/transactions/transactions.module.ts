@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '../../common/auth/auth.module';
+import { ServiceAccountGuard } from '../../common/auth/service-account.guard';
 import { AccountEntity } from '../accounts/infrastructure/persistence/entities/account.entity';
 import { CategoryEntity } from '../categories/infrastructure/persistence/entities/category.entity';
 import { CreditCardEntity } from '../cards/infrastructure/persistence/entities/credit-card.entity';
@@ -18,6 +20,7 @@ import { DeleteTransactionUseCase } from './application/use-cases/delete-transac
 import { EffectuateTransactionUseCase } from './application/use-cases/effectuate-transaction/effectuate-transaction';
 import { ListOverdueUseCase } from './application/use-cases/list-overdue/list-overdue';
 import { GetForecastUseCase } from './application/use-cases/get-forecast/get-forecast';
+import { ImportSyncedTransactionUseCase } from './application/use-cases/import-synced-transaction/import-synced-transaction';
 import { TransactionsController } from './presentation/transactions.controller';
 
 @Module({
@@ -28,6 +31,7 @@ import { TransactionsController } from './presentation/transactions.controller';
       AccountEntity,
       CreditCardEntity,
     ]),
+    AuthModule,
   ],
   controllers: [TransactionsController],
   providers: [
@@ -43,6 +47,8 @@ import { TransactionsController } from './presentation/transactions.controller';
     EffectuateTransactionUseCase,
     ListOverdueUseCase,
     GetForecastUseCase,
+    ImportSyncedTransactionUseCase,
+    ServiceAccountGuard,
   ],
 })
 export class TransactionsModule {}

@@ -29,3 +29,11 @@ export class ReferenceNotFoundError extends Error {
     this.name = 'ReferenceNotFoundError';
   }
 }
+
+/** `Idempotency-Key` (externalId) reused with a different body -> 409 (name ends with ConflictError). */
+export class SyncedImportConflictError extends Error {
+  constructor(externalId: string) {
+    super(`Idempotency-Key conflict for externalId: ${externalId}`);
+    this.name = 'SyncedImportConflictError';
+  }
+}

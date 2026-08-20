@@ -1,14 +1,17 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   type AuthenticatedUser,
@@ -30,6 +33,7 @@ import {
   type UpdateTransactionInput,
 } from '@finance/contracts';
 import { CurrentUser } from '../../../common/auth/current-user.decorator';
+import { ServiceAccountGuard } from '../../../common/auth/service-account.guard';
 import { ZodValidationPipe } from '../../../common/validation/zod-validation.pipe';
 import type { Transaction } from '../domain/transaction';
 import { CreateTransactionUseCase } from '../application/use-cases/create-transaction/create-transaction';
@@ -40,6 +44,15 @@ import { DeleteTransactionUseCase } from '../application/use-cases/delete-transa
 import { EffectuateTransactionUseCase } from '../application/use-cases/effectuate-transaction/effectuate-transaction';
 import { ListOverdueUseCase } from '../application/use-cases/list-overdue/list-overdue';
 import { GetForecastUseCase } from '../application/use-cases/get-forecast/get-forecast';
+import { ImportSyncedTransactionUseCase } from '../application/use-cases/import-synced-transaction/import-synced-transaction';
+import {
+  importSyncedTransactionInput,
+  patchSyncedTransactionInput,
+  userIdSchema,
+  type ImportSyncedTransactionInput,
+  type PatchSyncedTransactionInput,
+  type SyncedImportResult,
+} from '../application/use-cases/import-synced-transaction/import-synced-transaction.schemas';
 
 const scopePipe = new ZodValidationPipe(groupScopeSchema.optional());
 
@@ -54,6 +67,7 @@ export class TransactionsController {
     private readonly effectuateTransaction: EffectuateTransactionUseCase,
     private readonly listOverdue: ListOverdueUseCase,
     private readonly getForecast: GetForecastUseCase,
+    private readonly importSyncedTransaction: ImportSyncedTransactionUseCase,
   ) {}
 
   @Post()
@@ -130,6 +144,38 @@ export class TransactionsController {
   ): Promise<void> {
     await this.deleteTransaction.execute(user.id, id, scope);
   }
+
+  @Post('synced-import')
+  @UseGuards(ServiceAccountGuard)
+  async createSyncedImport(
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body(new ZodValidationPipe(importSyncedTransactionInput)) input: ImportSyncedTransactionInput,
+  ): Promise<SyncedImportResult> {
+    if (!idempotencyKey) {
+      throw new BadRequestException({ code: 'VALIDATION', message: 'Idempotency-Key header is required' });
+    }
+    return this.importSyncedTransaction.create(input);
+  }
+
+  @Patch('synced-import/:externalId')
+  @UseGuards(ServiceAccountGuard)
+  async patchSyncedImport(
+    @Param('externalId', ParseUUIDPipe) externalId: string,
+    @Body('userId', new ZodValidationPipe(userIdSchema)) userId: string,
+    @Body(new ZodValidationPipe(patchSyncedTransactionInput)) patch: PatchSyncedTransactionInput,
+  ): Promise<SyncedImportResult> {
+    return this.importSyncedTransaction.patch(userId, externalId, patch);
+  }
+
+  @Delete('synced-import/:externalId')
+  @HttpCode(204)
+  @UseGuards(ServiceAccountGuard)
+  async removeSyncedImport(
+    @Param('externalId', ParseUUIDPipe) externalId: string,
+    @Body('userId', new ZodValidationPipe(userIdSchema)) userId: string,
+  ): Promise<void> {
+    await this.importSyncedTransaction.delete(userId, externalId);
+  }
 }
 
 /** Domain -> HTTP contract. No userId/createdAt/updatedAt (FR-023); dates as ISO instants. */
@@ -152,5 +198,7 @@ function toDto(t: Transaction): TransactionDto {
     categoryId: t.categoryId,
     accountId: t.accountId,
     creditCardId: t.creditCardId,
+    source: t.source,
+    externalId: t.externalId,
   };
 }
