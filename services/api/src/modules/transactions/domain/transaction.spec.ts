@@ -38,7 +38,19 @@ describe('Transaction aggregate', () => {
       ).toThrow(InvalidTransactionError);
     });
 
-    it('rejects income with a card', () => {
+    it('accepts an income with an account', () => {
+      expect(() =>
+        Transaction.create({ ...base, type: 'income', accountId: 'acc-1', creditCardId: null }),
+      ).not.toThrow();
+    });
+
+    it('accepts an income with a card', () => {
+      expect(() =>
+        Transaction.create({ ...base, type: 'income', accountId: null, creditCardId: 'card-1' }),
+      ).not.toThrow();
+    });
+
+    it('rejects income with both account and card', () => {
       expect(() =>
         Transaction.create({
           ...base,
@@ -49,7 +61,7 @@ describe('Transaction aggregate', () => {
       ).toThrow(InvalidTransactionError);
     });
 
-    it('rejects income without an account', () => {
+    it('rejects income with neither account nor card', () => {
       expect(() =>
         Transaction.create({ ...base, type: 'income', accountId: null, creditCardId: null }),
       ).toThrow(InvalidTransactionError);

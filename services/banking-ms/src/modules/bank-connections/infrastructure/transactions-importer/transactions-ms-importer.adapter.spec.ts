@@ -134,7 +134,7 @@ describe('TransactionsMsImporterAdapter', () => {
     const body = JSON.parse(init.body);
     expect(body.accountId).toBe('api-account-1');
     expect(body.creditCardId).toBeNull();
-    expect(body.dueDate).toBe('2026-08-01');
+    expect(body.dueDate).toBe('2026-08-01T00:00:00.000Z');
   });
 
   it('throws when a request fails with a non-ok status', async () => {

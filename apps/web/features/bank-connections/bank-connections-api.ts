@@ -27,13 +27,30 @@ export function completeBankConnection(
   });
 }
 
-export function refreshBankConnection(id: string): Promise<{ status: string }> {
+export function refreshBankConnection(
+  id: string,
+  options?: { forceFullSync?: boolean },
+): Promise<{ status: string }> {
   return apiFetch<{ status: string }>(`/bank-connections/${id}/refresh`, {
     method: 'POST',
     headers: { 'Idempotency-Key': newIdempotencyKey() },
+    body: JSON.stringify({ forceFullSync: options?.forceFullSync ?? false }),
   });
 }
 
 export function disconnectBankConnection(id: string): Promise<void> {
   return apiFetch<void>(`/bank-connections/${id}`, { method: 'DELETE' });
+}
+
+export interface RetryConnectionImportsResult {
+  retried: number;
+  succeeded: number;
+  stillFailing: number;
+}
+
+export function retryConnectionImports(id: string): Promise<RetryConnectionImportsResult> {
+  return apiFetch<RetryConnectionImportsResult>(`/bank-connections/${id}/retry-imports`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  });
 }

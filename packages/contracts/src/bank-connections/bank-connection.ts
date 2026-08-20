@@ -38,6 +38,8 @@ export const bankConnectionSchema = z.object({
   createdAt: z.string().datetime(),
   accounts: z.array(linkedAccountSchema),
   creditCards: z.array(linkedCreditCardSchema),
+  transactionsTotal: z.number().int().nonnegative(),
+  transactionsErrored: z.number().int().nonnegative(),
 });
 export type BankConnectionDto = z.infer<typeof bankConnectionSchema>;
 
@@ -45,3 +47,15 @@ export const bankConnectionCreateInput = z.object({
   pluggyItemId: z.string().min(1),
 });
 export type BankConnectionCreateInput = z.infer<typeof bankConnectionCreateInput>;
+
+export const refreshBankConnectionInput = z.object({
+  forceFullSync: z.boolean().optional().default(false),
+});
+export type RefreshBankConnectionInput = z.infer<typeof refreshBankConnectionInput>;
+
+export const retryConnectionImportsResponse = z.object({
+  retried: z.number().int().nonnegative(),
+  succeeded: z.number().int().nonnegative(),
+  stillFailing: z.number().int().nonnegative(),
+});
+export type RetryConnectionImportsResponse = z.infer<typeof retryConnectionImportsResponse>;

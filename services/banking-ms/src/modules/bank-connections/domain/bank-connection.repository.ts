@@ -14,6 +14,8 @@ export interface BankConnectionRepository {
   findByItemId(pluggyItemId: string): Promise<BankConnection | null>;
   findAllByUser(userId: string): Promise<BankConnection[]>;
   findStaleActiveConnections(threshold: Date): Promise<BankConnection[]>;
+  /** Counts synced transactions for a connection via its linked accounts/cards (no direct FK). */
+  countSyncedTransactions(bankConnectionId: string): Promise<{ total: number; errored: number }>;
 
   upsertLinkedAccount(account: LinkedAccount): Promise<void>;
   upsertLinkedCreditCard(card: LinkedCreditCard): Promise<void>;

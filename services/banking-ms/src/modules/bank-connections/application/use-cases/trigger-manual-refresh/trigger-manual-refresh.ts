@@ -10,6 +10,7 @@ import { SyncConnectionUseCase } from '../sync-connection/sync-connection';
 export interface TriggerManualRefreshInput {
   userId: string;
   bankConnectionId: string;
+  forceFullSync?: boolean;
 }
 
 @Injectable()
@@ -29,7 +30,11 @@ export class TriggerManualRefreshUseCase {
 
     // Fire-and-forget: the caller doesn't wait on the full account/transaction sync (AGENTS.md rule 8).
     void this.syncConnection
-      .execute({ userId: input.userId, bankConnectionId: connection.id })
+      .execute({
+        userId: input.userId,
+        bankConnectionId: connection.id,
+        forceFullSync: input.forceFullSync,
+      })
       .catch(() => undefined);
   }
 }

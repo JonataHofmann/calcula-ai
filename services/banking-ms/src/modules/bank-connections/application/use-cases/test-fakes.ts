@@ -56,6 +56,20 @@ export class FakeBankConnectionRepository implements BankConnectionRepository {
       (c) => c.status === 'active' && (!c.lastSyncedAt || c.lastSyncedAt.getTime() < threshold.getTime()),
     );
   }
+  async countSyncedTransactions(bankConnectionId: string): Promise<{ total: number; errored: number }> {
+    const accountIds = new Set(
+      [...this.linkedAccounts.values()].filter((a) => a.bankConnectionId === bankConnectionId).map((a) => a.id),
+    );
+    const cardIds = new Set(
+      [...this.linkedCreditCards.values()].filter((c) => c.bankConnectionId === bankConnectionId).map((c) => c.id),
+    );
+    const rows = [...this.syncedTransactions.values()].filter(
+      (t) =>
+        (t.linkedAccountId && accountIds.has(t.linkedAccountId)) ||
+        (t.linkedCreditCardId && cardIds.has(t.linkedCreditCardId)),
+    );
+    return { total: rows.length, errored: rows.filter((t) => t.syncStatus === 'error').length };
+  }
 
   async upsertLinkedAccount(account: LinkedAccount): Promise<void> {
     this.linkedAccounts.set(account.id, account);
@@ -116,6 +130,7 @@ export class FakePluggyClient implements PluggyClient {
   private readonly transactionsByAccount = new Map<string, PluggyTransaction[]>();
   connectTokenCalls: Array<{ itemId?: string }> = [];
   forceRefreshCalls: string[] = [];
+  listTransactionsCalls: Array<{ accountId: string; from: Date }> = [];
 
   addItem(itemId: string, item: Omit<PluggyItem, 'id'>): this {
     this.items.set(itemId, { id: itemId, ...item });
@@ -151,7 +166,8 @@ export class FakePluggyClient implements PluggyClient {
   async listAccounts(itemId: string): Promise<PluggyAccount[]> {
     return this.accountsByItem.get(itemId) ?? [];
   }
-  async listTransactions(accountId: string): Promise<PluggyTransaction[]> {
+  async listTransactions(accountId: string, from: Date): Promise<PluggyTransaction[]> {
+    this.listTransactionsCalls.push({ accountId, from });
     return this.transactionsByAccount.get(accountId) ?? [];
   }
 }

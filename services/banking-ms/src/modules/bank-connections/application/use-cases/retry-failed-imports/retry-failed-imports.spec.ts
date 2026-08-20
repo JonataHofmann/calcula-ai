@@ -69,6 +69,18 @@ describe('RetryFailedImportsUseCase', () => {
     expect(synced.syncStatus).toBe('error');
   });
 
+  it('force bypasses the exponential backoff and retries a not-yet-due row', async () => {
+    const { useCase, connections, importer } = setup();
+    await seedConnectionWithAccount(connections);
+    const now = new Date('2026-08-01T00:05:00Z');
+    const synced = erroredTransaction({ retryCount: 1, updatedAt: new Date('2026-08-01T00:00:00Z') });
+
+    await useCase.execute({ synced, now, force: true });
+
+    expect(importer.imported).toHaveLength(1);
+    expect(synced.syncStatus).toBe('success');
+  });
+
   it('retries a due row and marks it success', async () => {
     const { useCase, connections, importer } = setup();
     await seedConnectionWithAccount(connections);

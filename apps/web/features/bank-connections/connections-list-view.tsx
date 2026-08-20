@@ -4,14 +4,16 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { BankConnectionDto, BankConnectionStatus } from '@finance/contracts';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, type BadgeProps } from '@finance/ui';
-import { CreditCard, RefreshCw, ShieldAlert, Wallet } from 'lucide-react';
+import { CreditCard, History, ListRestart, RefreshCw, ShieldAlert, Wallet } from 'lucide-react';
 import { money } from '../../util/money';
 import { openPluggyConnect } from './pluggy-connect-widget';
 import {
   BANK_CONNECTIONS_QUERY_KEY,
   useCreateConnectToken,
   useDisconnectBankConnection,
+  useForceFullSync,
   useRefreshBankConnection,
+  useRetryConnectionImports,
 } from './use-bank-connections';
 
 const STATUS_LABEL: Record<BankConnectionStatus, string> = {
@@ -47,6 +49,8 @@ export function ConnectionsListView({ connections }: ConnectionsListViewProps) {
 function ConnectionCard({ connection }: { connection: BankConnectionDto }) {
   const disconnect = useDisconnectBankConnection();
   const refresh = useRefreshBankConnection();
+  const forceFullSync = useForceFullSync();
+  const retryImports = useRetryConnectionImports();
   const createConnectToken = useCreateConnectToken();
   const queryClient = useQueryClient();
   const [reauthError, setReauthError] = useState<string | null>(null);
@@ -91,6 +95,17 @@ function ConnectionCard({ connection }: { connection: BankConnectionDto }) {
               Atualizar agora
             </Button>
           ) : null}
+          {isActive ? (
+            <Button
+              variant="outline"
+              size="sm"
+              loading={forceFullSync.isPending}
+              onClick={() => forceFullSync.mutate(connection.id)}
+            >
+              <History className="h-4 w-4" aria-hidden="true" />
+              Sincronizar tudo novamente
+            </Button>
+          ) : null}
           {needsAttention ? (
             <Button
               variant="outline"
@@ -116,6 +131,25 @@ function ConnectionCard({ connection }: { connection: BankConnectionDto }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {reauthError ? <p className="text-danger text-sm">{reauthError}</p> : null}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-text-muted text-sm">
+          <span>
+            {connection.accounts.length} conta{connection.accounts.length === 1 ? '' : 's'} ·{' '}
+            {connection.creditCards.length} cartão{connection.creditCards.length === 1 ? '' : 'ões'} ·{' '}
+            {connection.transactionsTotal} transaç{connection.transactionsTotal === 1 ? 'ão' : 'ões'}
+            {connection.transactionsErrored > 0 ? ` (${connection.transactionsErrored} com erro)` : ''}
+          </span>
+          {connection.transactionsErrored > 0 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              loading={retryImports.isPending}
+              onClick={() => retryImports.mutate(connection.id)}
+            >
+              <ListRestart className="h-4 w-4" aria-hidden="true" />
+              Importar transações pendentes
+            </Button>
+          ) : null}
+        </div>
         {connection.accounts.map((account) => (
           <div key={account.id} className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2">

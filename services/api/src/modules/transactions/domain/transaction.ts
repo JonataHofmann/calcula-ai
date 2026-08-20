@@ -258,15 +258,11 @@ function assertOrigin(
   accountId: string | null,
   creditCardId: string | null,
 ): void {
-  if (type === 'expense') {
-    const hasAccount = Boolean(accountId);
-    const hasCard = Boolean(creditCardId);
-    if (hasAccount === hasCard) {
-      throw new InvalidTransactionError('Expense requires exactly one of account or card');
-    }
-  } else {
-    if (!accountId) throw new InvalidTransactionError('Income requires an account');
-    if (creditCardId) throw new InvalidTransactionError('Income cannot use a card');
+  const hasAccount = Boolean(accountId);
+  const hasCard = Boolean(creditCardId);
+  if (hasAccount === hasCard) {
+    const label = type === 'expense' ? 'Expense' : 'Income';
+    throw new InvalidTransactionError(`${label} requires exactly one of account or card`);
   }
 }
 

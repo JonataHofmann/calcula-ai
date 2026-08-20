@@ -23,9 +23,29 @@ import {
 
 const SYNC_LOOKBACK_DAYS = 90;
 
+/**
+ * Some Pluggy connectors report `installmentNumber`/`totalInstallments` as `0` (or only one of
+ * the pair) for non-installment card purchases instead of `null`. The domain requires both fields
+ * null together or a valid `1..count` pair, so any incomplete/non-positive pair is treated as "no
+ * installment metadata" rather than passed through as-is.
+ */
+function normalizeInstallmentPair(metadata: {
+  installmentNumber: number | null;
+  totalInstallments: number | null;
+} | null): { installmentNumber: number | null; installmentCount: number | null } {
+  const number = metadata?.installmentNumber;
+  const count = metadata?.totalInstallments;
+  if (!number || !count || number < 1 || count < 1) {
+    return { installmentNumber: null, installmentCount: null };
+  }
+  return { installmentNumber: number, installmentCount: count };
+}
+
 export interface SyncConnectionInput {
   userId: string;
   bankConnectionId: string;
+  /** Ignores `lastSyncedAt` and re-pulls the full SYNC_LOOKBACK_DAYS window. */
+  forceFullSync?: boolean;
 }
 
 export interface SyncConnectionResult {
@@ -64,7 +84,7 @@ export class SyncConnectionUseCase {
     const cardsByPluggyId = new Map(existingCards.map((c) => [c.pluggyAccountId, c]));
 
     const pluggyAccounts = await this.pluggy.listAccounts(connection.pluggyItemId);
-    const from = connection.lastSyncedAt ?? daysAgo(SYNC_LOOKBACK_DAYS);
+    const from = input.forceFullSync ? daysAgo(SYNC_LOOKBACK_DAYS) : (connection.lastSyncedAt ?? daysAgo(SYNC_LOOKBACK_DAYS));
 
     let accountsSynced = 0;
     let creditCardsSynced = 0;
@@ -254,6 +274,7 @@ export class SyncConnectionUseCase {
       const synced = this.buildSyncedTransaction(userId, tx, linkedAccountId, linkedCreditCardId, existing);
       synced.startProcessing();
       try {
+        const installments = normalizeInstallmentPair(tx.creditCardMetadata);
         const { transactionsMsId } = await this.importer.importTransaction({
           userId,
           pluggyTransactionId: tx.id,
@@ -263,8 +284,8 @@ export class SyncConnectionUseCase {
           type: tx.type === 'DEBIT' ? 'expense' : 'income',
           accountId: apiAccountId,
           creditCardId: apiCreditCardId,
-          installmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,
-          installmentCount: tx.creditCardMetadata?.totalInstallments ?? null,
+          installmentNumber: installments.installmentNumber,
+          installmentCount: installments.installmentCount,
           pluggyStatus: tx.status === 'POSTED' ? 'posted' : 'pending',
         });
         synced.markSuccess(transactionsMsId);
@@ -288,13 +309,14 @@ export class SyncConnectionUseCase {
   }
 
   private toSourceSnapshot(tx: PluggyTransaction): PluggySourceSnapshot {
+    const installments = normalizeInstallmentPair(tx.creditCardMetadata);
     return {
       description: tx.description,
       amount: fromCents(Math.abs(Math.round(tx.amount * 100))),
       date: new Date(tx.date),
       pluggyStatus: tx.status === 'POSTED' ? 'posted' : 'pending',
-      installmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,
-      installmentTotal: tx.creditCardMetadata?.totalInstallments ?? null,
+      installmentNumber: installments.installmentNumber,
+      installmentTotal: installments.installmentCount,
     };
   }
 
@@ -306,6 +328,7 @@ export class SyncConnectionUseCase {
     existing: SyncedTransaction | null,
   ): SyncedTransaction {
     if (existing) return existing;
+    const installments = normalizeInstallmentPair(tx.creditCardMetadata);
     return SyncedTransaction.create({
       id: randomUUID(),
       linkedAccountId,
@@ -317,8 +340,8 @@ export class SyncConnectionUseCase {
       date: new Date(tx.date),
       direction: tx.type === 'CREDIT' ? 'credit' : 'debit',
       pluggyStatus: tx.status === 'POSTED' ? 'posted' : 'pending',
-      installmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,
-      installmentTotal: tx.creditCardMetadata?.totalInstallments ?? null,
+      installmentNumber: installments.installmentNumber,
+      installmentTotal: installments.installmentCount,
     });
   }
 }

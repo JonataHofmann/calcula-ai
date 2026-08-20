@@ -6,6 +6,9 @@ import {
   connectTokenInput,
   type ConnectTokenInput,
   type ConnectTokenResponse,
+  refreshBankConnectionInput,
+  type RefreshBankConnectionInput,
+  type RetryConnectionImportsResponse,
 } from '@finance/contracts';
 import type { AuthenticatedUser } from '@finance/contracts';
 import { CurrentUser } from '../../../common/auth/current-user.decorator';
@@ -17,6 +20,7 @@ import { CompleteConnectionUseCase } from '../application/use-cases/complete-con
 import { CreateConnectTokenUseCase } from '../application/use-cases/create-connect-token/create-connect-token';
 import { DisconnectConnectionUseCase } from '../application/use-cases/disconnect-connection/disconnect-connection';
 import { ListConnectionsUseCase } from '../application/use-cases/list-connections/list-connections';
+import { RetryConnectionImportsUseCase } from '../application/use-cases/retry-connection-imports/retry-connection-imports';
 import { TriggerManualRefreshUseCase } from '../application/use-cases/trigger-manual-refresh/trigger-manual-refresh';
 
 @Controller()
@@ -27,6 +31,7 @@ export class BankConnectionsController {
     private readonly listConnections: ListConnectionsUseCase,
     private readonly disconnectConnection: DisconnectConnectionUseCase,
     private readonly triggerManualRefresh: TriggerManualRefreshUseCase,
+    private readonly retryConnectionImports: RetryConnectionImportsUseCase,
   ) {}
 
   @Post('connect-tokens')
@@ -51,7 +56,13 @@ export class BankConnectionsController {
       userId: user.id,
       pluggyItemId: input.pluggyItemId,
     });
-    return toDto({ ...connection, accounts: [], creditCards: [] });
+    return toDto({
+      ...connection,
+      accounts: [],
+      creditCards: [],
+      transactionsTotal: 0,
+      transactionsErrored: 0,
+    });
   }
 
   @Get('bank-connections')
@@ -68,14 +79,36 @@ export class BankConnectionsController {
 
   @Post('bank-connections/:id/refresh')
   @HttpCode(HttpStatus.ACCEPTED)
-  async refresh(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<void> {
-    await this.triggerManualRefresh.execute({ bankConnectionId: id, userId: user.id });
+  async refresh(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(refreshBankConnectionInput)) input: RefreshBankConnectionInput,
+  ): Promise<void> {
+    await this.triggerManualRefresh.execute({
+      bankConnectionId: id,
+      userId: user.id,
+      forceFullSync: input.forceFullSync,
+    });
+  }
+
+  @Post('bank-connections/:id/retry-imports')
+  @HttpCode(HttpStatus.OK)
+  async retryImports(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<RetryConnectionImportsResponse> {
+    return this.retryConnectionImports.execute({ bankConnectionId: id, userId: user.id });
   }
 }
 
 /** Domain -> HTTP contract. Sync runs async (AGENTS.md rule 8), so accounts/cards are empty right after creation. */
 function toDto(
-  connection: BankConnectionProps & { accounts: LinkedAccountProps[]; creditCards: LinkedCreditCardProps[] },
+  connection: BankConnectionProps & {
+    accounts: LinkedAccountProps[];
+    creditCards: LinkedCreditCardProps[];
+    transactionsTotal: number;
+    transactionsErrored: number;
+  },
 ): BankConnectionDto {
   return {
     id: connection.id,
@@ -97,5 +130,7 @@ function toDto(
       currentBalance: c.currentBalance,
       creditLimit: c.creditLimit,
     })),
+    transactionsTotal: connection.transactionsTotal,
+    transactionsErrored: connection.transactionsErrored,
   };
 }

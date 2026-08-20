@@ -18,6 +18,8 @@ export const BASE_BACKOFF_MINUTES = 10;
 export interface RetryFailedImportsInput {
   synced: SyncedTransaction;
   now?: Date;
+  /** Bypasses the exponential backoff gate for manual/on-demand retries. */
+  force?: boolean;
 }
 
 /**
@@ -36,7 +38,7 @@ export class RetryFailedImportsUseCase {
   async execute(input: RetryFailedImportsInput): Promise<void> {
     const { synced } = input;
     const now = input.now ?? new Date();
-    if (!isDueForRetry(synced, now)) return;
+    if (!input.force && !isDueForRetry(synced, now)) return;
 
     const { apiAccountId, apiCreditCardId } = await this.resolveApiLinkage(synced);
 

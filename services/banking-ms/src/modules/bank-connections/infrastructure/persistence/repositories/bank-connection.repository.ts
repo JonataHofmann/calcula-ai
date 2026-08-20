@@ -62,6 +62,20 @@ export class TypeOrmBankConnectionRepository implements BankConnectionRepository
     return rows.map(toConnectionDomain);
   }
 
+  async countSyncedTransactions(
+    bankConnectionId: string,
+  ): Promise<{ total: number; errored: number }> {
+    const row = await this.transactionRepo
+      .createQueryBuilder('t')
+      .leftJoin(LinkedAccountEntity, 'la', 'la.id = t.linked_account_id')
+      .leftJoin(LinkedCreditCardEntity, 'lc', 'lc.id = t.linked_credit_card_id')
+      .where('la.bank_connection_id = :id OR lc.bank_connection_id = :id', { id: bankConnectionId })
+      .select('COUNT(*)', 'total')
+      .addSelect(`COUNT(*) FILTER (WHERE t.sync_status = 'error')`, 'errored')
+      .getRawOne<{ total: string; errored: string }>();
+    return { total: Number(row?.total ?? 0), errored: Number(row?.errored ?? 0) };
+  }
+
   async upsertLinkedAccount(account: LinkedAccount): Promise<void> {
     await this.accountRepo.upsert(toAccountEntity(account), ['bankConnectionId', 'pluggyAccountId']);
   }
@@ -227,8 +241,8 @@ function toCardDomain(row: LinkedCreditCardEntity): LinkedCreditCard {
     creditLimit: row.creditLimit,
     availableLimit: row.availableLimit,
     currentBalance: row.currentBalance,
-    closingDate: row.closingDate,
-    dueDate: row.dueDate,
+    closingDate: row.closingDate ? new Date(row.closingDate) : null,
+    dueDate: row.dueDate ? new Date(row.dueDate) : null,
     apiCreditCardId: row.apiCreditCardId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -268,7 +282,7 @@ function toTransactionDomain(row: SyncedTransactionEntity): SyncedTransaction {
     pluggyTransactionId: row.pluggyTransactionId,
     description: row.description,
     amount: row.amount,
-    date: row.date,
+    date: new Date(row.date),
     direction: row.direction as SyncedTransaction['direction'],
     pluggyStatus: row.pluggyStatus as SyncedTransaction['pluggyStatus'],
     installmentNumber: row.installmentNumber,

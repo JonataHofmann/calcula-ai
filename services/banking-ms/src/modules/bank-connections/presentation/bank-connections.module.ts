@@ -19,6 +19,7 @@ import { ListConnectionsUseCase } from '../application/use-cases/list-connection
 import { SyncConnectionUseCase } from '../application/use-cases/sync-connection/sync-connection';
 import { TriggerManualRefreshUseCase } from '../application/use-cases/trigger-manual-refresh/trigger-manual-refresh';
 import { RetryFailedImportsUseCase } from '../application/use-cases/retry-failed-imports/retry-failed-imports';
+import { RetryConnectionImportsUseCase } from '../application/use-cases/retry-connection-imports/retry-connection-imports';
 import { DailySyncJob } from '../infrastructure/scheduling/daily-sync.job';
 import { RetryImportsJob } from '../infrastructure/scheduling/retry-imports.job';
 import { BankConnectionsController } from './bank-connections.controller';
@@ -76,6 +77,7 @@ function requireEnv(name: string, value: string | undefined): string {
     DisconnectConnectionUseCase,
     TriggerManualRefreshUseCase,
     RetryFailedImportsUseCase,
+    RetryConnectionImportsUseCase,
     DailySyncJob,
     RetryImportsJob,
   ],

@@ -438,6 +438,108 @@ describe('SyncConnectionUseCase', () => {
     expect(importer.createdCards).toHaveLength(1);
   });
 
+  it('forceFullSync ignores lastSyncedAt and re-pulls the full lookback window', async () => {
+    const { useCase, connections, pluggy } = setup();
+    const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    await connections.create(
+      BankConnection.restore({
+        id: 'conn-1',
+        userId: USER_A,
+        pluggyItemId: 'item-1',
+        institutionId: 'inst-1',
+        institutionName: 'Banco Teste',
+        status: 'active',
+        lastSyncedAt: fiveDaysAgo,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+    pluggy.addItem('item-1', {
+      status: 'UPDATED',
+      institutionId: 'inst-1',
+      institutionName: 'Banco Teste',
+    });
+    pluggy.addAccounts('item-1', [
+      {
+        id: 'acc-1',
+        itemId: 'item-1',
+        type: 'BANK',
+        name: 'Conta corrente',
+        number: '1234',
+        balance: 100,
+        currencyCode: 'BRL',
+        creditData: null,
+      },
+    ]);
+
+    await useCase.execute({ userId: USER_A, bankConnectionId: 'conn-1', forceFullSync: true });
+
+    const call = pluggy.listTransactionsCalls.at(-1);
+    expect(call?.accountId).toBe('acc-1');
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    expect(call!.from.getTime()).toBeLessThan(fiveDaysAgo.getTime());
+    expect(Math.abs(call!.from.getTime() - ninetyDaysAgo.getTime())).toBeLessThan(60_000);
+  });
+
+  it('normalizes a 0 or incomplete installment pair from Pluggy to null (avoids domain rejection)', async () => {
+    const { useCase, connections, pluggy, importer } = setup();
+    await createConnection(connections);
+    pluggy.addItem('item-1', {
+      status: 'UPDATED',
+      institutionId: 'inst-1',
+      institutionName: 'Banco Teste',
+    });
+    pluggy.addAccounts('item-1', [
+      {
+        id: 'card-1',
+        itemId: 'item-1',
+        type: 'CREDIT',
+        name: 'Cartão de crédito',
+        number: '**** 5678',
+        balance: -200,
+        currencyCode: 'BRL',
+        creditData: {
+          brand: 'Visa',
+          creditLimit: 1000,
+          availableCreditLimit: 800,
+          balanceCloseDate: '2026-08-01',
+          balanceDueDate: '2026-08-10',
+        },
+      },
+    ]);
+    pluggy.addTransactions('card-1', [
+      {
+        id: 'tx-zero',
+        accountId: 'card-1',
+        description: 'Compra à vista',
+        amount: 30,
+        date: '2026-08-02',
+        type: 'DEBIT',
+        status: 'POSTED',
+        creditCardMetadata: { installmentNumber: 0, totalInstallments: 0 },
+      },
+      {
+        id: 'tx-partial',
+        accountId: 'card-1',
+        description: 'Pagamento fatura',
+        amount: 200,
+        date: '2026-08-03',
+        type: 'CREDIT',
+        status: 'POSTED',
+        creditCardMetadata: { installmentNumber: 1, totalInstallments: null },
+      },
+    ]);
+
+    const result = await useCase.execute({ userId: USER_A, bankConnectionId: 'conn-1' });
+
+    expect(result.transactionsFailed).toBe(0);
+    expect(importer.imported).toHaveLength(2);
+    const zeroTx = importer.imported.find((i) => i.pluggyTransactionId === 'tx-zero');
+    const partialTx = importer.imported.find((i) => i.pluggyTransactionId === 'tx-partial');
+    expect(zeroTx).toMatchObject({ installmentNumber: null, installmentCount: null });
+    expect(partialTx).toMatchObject({ installmentNumber: null, installmentCount: null });
+  });
+
   it('throws ConnectionNotFoundError for an unknown or another user\'s connection', async () => {
     const { useCase } = setup();
     await expect(

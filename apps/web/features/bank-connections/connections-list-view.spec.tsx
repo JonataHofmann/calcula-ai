@@ -49,6 +49,8 @@ function connection(over: Partial<BankConnectionDto> = {}): BankConnectionDto {
     creditCards: [
       { id: 'card-1', brand: 'Visa', lastDigits: '1234', currentBalance: '250.00', creditLimit: '5000.00' },
     ],
+    transactionsTotal: 0,
+    transactionsErrored: 0,
     ...over,
   };
 }

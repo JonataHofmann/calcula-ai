@@ -47,7 +47,7 @@ export class TransactionsMsImporterAdapter implements TransactionsImporter {
         userId: input.userId,
         description: input.description,
         amount: input.amount,
-        dueDate: toDateOnly(input.dueDate),
+        dueDate: input.dueDate.toISOString(),
         type: input.type,
         accountId: input.accountId,
         creditCardId: input.creditCardId,
@@ -67,7 +67,7 @@ export class TransactionsMsImporterAdapter implements TransactionsImporter {
       'PATCH',
       `/transactions/synced-import/${encodeURIComponent(pluggyTransactionId)}`,
       pluggyTransactionId,
-      { userId, ...rest, ...(dueDate ? { dueDate: toDateOnly(dueDate) } : {}) },
+      { userId, ...rest, ...(dueDate ? { dueDate: dueDate.toISOString() } : {}) },
     );
   }
 
@@ -149,8 +149,4 @@ export class TransactionsMsImporterAdapter implements TransactionsImporter {
     }
     return (await response.json()) as T;
   }
-}
-
-function toDateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }

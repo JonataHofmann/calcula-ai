@@ -19,7 +19,8 @@ import {
   updateTransaction,
 } from './transactions-api';
 
-const KEY = ['transactions'] as const;
+export const TRANSACTIONS_QUERY_KEY = ['transactions'] as const;
+const KEY = TRANSACTIONS_QUERY_KEY;
 
 export function useTransactions(query: ListTransactionsQuery) {
   return useQuery({

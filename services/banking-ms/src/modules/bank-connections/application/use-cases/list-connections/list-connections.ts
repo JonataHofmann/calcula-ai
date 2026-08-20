@@ -14,6 +14,8 @@ export interface ListConnectionsInput {
 export type ListConnectionsResult = BankConnectionProps & {
   accounts: LinkedAccountProps[];
   creditCards: LinkedCreditCardProps[];
+  transactionsTotal: number;
+  transactionsErrored: number;
 };
 
 @Injectable()
@@ -27,14 +29,17 @@ export class ListConnectionsUseCase {
     return Promise.all(
       connections.map(async (connection) => {
         const props = connection.toProps();
-        const [accounts, creditCards] = await Promise.all([
+        const [accounts, creditCards, counts] = await Promise.all([
           this.connections.findLinkedAccountsByConnection(props.id),
           this.connections.findLinkedCreditCardsByConnection(props.id),
+          this.connections.countSyncedTransactions(props.id),
         ]);
         return {
           ...props,
           accounts: accounts.map((a) => a.toProps()),
           creditCards: creditCards.map((c) => c.toProps()),
+          transactionsTotal: counts.total,
+          transactionsErrored: counts.errored,
         };
       }),
     );
