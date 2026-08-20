@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import type {
   CreateSyncedAccountInput,
   CreateSyncedCardInput,
@@ -6,6 +5,8 @@ import type {
   TransactionsImporter,
   UpdateTransactionInput,
 } from '../../domain/transactions-importer.port';
+
+import { Injectable, Logger } from '@nestjs/common';
 
 interface KeycloakTokenResponse {
   access_token: string;
@@ -28,6 +29,7 @@ const TOKEN_EXPIRY_SAFETY_MARGIN_SECONDS = 30;
 /** Calls services/api's transactions-import-api contract using a Keycloak client-credentials service token. */
 @Injectable()
 export class TransactionsMsImporterAdapter implements TransactionsImporter {
+  private readonly logger = new Logger(TransactionsMsImporterAdapter.name);
   private accessToken: string | null = null;
   private accessTokenExpiresAt = 0;
 
@@ -132,21 +134,39 @@ export class TransactionsMsImporterAdapter implements TransactionsImporter {
     body: unknown,
   ): Promise<T> {
     const token = await this.ensureAccessToken();
+    const idempotencyKey = `banking-ms:${pluggyTransactionId}`;
+    this.logger.debug(
+      `-> ${method} ${path} [${idempotencyKey}] ${JSON.stringify(body)}`,
+    );
     const response = await fetch(`${this.transactionsApiBaseUrl}${path}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
-        'Idempotency-Key': `banking-ms:${pluggyTransactionId}`,
+        'Idempotency-Key': idempotencyKey,
       },
       body: JSON.stringify(body),
     });
     if (!response.ok) {
-      throw new Error(`Transactions import ${method} ${path} failed with status ${response.status}`);
+      let responseBody: string;
+      try {
+        responseBody = await response.text();
+      } catch {
+        responseBody = '<unreadable body>';
+      }
+      this.logger.error(
+        `<- ${method} ${path} [${idempotencyKey}] failed with status ${response.status}: ${responseBody}`,
+      );
+      throw new Error(
+        `Transactions import ${method} ${path} failed with status ${response.status}: ${responseBody}`,
+      );
     }
     if (response.status === 204) {
+      this.logger.debug(`<- ${method} ${path} [${idempotencyKey}] ${response.status}`);
       return undefined as T;
     }
-    return (await response.json()) as T;
+    const json = await response.json();
+    this.logger.debug(`<- ${method} ${path} [${idempotencyKey}] ${response.status} ${JSON.stringify(json)}`);
+    return json as T;
   }
 }

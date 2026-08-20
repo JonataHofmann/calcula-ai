@@ -528,16 +528,28 @@ describe('SyncConnectionUseCase', () => {
         status: 'POSTED',
         creditCardMetadata: { installmentNumber: 1, totalInstallments: null },
       },
+      {
+        id: 'tx-out-of-range',
+        accountId: 'card-1',
+        description: 'Compra parcelada renegociada',
+        amount: 90,
+        date: '2026-08-04',
+        type: 'DEBIT',
+        status: 'POSTED',
+        creditCardMetadata: { installmentNumber: 13, totalInstallments: 12 },
+      },
     ]);
 
     const result = await useCase.execute({ userId: USER_A, bankConnectionId: 'conn-1' });
 
     expect(result.transactionsFailed).toBe(0);
-    expect(importer.imported).toHaveLength(2);
+    expect(importer.imported).toHaveLength(3);
     const zeroTx = importer.imported.find((i) => i.pluggyTransactionId === 'tx-zero');
     const partialTx = importer.imported.find((i) => i.pluggyTransactionId === 'tx-partial');
+    const outOfRangeTx = importer.imported.find((i) => i.pluggyTransactionId === 'tx-out-of-range');
     expect(zeroTx).toMatchObject({ installmentNumber: null, installmentCount: null });
     expect(partialTx).toMatchObject({ installmentNumber: null, installmentCount: null });
+    expect(outOfRangeTx).toMatchObject({ installmentNumber: null, installmentCount: null });
   });
 
   it('throws ConnectionNotFoundError for an unknown or another user\'s connection', async () => {

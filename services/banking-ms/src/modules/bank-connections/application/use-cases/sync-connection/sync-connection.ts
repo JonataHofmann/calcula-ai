@@ -25,9 +25,11 @@ const SYNC_LOOKBACK_DAYS = 90;
 
 /**
  * Some Pluggy connectors report `installmentNumber`/`totalInstallments` as `0` (or only one of
- * the pair) for non-installment card purchases instead of `null`. The domain requires both fields
- * null together or a valid `1..count` pair, so any incomplete/non-positive pair is treated as "no
- * installment metadata" rather than passed through as-is.
+ * the pair, or `installmentNumber > totalInstallments` after a renegotiation/reprocessing) for
+ * card purchases instead of a clean `1..count` pair. The domain requires both fields null
+ * together or a valid `1..count` pair (transaction.ts assertInstallmentPair), so any incomplete
+ * or out-of-range pair is treated as "no installment metadata" rather than passed through as-is —
+ * this metadata is informational only, never authoritative over the transaction's validity.
  */
 function normalizeInstallmentPair(metadata: {
   installmentNumber: number | null;
@@ -35,7 +37,7 @@ function normalizeInstallmentPair(metadata: {
 } | null): { installmentNumber: number | null; installmentCount: number | null } {
   const number = metadata?.installmentNumber;
   const count = metadata?.totalInstallments;
-  if (!number || !count || number < 1 || count < 1) {
+  if (!number || !count || number < 1 || count < 1 || number > count) {
     return { installmentNumber: null, installmentCount: null };
   }
   return { installmentNumber: number, installmentCount: count };
