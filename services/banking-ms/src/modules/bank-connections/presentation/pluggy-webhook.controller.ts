@@ -1,4 +1,4 @@
-import { Body, Controller, Inject, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Inject, Logger, Post, UseGuards } from '@nestjs/common';
 import { Public } from '../../../common/auth/public.decorator';
 import {
   BANK_CONNECTION_REPOSITORY,
@@ -36,6 +36,8 @@ const SYNCABLE_EVENTS = new Set([
 @UseGuards(PluggyWebhookGuard)
 @Controller('webhooks/pluggy')
 export class PluggyWebhookController {
+  private readonly logger = new Logger(PluggyWebhookController.name);
+
   constructor(
     @Inject(BANK_CONNECTION_REPOSITORY) private readonly connections: BankConnectionRepository,
     private readonly syncConnection: SyncConnectionUseCase,
@@ -48,7 +50,9 @@ export class PluggyWebhookController {
       if (connection) {
         await this.syncConnection
           .execute({ userId: connection.userId, bankConnectionId: connection.id })
-          .catch(() => undefined);
+          .catch((error: Error) => {
+            this.logger.error(`Webhook-triggered sync failed for connection ${connection.id}: ${error.message}`);
+          });
       }
     } else if (payload.event === 'item/error' && payload.itemId) {
       const connection = await this.connections.findByItemId(payload.itemId);

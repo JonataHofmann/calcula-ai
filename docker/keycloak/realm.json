@@ -18,6 +18,7 @@
     {
       "clientId": "finance-api",
       "publicClient": false,
+      "secret": "dev-secret-svc-transactions-import",
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "protocol": "openid-connect"
@@ -26,7 +27,8 @@
   "roles": {
     "realm": [
       { "name": "user", "description": "Regular platform user" },
-      { "name": "admin", "description": "Platform administrator" }
+      { "name": "admin", "description": "Platform administrator" },
+      { "name": "svc-transactions-import", "description": "Service account role for machine-to-machine sync imports" }
     ]
   },
   "defaultRoles": ["user"],
@@ -41,6 +43,12 @@
       "lastName": "User",
       "credentials": [{ "type": "password", "value": "test1234", "temporary": false }],
       "realmRoles": ["user"]
+    },
+    {
+      "username": "service-account-finance-api",
+      "enabled": true,
+      "serviceAccountClientId": "finance-api",
+      "realmRoles": ["svc-transactions-import"]
     }
   ]
 }

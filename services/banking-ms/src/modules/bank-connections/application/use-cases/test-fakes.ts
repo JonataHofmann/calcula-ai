@@ -12,6 +12,8 @@ import type {
   PluggyTransaction,
 } from '../../domain/pluggy-client.port';
 import type {
+  CreateSyncedAccountInput,
+  CreateSyncedCardInput,
   ImportTransactionInput,
   TransactionsImporter,
   UpdateTransactionInput,
@@ -159,6 +161,8 @@ export class FakeTransactionsImporter implements TransactionsImporter {
   readonly imported: ImportTransactionInput[] = [];
   readonly updated: UpdateTransactionInput[] = [];
   readonly deleted: Array<{ userId: string; pluggyTransactionId: string }> = [];
+  readonly createdAccounts: CreateSyncedAccountInput[] = [];
+  readonly createdCards: CreateSyncedCardInput[] = [];
   shouldFail = false;
 
   async importTransaction(input: ImportTransactionInput): Promise<{ transactionsMsId: string }> {
@@ -171,5 +175,13 @@ export class FakeTransactionsImporter implements TransactionsImporter {
   }
   async deleteTransaction(userId: string, pluggyTransactionId: string): Promise<void> {
     this.deleted.push({ userId, pluggyTransactionId });
+  }
+  async createSyncedAccount(input: CreateSyncedAccountInput): Promise<{ id: string }> {
+    this.createdAccounts.push(input);
+    return { id: `api-account-${this.createdAccounts.length}` };
+  }
+  async createSyncedCard(input: CreateSyncedCardInput): Promise<{ id: string }> {
+    this.createdCards.push(input);
+    return { id: `api-card-${this.createdCards.length}` };
   }
 }

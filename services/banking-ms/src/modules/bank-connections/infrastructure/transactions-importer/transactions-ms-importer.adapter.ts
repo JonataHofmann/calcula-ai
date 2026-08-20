@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  CreateSyncedAccountInput,
+  CreateSyncedCardInput,
   ImportTransactionInput,
   TransactionsImporter,
   UpdateTransactionInput,
@@ -15,6 +17,10 @@ interface SyncedImportResponse {
   source: 'synced';
   externalId: string;
   pluggyStatus: 'pending' | 'posted';
+}
+
+interface SyncedResourceResponse {
+  id: string;
 }
 
 const TOKEN_EXPIRY_SAFETY_MARGIN_SECONDS = 30;
@@ -43,8 +49,8 @@ export class TransactionsMsImporterAdapter implements TransactionsImporter {
         amount: input.amount,
         dueDate: toDateOnly(input.dueDate),
         type: input.type,
-        accountId: null,
-        creditCardId: null,
+        accountId: input.accountId,
+        creditCardId: input.creditCardId,
         source: 'synced',
         externalId: input.pluggyTransactionId,
         pluggyStatus: input.pluggyStatus,
@@ -72,6 +78,28 @@ export class TransactionsMsImporterAdapter implements TransactionsImporter {
       pluggyTransactionId,
       { userId },
     );
+  }
+
+  async createSyncedAccount(input: CreateSyncedAccountInput): Promise<{ id: string }> {
+    const { pluggyAccountId, ...rest } = input;
+    const response = await this.request<SyncedResourceResponse>(
+      'POST',
+      '/accounts/synced-create',
+      `account:${pluggyAccountId}`,
+      rest,
+    );
+    return { id: response.id };
+  }
+
+  async createSyncedCard(input: CreateSyncedCardInput): Promise<{ id: string }> {
+    const { pluggyAccountId, ...rest } = input;
+    const response = await this.request<SyncedResourceResponse>(
+      'POST',
+      '/cards/synced-create',
+      `card:${pluggyAccountId}`,
+      rest,
+    );
+    return { id: response.id };
   }
 
   private async ensureAccessToken(): Promise<string> {

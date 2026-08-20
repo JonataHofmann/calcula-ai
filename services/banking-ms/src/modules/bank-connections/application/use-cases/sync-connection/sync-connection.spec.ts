@@ -352,6 +352,92 @@ describe('SyncConnectionUseCase', () => {
     expect(synced).toBeNull();
   });
 
+  it('materializes a real Account/CreditCard and links imported transactions to them', async () => {
+    const { useCase, connections, pluggy, importer } = setup();
+    await createConnection(connections);
+    pluggy.addItem('item-1', {
+      status: 'UPDATED',
+      institutionId: 'inst-1',
+      institutionName: 'Banco Teste',
+    });
+    pluggy.addAccounts('item-1', [
+      {
+        id: 'acc-1',
+        itemId: 'item-1',
+        type: 'BANK',
+        name: 'Conta corrente',
+        number: '1234',
+        balance: 100,
+        currencyCode: 'BRL',
+        creditData: null,
+      },
+      {
+        id: 'card-1',
+        itemId: 'item-1',
+        type: 'CREDIT',
+        name: 'Cartão de crédito',
+        number: '**** 5678',
+        balance: -200,
+        currencyCode: 'BRL',
+        creditData: {
+          brand: 'Visa',
+          creditLimit: 1000,
+          availableCreditLimit: 800,
+          balanceCloseDate: '2026-08-01',
+          balanceDueDate: '2026-08-10',
+        },
+      },
+    ]);
+    pluggy.addTransactions('acc-1', [
+      {
+        id: 'tx-1',
+        accountId: 'acc-1',
+        description: 'Supermercado',
+        amount: 50,
+        date: '2026-08-01',
+        type: 'DEBIT',
+        status: 'POSTED',
+        creditCardMetadata: null,
+      },
+    ]);
+    pluggy.addTransactions('card-1', [
+      {
+        id: 'tx-2',
+        accountId: 'card-1',
+        description: 'Parcela 1/3',
+        amount: 30,
+        date: '2026-08-02',
+        type: 'DEBIT',
+        status: 'PENDING',
+        creditCardMetadata: { installmentNumber: 1, totalInstallments: 3 },
+      },
+    ]);
+
+    await useCase.execute({ userId: USER_A, bankConnectionId: 'conn-1' });
+
+    expect(importer.createdAccounts).toHaveLength(1);
+    expect(importer.createdAccounts[0]).toMatchObject({ name: 'Conta corrente', bankId: 'other', icon: 'landmark', color: 'slate' });
+    expect(importer.createdCards).toHaveLength(1);
+    expect(importer.createdCards[0]).toMatchObject({ name: 'Cartão de crédito', lastDigits: '5678', brandId: 'visa', limit: '1000.00' });
+
+    const account = (await connections.findLinkedAccountsByConnection('conn-1'))[0];
+    const card = (await connections.findLinkedCreditCardsByConnection('conn-1'))[0];
+    expect(account.apiAccountId).toBe('api-account-1');
+    expect(card.apiCreditCardId).toBe('api-card-1');
+
+    expect(importer.imported).toHaveLength(2);
+    const accountTx = importer.imported.find((i) => i.pluggyTransactionId === 'tx-1');
+    const cardTx = importer.imported.find((i) => i.pluggyTransactionId === 'tx-2');
+    expect(accountTx?.accountId).toBe('api-account-1');
+    expect(accountTx?.creditCardId).toBeNull();
+    expect(cardTx?.creditCardId).toBe('api-card-1');
+    expect(cardTx?.accountId).toBeNull();
+
+    await useCase.execute({ userId: USER_A, bankConnectionId: 'conn-1' });
+    expect(importer.createdAccounts).toHaveLength(1);
+    expect(importer.createdCards).toHaveLength(1);
+  });
+
   it('throws ConnectionNotFoundError for an unknown or another user\'s connection', async () => {
     const { useCase } = setup();
     await expect(

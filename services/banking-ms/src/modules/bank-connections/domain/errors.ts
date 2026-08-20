@@ -39,3 +39,11 @@ export class ConnectionNotActiveError extends Error {
     this.name = 'ConnectionNotActiveConflictError';
   }
 }
+
+/** Pluggy returns 409 on PATCH /items/:id when a previous update for that item hasn't finished yet. */
+export class ItemAlreadyUpdatingError extends Error {
+  constructor(itemId: string) {
+    super(`Item is already updating: ${itemId}`);
+    this.name = 'ItemAlreadyUpdatingConflictError';
+  }
+}

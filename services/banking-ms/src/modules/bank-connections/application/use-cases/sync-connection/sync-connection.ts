@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { BANKS, CARD_BRANDS, isCardBrandId } from '@finance/contracts';
 import {
   BANK_CONNECTION_REPOSITORY,
   type BankConnectionRepository,
@@ -36,6 +37,8 @@ export interface SyncConnectionResult {
 
 @Injectable()
 export class SyncConnectionUseCase {
+  private readonly logger = new Logger(SyncConnectionUseCase.name);
+
   constructor(
     @Inject(BANK_CONNECTION_REPOSITORY) private readonly connections: BankConnectionRepository,
     @Inject(PLUGGY_CLIENT) private readonly pluggy: PluggyClient,
@@ -69,22 +72,46 @@ export class SyncConnectionUseCase {
     let transactionsFailed = 0;
 
     for (const pa of pluggyAccounts) {
-      if (pa.type === 'BANK') {
-        const account = this.syncLinkedAccount(connection.id, connection.userId, pa, accountsByPluggyId.get(pa.id));
-        await this.connections.upsertLinkedAccount(account);
-        accountsSynced += 1;
+      try {
+        if (pa.type === 'BANK') {
+          const account = this.syncLinkedAccount(connection.id, connection.userId, pa, accountsByPluggyId.get(pa.id));
+          await this.connections.upsertLinkedAccount(account);
+          await this.ensureApiAccount(account, pa, connection.institutionName);
+          accountsSynced += 1;
 
-        const result = await this.syncTransactions(connection.userId, pa, from, account.id, null);
-        transactionsImported += result.imported;
-        transactionsFailed += result.failed;
-      } else {
-        const card = this.syncLinkedCreditCard(connection.id, connection.userId, pa, cardsByPluggyId.get(pa.id));
-        await this.connections.upsertLinkedCreditCard(card);
-        creditCardsSynced += 1;
+          const result = await this.syncTransactions(
+            connection.userId,
+            pa,
+            from,
+            account.id,
+            null,
+            account.apiAccountId,
+            null,
+          );
+          transactionsImported += result.imported;
+          transactionsFailed += result.failed;
+        } else {
+          const card = this.syncLinkedCreditCard(connection.id, connection.userId, pa, cardsByPluggyId.get(pa.id));
+          await this.connections.upsertLinkedCreditCard(card);
+          await this.ensureApiCreditCard(card, pa);
+          creditCardsSynced += 1;
 
-        const result = await this.syncTransactions(connection.userId, pa, from, null, card.id);
-        transactionsImported += result.imported;
-        transactionsFailed += result.failed;
+          const result = await this.syncTransactions(
+            connection.userId,
+            pa,
+            from,
+            null,
+            card.id,
+            null,
+            card.apiCreditCardId,
+          );
+          transactionsImported += result.imported;
+          transactionsFailed += result.failed;
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to sync ${pa.type === 'BANK' ? 'account' : 'credit card'} ${pa.id} on connection ${connection.id}: ${(error as Error).message}`,
+        );
       }
     }
 
@@ -151,6 +178,38 @@ export class SyncConnectionUseCase {
     });
   }
 
+  /** Materializes the real services/api `Account` for a Pluggy bank account, once per account (idempotent). */
+  private async ensureApiAccount(account: LinkedAccount, pa: PluggyAccount, institutionName: string): Promise<void> {
+    if (account.apiAccountId) return;
+    const { id } = await this.importer.createSyncedAccount({
+      userId: account.userId,
+      pluggyAccountId: pa.id,
+      name: pa.name,
+      bankId: matchBankId(institutionName),
+      icon: 'landmark',
+      color: 'slate',
+    });
+    account.linkApiAccount(id);
+    await this.connections.upsertLinkedAccount(account);
+  }
+
+  /** Materializes the real services/api `CreditCard` for a Pluggy credit card, once per card (idempotent). */
+  private async ensureApiCreditCard(card: LinkedCreditCard, pa: PluggyAccount): Promise<void> {
+    if (card.apiCreditCardId) return;
+    const { id } = await this.importer.createSyncedCard({
+      userId: card.userId,
+      pluggyAccountId: pa.id,
+      name: pa.name,
+      lastDigits: card.lastDigits ?? '0000',
+      dueDay: dayOfMonth(card.dueDate),
+      closingDay: dayOfMonth(card.closingDate),
+      limit: card.creditLimit ?? '0',
+      brandId: matchCardBrand(card.brand),
+    });
+    card.linkApiCreditCard(id);
+    await this.connections.upsertLinkedCreditCard(card);
+  }
+
   /**
    * Reconciles every Pluggy transaction in the lookback window against stored copies (FR-011):
    * new ids are imported, changed ids are patched in place (never duplicated), and ids that
@@ -162,6 +221,8 @@ export class SyncConnectionUseCase {
     from: Date,
     linkedAccountId: string | null,
     linkedCreditCardId: string | null,
+    apiAccountId: string | null,
+    apiCreditCardId: string | null,
   ): Promise<{ imported: number; failed: number }> {
     const transactions = await this.pluggy.listTransactions(pa.id, from);
     let imported = 0;
@@ -200,6 +261,8 @@ export class SyncConnectionUseCase {
           amount: fromCents(Math.abs(Math.round(tx.amount * 100))),
           dueDate: new Date(tx.date),
           type: tx.type === 'DEBIT' ? 'expense' : 'income',
+          accountId: apiAccountId,
+          creditCardId: apiCreditCardId,
           installmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,
           installmentCount: tx.creditCardMetadata?.totalInstallments ?? null,
           pluggyStatus: tx.status === 'POSTED' ? 'posted' : 'pending',
@@ -270,4 +333,19 @@ function daysAgo(days: number): Date {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d;
+}
+
+function matchBankId(institutionName: string): string {
+  const needle = institutionName.toLowerCase();
+  const match = BANKS.find((bank) => needle.includes(bank.name.toLowerCase()));
+  return match?.id ?? 'other';
+}
+
+function matchCardBrand(brand: string | null): string {
+  const candidate = brand?.toLowerCase() ?? '';
+  return isCardBrandId(candidate) ? candidate : 'other';
+}
+
+function dayOfMonth(date: Date | null): number {
+  return date ? date.getDate() : 1;
 }

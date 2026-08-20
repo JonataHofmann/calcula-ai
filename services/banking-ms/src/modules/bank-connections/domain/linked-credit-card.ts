@@ -13,6 +13,7 @@ export interface LinkedCreditCardProps {
   currentBalance: string;
   closingDate: Date | null;
   dueDate: Date | null;
+  apiCreditCardId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +30,7 @@ export interface CreateLinkedCreditCardData {
   currentBalance: string;
   closingDate?: Date | null;
   dueDate?: Date | null;
+  apiCreditCardId?: string | null;
   now?: Date;
 }
 
@@ -62,6 +64,7 @@ export class LinkedCreditCard {
       currentBalance: input.currentBalance,
       closingDate: input.closingDate ?? null,
       dueDate: input.dueDate ?? null,
+      apiCreditCardId: input.apiCreditCardId ?? null,
       createdAt: now,
       updatedAt: now,
     });
@@ -69,6 +72,12 @@ export class LinkedCreditCard {
 
   static restore(props: LinkedCreditCardProps): LinkedCreditCard {
     return new LinkedCreditCard(props);
+  }
+
+  /** Records the services/api `CreditCard` created for this Pluggy card — called once, on first sync. */
+  linkApiCreditCard(apiCreditCardId: string, now: Date = new Date()): void {
+    this.props.apiCreditCardId = apiCreditCardId;
+    this.props.updatedAt = now;
   }
 
   /** Applied on every sync — Pluggy always sends the current snapshot for the card. */
@@ -134,6 +143,10 @@ export class LinkedCreditCard {
 
   get dueDate(): Date | null {
     return this.props.dueDate;
+  }
+
+  get apiCreditCardId(): string | null {
+    return this.props.apiCreditCardId;
   }
 
   get createdAt(): Date {

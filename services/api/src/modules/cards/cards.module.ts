@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '../../common/auth/auth.module';
+import { ServiceAccountGuard } from '../../common/auth/service-account.guard';
 import { CREDIT_CARD_REPOSITORY } from './domain/credit-card.repository';
 import { CreditCardEntity } from './infrastructure/persistence/entities/credit-card.entity';
 import { TypeOrmCreditCardRepository } from './infrastructure/persistence/repositories/credit-card.repository';
@@ -10,7 +12,7 @@ import { DeleteCardUseCase } from './application/use-cases/delete-card/delete-ca
 import { CardsController } from './presentation/cards.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CreditCardEntity])],
+  imports: [TypeOrmModule.forFeature([CreditCardEntity]), AuthModule],
   controllers: [CardsController],
   providers: [
     { provide: CREDIT_CARD_REPOSITORY, useClass: TypeOrmCreditCardRepository },
@@ -18,6 +20,7 @@ import { CardsController } from './presentation/cards.controller';
     ListCardsUseCase,
     UpdateCardUseCase,
     DeleteCardUseCase,
+    ServiceAccountGuard,
   ],
 })
 export class CardsModule {}

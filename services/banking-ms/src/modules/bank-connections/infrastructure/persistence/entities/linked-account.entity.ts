@@ -37,6 +37,9 @@ export class LinkedAccountEntity {
   @Column({ type: 'char', length: 3 })
   currency!: string;
 
+  @Column({ name: 'api_account_id', type: 'uuid', nullable: true })
+  apiAccountId!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

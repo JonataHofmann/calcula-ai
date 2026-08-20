@@ -174,6 +174,7 @@ function toAccountEntity(account: LinkedAccount): LinkedAccountEntity {
   entity.displayName = props.displayName;
   entity.balance = props.balance;
   entity.currency = props.currency;
+  entity.apiAccountId = props.apiAccountId;
   entity.createdAt = props.createdAt;
   entity.updatedAt = props.updatedAt;
   return entity;
@@ -189,6 +190,7 @@ function toAccountDomain(row: LinkedAccountEntity): LinkedAccount {
     displayName: row.displayName,
     balance: row.balance,
     currency: row.currency as 'BRL',
+    apiAccountId: row.apiAccountId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });
@@ -208,6 +210,7 @@ function toCardEntity(card: LinkedCreditCard): LinkedCreditCardEntity {
   entity.currentBalance = props.currentBalance;
   entity.closingDate = props.closingDate;
   entity.dueDate = props.dueDate;
+  entity.apiCreditCardId = props.apiCreditCardId;
   entity.createdAt = props.createdAt;
   entity.updatedAt = props.updatedAt;
   return entity;
@@ -226,6 +229,7 @@ function toCardDomain(row: LinkedCreditCardEntity): LinkedCreditCard {
     currentBalance: row.currentBalance,
     closingDate: row.closingDate,
     dueDate: row.dueDate,
+    apiCreditCardId: row.apiCreditCardId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });

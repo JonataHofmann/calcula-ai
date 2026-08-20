@@ -38,6 +38,8 @@ export class RetryFailedImportsUseCase {
     const now = input.now ?? new Date();
     if (!isDueForRetry(synced, now)) return;
 
+    const { apiAccountId, apiCreditCardId } = await this.resolveApiLinkage(synced);
+
     synced.retry(now);
     synced.startProcessing(now);
     try {
@@ -48,6 +50,8 @@ export class RetryFailedImportsUseCase {
         amount: synced.amount,
         dueDate: synced.date,
         type: synced.direction === 'credit' ? 'income' : 'expense',
+        accountId: apiAccountId,
+        creditCardId: apiCreditCardId,
         installmentNumber: synced.installmentNumber,
         installmentCount: synced.installmentTotal,
         pluggyStatus: synced.pluggyStatus,
@@ -64,6 +68,28 @@ export class RetryFailedImportsUseCase {
       await this.flagConnectionNeedsAttention(synced);
       throw new ImportRetriesExhaustedError(synced.pluggyTransactionId);
     }
+  }
+
+  private async resolveApiLinkage(
+    synced: SyncedTransaction,
+  ): Promise<{ apiAccountId: string | null; apiCreditCardId: string | null }> {
+    const bankConnectionId = await this.connections.findBankConnectionIdForOrigin(
+      synced.linkedAccountId,
+      synced.linkedCreditCardId,
+    );
+    if (!bankConnectionId) return { apiAccountId: null, apiCreditCardId: null };
+
+    if (synced.linkedAccountId) {
+      const accounts = await this.connections.findLinkedAccountsByConnection(bankConnectionId);
+      const apiAccountId = accounts.find((a) => a.id === synced.linkedAccountId)?.apiAccountId ?? null;
+      return { apiAccountId, apiCreditCardId: null };
+    }
+    if (synced.linkedCreditCardId) {
+      const cards = await this.connections.findLinkedCreditCardsByConnection(bankConnectionId);
+      const apiCreditCardId = cards.find((c) => c.id === synced.linkedCreditCardId)?.apiCreditCardId ?? null;
+      return { apiAccountId: null, apiCreditCardId };
+    }
+    return { apiAccountId: null, apiCreditCardId: null };
   }
 
   private async flagConnectionNeedsAttention(synced: SyncedTransaction): Promise<void> {

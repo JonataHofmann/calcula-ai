@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ItemAlreadyUpdatingError } from '../../domain/errors';
 import type {
   PluggyAccount,
   PluggyClient,
@@ -8,6 +9,17 @@ import type {
   PluggyItemStatus,
   PluggyTransaction,
 } from '../../domain/pluggy-client.port';
+
+/** Thrown by `request()` with the HTTP status so callers can map specific codes to domain errors. */
+class PluggyApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'PluggyApiError';
+  }
+}
 
 interface PluggyItemResponse {
   id: string;
@@ -74,7 +86,14 @@ export class PluggyClientAdapter implements PluggyClient {
   }
 
   async forceRefreshItem(itemId: string): Promise<PluggyItem> {
-    return toItem(await this.request<PluggyItemResponse>('PATCH', `/items/${itemId}`));
+    try {
+      return toItem(await this.request<PluggyItemResponse>('PATCH', `/items/${itemId}`));
+    } catch (error) {
+      if (error instanceof PluggyApiError && error.status === 409) {
+        throw new ItemAlreadyUpdatingError(itemId);
+      }
+      throw error;
+    }
   }
 
   async listAccounts(itemId: string): Promise<PluggyAccount[]> {
@@ -88,17 +107,16 @@ export class PluggyClientAdapter implements PluggyClient {
   async listTransactions(accountId: string, from: Date): Promise<PluggyTransaction[]> {
     const fromDate = from.toISOString().slice(0, 10);
     const transactions: PluggyTransactionResponse[] = [];
-    let page = 1;
-    let totalPages = 1;
-    do {
-      const response = await this.request<{ results: PluggyTransactionResponse[]; totalPages: number }>(
-        'GET',
-        `/transactions?accountId=${encodeURIComponent(accountId)}&from=${fromDate}&page=${page}`,
-      );
+    let path: string | null =
+      `/v2/transactions?accountId=${encodeURIComponent(accountId)}&dateFrom=${fromDate}`;
+    while (path) {
+      const response: { results: PluggyTransactionResponse[]; next: string | null } = await this.request<{
+        results: PluggyTransactionResponse[];
+        next: string | null;
+      }>('GET', path);
       transactions.push(...response.results);
-      totalPages = response.totalPages;
-      page += 1;
-    } while (page <= totalPages);
+      path = response.next ? `/v2/transactions${response.next}` : null;
+    }
     return transactions.map(toTransaction);
   }
 
@@ -128,7 +146,10 @@ export class PluggyClientAdapter implements PluggyClient {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!response.ok) {
-      throw new Error(`Pluggy request ${method} ${path} failed with status ${response.status}`);
+      throw new PluggyApiError(
+        `Pluggy request ${method} ${path} failed with status ${response.status}`,
+        response.status,
+      );
     }
     return (await response.json()) as T;
   }

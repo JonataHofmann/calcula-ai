@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
   type CreditCardDto,
@@ -18,9 +19,14 @@ import {
 } from '@finance/contracts';
 import { CurrentUser } from '../../../common/auth/current-user.decorator';
 import type { AuthenticatedUser } from '@finance/contracts';
+import { ServiceAccountGuard } from '../../../common/auth/service-account.guard';
 import { ZodValidationPipe } from '../../../common/validation/zod-validation.pipe';
 import type { CreditCard } from '../domain/credit-card';
 import { CreateCardUseCase } from '../application/use-cases/create-card/create-card.use-case';
+import {
+  createSyncedCardInput,
+  type CreateSyncedCardInput,
+} from '../application/use-cases/create-card/create-synced-card.schemas';
 import { ListCardsUseCase } from '../application/use-cases/list-cards/list-cards.use-case';
 import { UpdateCardUseCase } from '../application/use-cases/update-card/update-card.use-case';
 import { DeleteCardUseCase } from '../application/use-cases/delete-card/delete-card.use-case';
@@ -46,6 +52,17 @@ export class CardsController {
     @Body(new ZodValidationPipe(createCreditCardInput)) input: CreateCreditCardInput,
   ): Promise<CreditCardDto> {
     const card = await this.createCard.execute(user.id, input);
+    return toDto(card);
+  }
+
+  /** Cross-service creation from banking-ms's Pluggy sync — never in the public BFF/web API. */
+  @Post('synced-create')
+  @UseGuards(ServiceAccountGuard)
+  async createSynced(
+    @Body(new ZodValidationPipe(createSyncedCardInput)) input: CreateSyncedCardInput,
+  ): Promise<CreditCardDto> {
+    const { userId, ...rest } = input;
+    const card = await this.createCard.execute(userId, rest);
     return toDto(card);
   }
 

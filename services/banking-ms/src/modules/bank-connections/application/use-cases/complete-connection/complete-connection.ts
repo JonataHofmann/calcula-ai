@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { BankConnection, type BankConnectionProps } from '../../../domain/bank-connection';
 import {
   BANK_CONNECTION_REPOSITORY,
@@ -18,6 +18,8 @@ export type CompleteConnectionResult = BankConnectionProps;
 
 @Injectable()
 export class CompleteConnectionUseCase {
+  private readonly logger = new Logger(CompleteConnectionUseCase.name);
+
   constructor(
     @Inject(BANK_CONNECTION_REPOSITORY) private readonly connections: BankConnectionRepository,
     @Inject(PLUGGY_CLIENT) private readonly pluggy: PluggyClient,
@@ -41,7 +43,9 @@ export class CompleteConnectionUseCase {
     // Fire-and-forget: the caller doesn't wait on the full account/transaction sync (AGENTS.md rule 8).
     void this.syncConnection
       .execute({ userId: input.userId, bankConnectionId: connection.id })
-      .catch(() => undefined);
+      .catch((error: Error) => {
+        this.logger.error(`Initial sync failed for connection ${connection.id}: ${error.message}`);
+      });
 
     return connection.toProps();
   }

@@ -11,6 +11,7 @@ export interface LinkedAccountProps {
   displayName: string;
   balance: string;
   currency: 'BRL';
+  apiAccountId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +24,7 @@ export interface CreateLinkedAccountData {
   type: LinkedAccountType;
   displayName: string;
   balance: string;
+  apiAccountId?: string | null;
   now?: Date;
 }
 
@@ -42,6 +44,7 @@ export class LinkedAccount {
       displayName: assertNonEmpty(input.displayName),
       balance: input.balance,
       currency: 'BRL',
+      apiAccountId: input.apiAccountId ?? null,
       createdAt: now,
       updatedAt: now,
     });
@@ -56,6 +59,12 @@ export class LinkedAccount {
     assertBalance(input.balance);
     this.props.displayName = assertNonEmpty(input.displayName);
     this.props.balance = input.balance;
+    this.props.updatedAt = now;
+  }
+
+  /** Records the services/api `Account` created for this Pluggy account — called once, on first sync. */
+  linkApiAccount(apiAccountId: string, now: Date = new Date()): void {
+    this.props.apiAccountId = apiAccountId;
     this.props.updatedAt = now;
   }
 
@@ -93,6 +102,10 @@ export class LinkedAccount {
 
   get currency(): 'BRL' {
     return this.props.currency;
+  }
+
+  get apiAccountId(): string | null {
+    return this.props.apiAccountId;
   }
 
   get createdAt(): Date {

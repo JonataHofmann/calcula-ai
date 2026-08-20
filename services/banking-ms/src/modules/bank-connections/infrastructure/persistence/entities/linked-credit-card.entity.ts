@@ -46,6 +46,9 @@ export class LinkedCreditCardEntity {
   @Column({ name: 'due_date', type: 'date', nullable: true })
   dueDate!: Date | null;
 
+  @Column({ name: 'api_credit_card_id', type: 'uuid', nullable: true })
+  apiCreditCardId!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
