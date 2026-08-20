@@ -37,3 +37,11 @@ export class SyncedImportConflictError extends Error {
     this.name = 'SyncedImportConflictError';
   }
 }
+
+/** Undoing effectuation on a still-pending transaction -> 409 (name ends with ConflictError). */
+export class NotPaidError extends Error {
+  constructor(id: string) {
+    super(`Transaction not paid: ${id}`);
+    this.name = 'NotPaidConflictError';
+  }
+}

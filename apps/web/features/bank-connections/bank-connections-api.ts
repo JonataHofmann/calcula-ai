@@ -11,7 +11,7 @@ export function listBankConnections(): Promise<BankConnectionDto[]> {
 }
 
 export function createConnectToken(input: ConnectTokenInput): Promise<ConnectTokenResponse> {
-  return apiFetch<ConnectTokenResponse>('/connect-tokens', {
+  return apiFetch<ConnectTokenResponse>('/bank-connections/connect-tokens', {
     method: 'POST',
     body: JSON.stringify(input),
   });

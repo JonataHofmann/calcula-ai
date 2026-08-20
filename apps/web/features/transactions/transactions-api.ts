@@ -71,3 +71,14 @@ export function effectuateTransaction(
     body: JSON.stringify(input),
   });
 }
+
+export interface UndoEffectuateResponse {
+  transaction: TransactionDto;
+}
+
+export function undoEffectuateTransaction(id: string): Promise<UndoEffectuateResponse> {
+  return apiFetch<UndoEffectuateResponse>(`/transactions/${id}/effectuate/undo`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  });
+}

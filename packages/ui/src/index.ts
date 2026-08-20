@@ -161,3 +161,4 @@ export {
   DragGhost,
   type DragGhostProps,
 } from './components/drag-ghost.js';
+export { Switch, type SwitchProps } from './components/switch.js';

@@ -69,6 +69,10 @@ export async function openPluggyConnect(
   }
   const widget = new window.PluggyConnect({
     connectToken,
+    // Pluggy hides sandbox institutions from the widget by default — needed until the
+    // Pluggy app is approved for production connectors (https://docs.pluggy.ai/docs/connectors).
+    // includeSandbox: process.env.NEXT_PUBLIC_PLUGGY_INCLUDE_SANDBOX === 'true',
+    includeSandbox: true,
     onSuccess: (data) => onSuccess(data.item.id),
     onError,
     onClose,

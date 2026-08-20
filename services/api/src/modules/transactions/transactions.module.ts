@@ -18,6 +18,7 @@ import { GetTransactionUseCase } from './application/use-cases/get-transaction/g
 import { UpdateTransactionUseCase } from './application/use-cases/update-transaction/update-transaction';
 import { DeleteTransactionUseCase } from './application/use-cases/delete-transaction/delete-transaction';
 import { EffectuateTransactionUseCase } from './application/use-cases/effectuate-transaction/effectuate-transaction';
+import { UndoEffectuateTransactionUseCase } from './application/use-cases/undo-effectuate-transaction/undo-effectuate-transaction';
 import { ListOverdueUseCase } from './application/use-cases/list-overdue/list-overdue';
 import { GetForecastUseCase } from './application/use-cases/get-forecast/get-forecast';
 import { ImportSyncedTransactionUseCase } from './application/use-cases/import-synced-transaction/import-synced-transaction';
@@ -45,6 +46,7 @@ import { TransactionsController } from './presentation/transactions.controller';
     UpdateTransactionUseCase,
     DeleteTransactionUseCase,
     EffectuateTransactionUseCase,
+    UndoEffectuateTransactionUseCase,
     ListOverdueUseCase,
     GetForecastUseCase,
     ImportSyncedTransactionUseCase,

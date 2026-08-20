@@ -7,7 +7,7 @@ import {
 } from '../../../domain/bank-connection.repository';
 import { DuplicateConnectionError } from '../../../domain/errors';
 import { PLUGGY_CLIENT, type PluggyClient } from '../../../domain/pluggy-client.port';
-import type { SyncConnectionUseCase } from '../sync-connection/sync-connection';
+import { SyncConnectionUseCase } from '../sync-connection/sync-connection';
 
 export interface CompleteConnectionInput {
   userId: string;

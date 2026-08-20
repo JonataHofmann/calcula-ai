@@ -1,5 +1,5 @@
 import { Transaction, type CreateTransactionData } from './transaction';
-import { InvalidTransactionError, AlreadyPaidError } from './errors';
+import { InvalidTransactionError, AlreadyPaidError, NotPaidError } from './errors';
 
 const base: CreateTransactionData = {
   id: 't1',
@@ -146,6 +146,22 @@ describe('Transaction aggregate', () => {
       const t = Transaction.create(base);
       t.effectuate({});
       expect(() => t.effectuate({})).toThrow(AlreadyPaidError);
+    });
+  });
+
+  describe('undoEffectuate', () => {
+    it('moves paid -> pending, clearing effective date/amount', () => {
+      const t = Transaction.create(base);
+      t.effectuate({ date: new Date(Date.UTC(2026, 0, 12)), amount: '95.00' });
+      t.undoEffectuate();
+      expect(t.status).toBe('pending');
+      expect(t.effectiveDate).toBeNull();
+      expect(t.effectiveAmount).toBeNull();
+    });
+
+    it('blocks undoing a still-pending transaction', () => {
+      const t = Transaction.create(base);
+      expect(() => t.undoEffectuate()).toThrow(NotPaidError);
     });
   });
 

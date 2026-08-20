@@ -17,13 +17,15 @@ export interface TransactionsUIState {
   sort: TransactionSort;
   order: SortOrder;
   showOverdue: boolean;
+  groupCreditCardExpenses: boolean;
 }
 
 const initialState: TransactionsUIState = {
   filters: {},
   sort: 'dueDate',
   order: 'asc',
-  showOverdue: false,
+  showOverdue: true,
+  groupCreditCardExpenses: true,
 };
 
 const transactionsUiSlice = createSlice({
@@ -51,9 +53,12 @@ const transactionsUiSlice = createSlice({
     setShowOverdue(state, action: PayloadAction<boolean>) {
       state.showOverdue = action.payload;
     },
+    setGroupCreditCardExpenses(state, action: PayloadAction<boolean>) {
+      state.groupCreditCardExpenses = action.payload;
+    },
   },
 });
 
-export const { setFilters, clearFilters, toggleSort, setShowOverdue } =
+export const { setFilters, clearFilters, toggleSort, setShowOverdue, setGroupCreditCardExpenses } =
   transactionsUiSlice.actions;
 export const transactionsUiReducer = transactionsUiSlice.reducer;

@@ -15,6 +15,7 @@ import {
   effectuateTransaction,
   listOverdue,
   listTransactions,
+  undoEffectuateTransaction,
   updateTransaction,
 } from './transactions-api';
 
@@ -73,6 +74,14 @@ export function useEffectuateTransaction() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: EffectuateInput }) =>
       effectuateTransaction(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useUndoEffectuateTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string }) => undoEffectuateTransaction(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }

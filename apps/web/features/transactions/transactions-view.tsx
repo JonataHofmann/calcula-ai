@@ -21,15 +21,17 @@ import { startOfMonth } from '../../util/date';
 import { useAccounts } from '../accounts/use-accounts';
 import { useCards } from '../cards/use-cards';
 import { useCategories } from '../categories/use-categories';
+import { EffectuateInvoiceModal } from './effectuate-invoice-modal';
 import { EffectuateModal } from './effectuate-modal';
 import { GroupScopeModal } from './group-scope-modal';
 import { OverdueGrid } from './overdue-grid';
 import { TransactionFormModal } from './transaction-form-modal';
 import { TransactionsFilters } from './transactions-filters';
-import { TransactionsTable } from './transactions-table';
+import { TransactionsTable, type InvoiceGroup } from './transactions-table';
 import {
   clearFilters,
   setFilters,
+  setGroupCreditCardExpenses,
   setShowOverdue,
   toggleSort,
   type TransactionFilters,
@@ -40,6 +42,7 @@ import {
   useEffectuateTransaction,
   useOverdue,
   useTransactions,
+  useUndoEffectuateTransaction,
   useUpdateTransaction,
 } from './use-transactions';
 
@@ -61,10 +64,15 @@ function toUpdate(input: CreateTransactionInput): UpdateTransactionInput {
 export function TransactionsView() {
   const dispatch = useAppDispatch();
   const period = useAppSelector((s) => s.period);
-  const { filters, sort, order, showOverdue } = useAppSelector((s) => s.transactionsUi);
+  const { filters, sort, order, showOverdue, groupCreditCardExpenses } = useAppSelector(
+    (s) => s.transactionsUi,
+  );
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionDto | undefined>(undefined);
   const [effectuating, setEffectuating] = useState<TransactionDto | undefined>(undefined);
+  const [effectuatingInvoice, setEffectuatingInvoice] = useState<InvoiceGroup | undefined>(
+    undefined,
+  );
   const [scopeAction, setScopeAction] = useState<'edit' | 'delete' | null>(null);
   const [scopeTarget, setScopeTarget] = useState<TransactionDto | undefined>(undefined);
   const [pendingUpdate, setPendingUpdate] = useState<UpdateTransactionInput | null>(null);
@@ -94,6 +102,7 @@ export function TransactionsView() {
   const update = useUpdateTransaction();
   const remove = useDeleteTransaction();
   const effectuate = useEffectuateTransaction();
+  const undoEffectuate = useUndoEffectuateTransaction();
 
   const openCreate = () => {
     setEditing(undefined);
@@ -155,6 +164,27 @@ export function TransactionsView() {
     setEffectuating(undefined);
   };
 
+  const confirmEffectuateInvoice = async (date: string) => {
+    if (!effectuatingInvoice) return;
+    await Promise.all(
+      effectuatingInvoice.transactions
+        .filter((t) => t.status === 'pending')
+        .map((t) => effectuate.mutateAsync({ id: t.id, input: { date, amount: t.amount } })),
+    );
+    setEffectuatingInvoice(undefined);
+  };
+
+  const handleUndoEffectuate = (transaction: TransactionDto) =>
+    undoEffectuate.mutateAsync({ id: transaction.id });
+
+  const handleUndoEffectuateInvoice = async (group: InvoiceGroup) => {
+    await Promise.all(
+      group.transactions
+        .filter((t) => t.status === 'paid')
+        .map((t) => undoEffectuate.mutateAsync({ id: t.id })),
+    );
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -174,14 +204,6 @@ export function TransactionsView() {
         <div className="lg:hidden">
           <PeriodSelector />
         </div>
-        <Button
-          variant={showOverdue ? 'primary' : 'ghost'}
-          size="sm"
-          onClick={() => dispatch(setShowOverdue(!showOverdue))}
-          className="sm:ml-auto"
-        >
-          Pendentes de meses anteriores
-        </Button>
       </div>
 
       <AnimatePresence initial={false}>
@@ -203,6 +225,7 @@ export function TransactionsView() {
                 onEdit={openEdit}
                 onDelete={del}
                 onEffectuate={setEffectuating}
+                onUndoEffectuate={handleUndoEffectuate}
               />
             </Card>
           </motion.div>
@@ -217,6 +240,10 @@ export function TransactionsView() {
           categories={categories}
           accounts={accounts ?? []}
           cards={cards ?? []}
+          groupCreditCardExpenses={groupCreditCardExpenses}
+          onGroupCreditCardExpensesChange={(v) => dispatch(setGroupCreditCardExpenses(v))}
+          showOverdue={showOverdue}
+          onShowOverdueChange={(v) => dispatch(setShowOverdue(v))}
         />
 
         {isLoading ? (
@@ -234,6 +261,10 @@ export function TransactionsView() {
             onEdit={openEdit}
             onDelete={del}
             onEffectuate={setEffectuating}
+            onEffectuateInvoice={setEffectuatingInvoice}
+            onUndoEffectuate={handleUndoEffectuate}
+            onUndoEffectuateInvoice={handleUndoEffectuateInvoice}
+            groupCreditCardExpenses={groupCreditCardExpenses}
             sort={sort}
             order={order}
             onSort={(column: TransactionSort) => dispatch(toggleSort(column))}
@@ -270,6 +301,14 @@ export function TransactionsView() {
         onClose={() => setEffectuating(undefined)}
         onConfirm={confirmEffectuate}
         transaction={effectuating}
+        submitting={effectuate.isPending}
+      />
+
+      <EffectuateInvoiceModal
+        open={effectuatingInvoice !== undefined}
+        onClose={() => setEffectuatingInvoice(undefined)}
+        onConfirm={confirmEffectuateInvoice}
+        invoice={effectuatingInvoice}
         submitting={effectuate.isPending}
       />
 

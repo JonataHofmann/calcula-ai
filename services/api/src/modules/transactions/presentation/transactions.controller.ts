@@ -42,6 +42,7 @@ import { GetTransactionUseCase } from '../application/use-cases/get-transaction/
 import { UpdateTransactionUseCase } from '../application/use-cases/update-transaction/update-transaction';
 import { DeleteTransactionUseCase } from '../application/use-cases/delete-transaction/delete-transaction';
 import { EffectuateTransactionUseCase } from '../application/use-cases/effectuate-transaction/effectuate-transaction';
+import { UndoEffectuateTransactionUseCase } from '../application/use-cases/undo-effectuate-transaction/undo-effectuate-transaction';
 import { ListOverdueUseCase } from '../application/use-cases/list-overdue/list-overdue';
 import { GetForecastUseCase } from '../application/use-cases/get-forecast/get-forecast';
 import { ImportSyncedTransactionUseCase } from '../application/use-cases/import-synced-transaction/import-synced-transaction';
@@ -65,6 +66,7 @@ export class TransactionsController {
     private readonly updateTransaction: UpdateTransactionUseCase,
     private readonly deleteTransaction: DeleteTransactionUseCase,
     private readonly effectuateTransaction: EffectuateTransactionUseCase,
+    private readonly undoEffectuateTransaction: UndoEffectuateTransactionUseCase,
     private readonly listOverdue: ListOverdueUseCase,
     private readonly getForecast: GetForecastUseCase,
     private readonly importSyncedTransaction: ImportSyncedTransactionUseCase,
@@ -133,6 +135,15 @@ export class TransactionsController {
   ): Promise<{ transaction: TransactionDto; next: TransactionDto | null }> {
     const { transaction, next } = await this.effectuateTransaction.execute(user.id, id, input);
     return { transaction: toDto(transaction), next: next ? toDto(next) : null };
+  }
+
+  @Post(':id/effectuate/undo')
+  async undoEffectuate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ transaction: TransactionDto }> {
+    const transaction = await this.undoEffectuateTransaction.execute(user.id, id);
+    return { transaction: toDto(transaction) };
   }
 
   @Delete(':id')

@@ -4,7 +4,7 @@ import type {
   TransactionStatus,
   TransactionType,
 } from '@finance/contracts';
-import { InvalidTransactionError, AlreadyPaidError } from './errors';
+import { InvalidTransactionError, AlreadyPaidError, NotPaidError } from './errors';
 import { toCents } from './recurrence';
 
 export interface TransactionProps {
@@ -158,6 +158,15 @@ export class Transaction {
     this.props.status = 'paid';
     this.props.effectiveDate = input.date ?? now;
     this.props.effectiveAmount = amount;
+    this.props.updatedAt = now;
+  }
+
+  /** paid -> pending, clearing the effective date/amount. Inverse of effectuate(). */
+  undoEffectuate(now: Date = new Date()): void {
+    if (this.props.status === 'pending') throw new NotPaidError(this.props.id);
+    this.props.status = 'pending';
+    this.props.effectiveDate = null;
+    this.props.effectiveAmount = null;
     this.props.updatedAt = now;
   }
 

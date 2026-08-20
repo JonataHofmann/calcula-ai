@@ -52,6 +52,7 @@ function makeController() {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     importSyncedTransaction,
   );
   return { controller };

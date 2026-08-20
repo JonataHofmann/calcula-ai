@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import type { CategoryNodeDto, CategoryTreeDto } from '@finance/contracts';
-import { Button, Input, Select, type SelectOption } from '@finance/ui';
+import { Button, Input, Select, Switch, type SelectOption } from '@finance/ui';
 import { SlidersHorizontal, X } from 'lucide-react';
+import { useState } from 'react';
 import type { TransactionFilters } from './transactions-ui.slice';
 
 export interface TransactionsFiltersProps {
@@ -13,6 +13,10 @@ export interface TransactionsFiltersProps {
   categories?: CategoryTreeDto;
   accounts: { id: string; name: string }[];
   cards: { id: string; name: string }[];
+  groupCreditCardExpenses: boolean;
+  onGroupCreditCardExpensesChange: (value: boolean) => void;
+  showOverdue: boolean;
+  onShowOverdueChange: (value: boolean) => void;
 }
 
 /** Flattens the category tree into indented options. */
@@ -48,6 +52,10 @@ export function TransactionsFilters({
   categories,
   accounts,
   cards,
+  groupCreditCardExpenses,
+  onGroupCreditCardExpensesChange,
+  showOverdue,
+  onShowOverdueChange,
 }: TransactionsFiltersProps) {
   const categoryOptions: SelectOption[] = categories
     ? [...flatten(categories.expense), ...flatten(categories.income)]
@@ -83,56 +91,68 @@ export function TransactionsFilters({
       </div>
 
       {expanded ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Input
-            label="Valor contém"
-            placeholder="Ex.: 100"
-            value={filters.amount ?? ''}
-            onChange={(e) => onChange({ amount: orUndef(e.target.value) })}
-          />
-          <Select
-            label="Recorrência"
-            placeholder="Todas"
-            options={RECURRENCE_OPTIONS}
-            value={filters.recurrence ?? ''}
-            onChange={(e) => onChange({ recurrence: orUndef(e.target.value) as never })}
-          />
-          <Select
-            label="Tipo"
-            placeholder="Todos"
-            options={TYPE_OPTIONS}
-            value={filters.type ?? ''}
-            onChange={(e) => onChange({ type: orUndef(e.target.value) as never })}
-          />
-          <Select
-            label="Categoria"
-            placeholder="Todas"
-            options={categoryOptions}
-            value={filters.categoryId ?? ''}
-            onChange={(e) => onChange({ categoryId: orUndef(e.target.value) })}
-          />
-          <Select
-            label="Conta"
-            placeholder="Todas"
-            options={accountOptions}
-            value={filters.accountId ?? ''}
-            onChange={(e) => onChange({ accountId: orUndef(e.target.value) })}
-          />
-          <Select
-            label="Cartão"
-            placeholder="Todos"
-            options={cardOptions}
-            value={filters.creditCardId ?? ''}
-            onChange={(e) => onChange({ creditCardId: orUndef(e.target.value) })}
-          />
-          {advancedCount > 0 ? (
-            <div className="flex items-end">
-              <Button type="button" variant="ghost" size="sm" onClick={onClear}>
-                <X className="h-4 w-4" aria-hidden="true" />
-                Limpar filtros
-              </Button>
-            </div>
-          ) : null}
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Input
+              label="Valor contém"
+              placeholder="Ex.: 100"
+              value={filters.amount ?? ''}
+              onChange={(e) => onChange({ amount: orUndef(e.target.value) })}
+            />
+            <Select
+              label="Recorrência"
+              placeholder="Todas"
+              options={RECURRENCE_OPTIONS}
+              value={filters.recurrence ?? ''}
+              onChange={(e) => onChange({ recurrence: orUndef(e.target.value) as never })}
+            />
+            <Select
+              label="Tipo"
+              placeholder="Todos"
+              options={TYPE_OPTIONS}
+              value={filters.type ?? ''}
+              onChange={(e) => onChange({ type: orUndef(e.target.value) as never })}
+            />
+            <Select
+              label="Categoria"
+              placeholder="Todas"
+              options={categoryOptions}
+              value={filters.categoryId ?? ''}
+              onChange={(e) => onChange({ categoryId: orUndef(e.target.value) })}
+            />
+            <Select
+              label="Conta"
+              placeholder="Todas"
+              options={accountOptions}
+              value={filters.accountId ?? ''}
+              onChange={(e) => onChange({ accountId: orUndef(e.target.value) })}
+            />
+            <Select
+              label="Cartão"
+              placeholder="Todos"
+              options={cardOptions}
+              value={filters.creditCardId ?? ''}
+              onChange={(e) => onChange({ creditCardId: orUndef(e.target.value) })}
+            />
+            <Switch
+              label="Agrupar despesas de cartão de crédito"
+              checked={groupCreditCardExpenses}
+              onChange={(e) => onGroupCreditCardExpensesChange(e.target.checked)}
+            />
+            <Switch
+              label="Pendentes de meses anteriores"
+              checked={showOverdue}
+              onChange={(e) => onShowOverdueChange(e.target.checked)}
+            />
+            {advancedCount > 0 ? (
+              <div className="flex items-end">
+                <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+                  <X className="h-4 w-4" aria-hidden="true" />
+                  Limpar filtros
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>

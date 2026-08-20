@@ -109,4 +109,85 @@ describe('TransactionsTable', () => {
     expect(screen.getByRole('button', { name: 'Efetivar Aluguel' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Efetivar Paga' })).not.toBeInTheDocument();
   });
+
+  it('hides the effectuate action for a pending credit-card transaction (only the invoice can be effectuated)', () => {
+    render(
+      <TransactionsTable
+        transactions={[
+          tx({
+            id: 'card-pending-1',
+            description: 'Compra no cartão',
+            creditCardId: '44444444-4444-4444-4444-444444444444',
+          }),
+        ]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onEffectuate={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Efetivar Compra no cartão' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('still shows the effectuate action for a pending invoice row when grouping is on', () => {
+    const onEffectuateInvoice = vi.fn();
+    render(
+      <TransactionsTable
+        transactions={[
+          tx({
+            id: 'card-pending-2',
+            description: 'Compra no cartão',
+            creditCardId: '44444444-4444-4444-4444-444444444444',
+          }),
+        ]}
+        cards={[{ id: '44444444-4444-4444-4444-444444444444', name: 'Cartão X' }]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onEffectuateInvoice={onEffectuateInvoice}
+        groupCreditCardExpenses
+      />,
+    );
+    const button = screen.getByRole('button', { name: 'Efetivar fatura Cartão X' });
+    fireEvent.click(button);
+    expect(onEffectuateInvoice).toHaveBeenCalled();
+  });
+
+  it('shows the undo action for a paid row and fires onUndoEffectuate', () => {
+    const onUndoEffectuate = vi.fn();
+    const row = tx({ id: 'paid-1', description: 'Paga', status: 'paid' });
+    render(
+      <TransactionsTable
+        transactions={[row]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onUndoEffectuate={onUndoEffectuate}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Desfazer efetivação de Paga' }));
+    expect(onUndoEffectuate).toHaveBeenCalledWith(row);
+  });
+
+  it('shows the undo action for a paid invoice row and fires onUndoEffectuateInvoice', () => {
+    const onUndoEffectuateInvoice = vi.fn();
+    render(
+      <TransactionsTable
+        transactions={[
+          tx({
+            id: 'card-paid-1',
+            description: 'Compra no cartão',
+            status: 'paid',
+            creditCardId: '44444444-4444-4444-4444-444444444444',
+          }),
+        ]}
+        cards={[{ id: '44444444-4444-4444-4444-444444444444', name: 'Cartão X' }]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onUndoEffectuateInvoice={onUndoEffectuateInvoice}
+        groupCreditCardExpenses
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Desfazer efetivação da fatura Cartão X' }));
+    expect(onUndoEffectuateInvoice).toHaveBeenCalled();
+  });
 });

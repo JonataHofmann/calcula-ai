@@ -12,6 +12,7 @@ export interface OverdueGridProps {
   onEdit: (transaction: TransactionDto) => void;
   onDelete: (transaction: TransactionDto) => void;
   onEffectuate: (transaction: TransactionDto) => void;
+  onUndoEffectuate?: (transaction: TransactionDto) => void;
 }
 
 /** Table of unpaid occurrences due before the current month. Empty when nothing is overdue. */
@@ -23,6 +24,7 @@ export function OverdueGrid({
   onEdit,
   onDelete,
   onEffectuate,
+  onUndoEffectuate,
 }: OverdueGridProps) {
   if (transactions.length === 0) {
     return (
@@ -47,6 +49,7 @@ export function OverdueGrid({
         onEdit={onEdit}
         onDelete={onDelete}
         onEffectuate={onEffectuate}
+        onUndoEffectuate={onUndoEffectuate}
       />
     </div>
   );

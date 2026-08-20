@@ -24,13 +24,24 @@ import {
   CheckCircle2,
   Link2,
   Pencil,
+  Receipt,
+  RotateCcw,
   TrendingDown,
   TrendingUp,
   Trash2,
 } from 'lucide-react';
 import { buildCategoryMap } from '../../util/category';
 import { day } from '../../util/date';
-import { money } from '../../util/money';
+import { centsToMoney, money, toCents } from '../../util/money';
+
+export interface InvoiceGroup {
+  cardId: string;
+  cardName: string;
+  total: string;
+  dueDate: string;
+  status: 'pending' | 'paid';
+  transactions: TransactionDto[];
+}
 
 export interface TransactionsTableProps {
   transactions: TransactionDto[];
@@ -40,9 +51,51 @@ export interface TransactionsTableProps {
   onEdit: (transaction: TransactionDto) => void;
   onDelete: (transaction: TransactionDto) => void;
   onEffectuate?: (transaction: TransactionDto) => void;
+  onEffectuateInvoice?: (group: InvoiceGroup) => void;
+  onUndoEffectuate?: (transaction: TransactionDto) => void;
+  onUndoEffectuateInvoice?: (group: InvoiceGroup) => void;
+  groupCreditCardExpenses?: boolean;
   sort?: TransactionSort;
   order?: SortOrder;
   onSort?: (column: TransactionSort) => void;
+}
+
+/** Partitions transactions into ungrouped rows plus one InvoiceGroup per credit card, when grouping is on. */
+function buildInvoiceGroups(
+  transactions: TransactionDto[],
+  cardMap: Map<string, string>,
+  groupCreditCardExpenses: boolean,
+): { ungrouped: TransactionDto[]; invoices: InvoiceGroup[] } {
+  if (!groupCreditCardExpenses) return { ungrouped: transactions, invoices: [] };
+
+  const ungrouped: TransactionDto[] = [];
+  const byCard = new Map<string, TransactionDto[]>();
+
+  for (const t of transactions) {
+    if (t.type === 'expense' && t.creditCardId) {
+      const list = byCard.get(t.creditCardId) ?? [];
+      list.push(t);
+      byCard.set(t.creditCardId, list);
+    } else {
+      ungrouped.push(t);
+    }
+  }
+
+  const invoices: InvoiceGroup[] = Array.from(byCard.entries()).map(([cardId, items]) => {
+    const totalCents = items.reduce((sum, t) => sum + toCents(t.amount), 0);
+    const dueDate = items.reduce((max, t) => (t.dueDate > max ? t.dueDate : max), items[0]!.dueDate);
+    const status = items.some((t) => t.status === 'pending') ? 'pending' : 'paid';
+    return {
+      cardId,
+      cardName: cardMap.get(cardId) ?? '—',
+      total: centsToMoney(totalCents),
+      dueDate,
+      status,
+      transactions: items,
+    };
+  });
+
+  return { ungrouped, invoices };
 }
 
 interface Column {
@@ -124,6 +177,10 @@ export function TransactionsTable({
   onEdit,
   onDelete,
   onEffectuate,
+  onEffectuateInvoice,
+  onUndoEffectuate,
+  onUndoEffectuateInvoice,
+  groupCreditCardExpenses = false,
   sort,
   order,
   onSort,
@@ -131,6 +188,8 @@ export function TransactionsTable({
   const categoryMap = buildCategoryMap(categories);
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
   const cardMap = new Map(cards.map((c) => [c.id, c.name]));
+
+  const { ungrouped, invoices } = buildInvoiceGroups(transactions, cardMap, groupCreditCardExpenses);
 
   const origin = (t: TransactionDto): string => {
     if (t.creditCardId) return cardMap.get(t.creditCardId) ?? '—';
@@ -172,10 +231,62 @@ export function TransactionsTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {transactions.length === 0 ? (
+        {invoices.length === 0 && ungrouped.length === 0 ? (
           <TableEmpty colSpan={COLUMNS.length + 1} message="Nenhuma transação neste mês" />
         ) : (
-          transactions.map((t) => (
+          <>
+            {invoices.map((invoice) => (
+              <TableRow key={`invoice-${invoice.cardId}`}>
+                <TableCell className={cn(CELL, 'text-text font-medium')}>
+                  <span className="mr-1 inline-flex align-middle" title="Fatura do cartão">
+                    <Receipt className="text-text-muted h-3 w-3" aria-hidden="true" />
+                  </span>
+                  Fatura — {invoice.cardName}
+                </TableCell>
+                <TableCell className={CELL}>
+                  <span className="text-text-muted text-xs">—</span>
+                </TableCell>
+                <TableCell className={cn(CELL, 'text-text-muted')}>{day(invoice.dueDate)}</TableCell>
+                <TableCell className={cn(CELL, 'text-text')}>{money(invoice.total)}</TableCell>
+                <TableCell className={cn(CELL, 'text-text-muted')}>{invoice.cardName}</TableCell>
+                <TableCell className={CELL}>
+                  <Badge variant={TYPE_VARIANT.expense}>{TYPE_LABEL.expense}</Badge>
+                </TableCell>
+                <TableCell className={CELL}>
+                  <span className="text-text-muted text-xs">—</span>
+                </TableCell>
+                <TableCell className={CELL}>
+                  <Badge variant={invoice.status === 'paid' ? 'success' : 'default'}>
+                    {invoice.status === 'paid' ? 'Paga' : 'Pendente'}
+                  </Badge>
+                </TableCell>
+                <TableCell className={CELL}>
+                  <div className="flex items-center justify-end gap-1">
+                    {onEffectuateInvoice && invoice.status === 'pending' ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEffectuateInvoice(invoice)}
+                        aria-label={`Efetivar fatura ${invoice.cardName}`}
+                      >
+                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    ) : null}
+                    {onUndoEffectuateInvoice && invoice.status === 'paid' ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onUndoEffectuateInvoice(invoice)}
+                        aria-label={`Desfazer efetivação da fatura ${invoice.cardName}`}
+                      >
+                        <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    ) : null}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+            {ungrouped.map((t) => (
             <TableRow key={t.id}>
               <TableCell className={cn(CELL, 'text-text font-medium')}>
                 {t.source === 'synced' ? (
@@ -214,7 +325,7 @@ export function TransactionsTable({
               </TableCell>
               <TableCell className={CELL}>
                 <div className="flex items-center justify-end gap-1">
-                  {onEffectuate && t.status === 'pending' ? (
+                  {onEffectuate && t.status === 'pending' && !t.creditCardId ? (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -222,6 +333,16 @@ export function TransactionsTable({
                       aria-label={`Efetivar ${t.description}`}
                     >
                       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                  {onUndoEffectuate && t.status === 'paid' ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onUndoEffectuate(t)}
+                      aria-label={`Desfazer efetivação de ${t.description}`}
+                    >
+                      <RotateCcw className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   ) : null}
                   <Button
@@ -243,7 +364,8 @@ export function TransactionsTable({
                 </div>
               </TableCell>
             </TableRow>
-          ))
+            ))}
+          </>
         )}
       </TableBody>
     </Table>

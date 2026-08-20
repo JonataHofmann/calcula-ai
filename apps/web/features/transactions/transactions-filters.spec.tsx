@@ -22,6 +22,10 @@ function setup(filters: TransactionFilters = {}) {
       categories={categories}
       accounts={[{ id: 'acc-1', name: 'Nubank' }]}
       cards={[{ id: 'card-1', name: 'Inter' }]}
+      groupCreditCardExpenses={true}
+      onGroupCreditCardExpensesChange={vi.fn()}
+      showOverdue={true}
+      onShowOverdueChange={vi.fn()}
     />,
   );
   return { onChange, onClear };
