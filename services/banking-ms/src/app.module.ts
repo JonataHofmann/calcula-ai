@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './common/auth/auth.module';
-import { HealthModule } from './common/health/health.module';
-import { BankConnectionsModule } from './modules/bank-connections/presentation/bank-connections.module';
+import { AuthModule } from './common/auth.module';
+import { HealthModule } from './modules/health/health.module';
+import { BankConnectionsModule } from './modules/bank-connections/bank-connections.module';
 
 @Module({
   imports: [

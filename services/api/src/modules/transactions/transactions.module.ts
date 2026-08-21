@@ -1,56 +1,20 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from '../../common/auth/auth.module';
-import { ServiceAccountGuard } from '../../common/auth/service-account.guard';
-import { AccountEntity } from '../accounts/infrastructure/persistence/entities/account.entity';
-import { CategoryEntity } from '../categories/infrastructure/persistence/entities/category.entity';
-import { CreditCardEntity } from '../cards/infrastructure/persistence/entities/credit-card.entity';
-import { TRANSACTION_REPOSITORY } from './domain/transaction.repository';
-import { ACCOUNT_LOOKUP, CARD_LOOKUP, CATEGORY_LOOKUP } from './domain/lookups';
-import { TransactionEntity } from './infrastructure/persistence/entities/transaction.entity';
-import { TypeOrmTransactionRepository } from './infrastructure/persistence/repositories/transaction.repository';
-import { TypeOrmCategoryLookup } from './infrastructure/persistence/lookups/category.lookup';
-import { TypeOrmAccountLookup } from './infrastructure/persistence/lookups/account.lookup';
-import { TypeOrmCardLookup } from './infrastructure/persistence/lookups/card.lookup';
-import { CreateTransactionUseCase } from './application/use-cases/create-transaction/create-transaction';
-import { ListTransactionsUseCase } from './application/use-cases/list-transactions/list-transactions';
-import { GetTransactionUseCase } from './application/use-cases/get-transaction/get-transaction';
-import { UpdateTransactionUseCase } from './application/use-cases/update-transaction/update-transaction';
-import { DeleteTransactionUseCase } from './application/use-cases/delete-transaction/delete-transaction';
-import { EffectuateTransactionUseCase } from './application/use-cases/effectuate-transaction/effectuate-transaction';
-import { UndoEffectuateTransactionUseCase } from './application/use-cases/undo-effectuate-transaction/undo-effectuate-transaction';
-import { ListOverdueUseCase } from './application/use-cases/list-overdue/list-overdue';
-import { GetForecastUseCase } from './application/use-cases/get-forecast/get-forecast';
-import { ImportSyncedTransactionUseCase } from './application/use-cases/import-synced-transaction/import-synced-transaction';
-import { TransactionsController } from './presentation/transactions.controller';
+import { AuthModule } from '../../common/auth.module';
+import { ServiceAccountGuard } from '../../common/guards/service-account.guard';
+import { AccountEntity } from '../accounts/entities/account.entity';
+import { CategoryEntity } from '../categories/entities/category.entity';
+import { CreditCardEntity } from '../cards/entities/credit-card.entity';
+import { TransactionEntity } from './entities/transaction.entity';
+import { TransactionsController } from './transactions.controller';
+import { TransactionsService } from './transactions.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      TransactionEntity,
-      CategoryEntity,
-      AccountEntity,
-      CreditCardEntity,
-    ]),
+    TypeOrmModule.forFeature([TransactionEntity, CategoryEntity, AccountEntity, CreditCardEntity]),
     AuthModule,
   ],
   controllers: [TransactionsController],
-  providers: [
-    { provide: TRANSACTION_REPOSITORY, useClass: TypeOrmTransactionRepository },
-    { provide: CATEGORY_LOOKUP, useClass: TypeOrmCategoryLookup },
-    { provide: ACCOUNT_LOOKUP, useClass: TypeOrmAccountLookup },
-    { provide: CARD_LOOKUP, useClass: TypeOrmCardLookup },
-    CreateTransactionUseCase,
-    ListTransactionsUseCase,
-    GetTransactionUseCase,
-    UpdateTransactionUseCase,
-    DeleteTransactionUseCase,
-    EffectuateTransactionUseCase,
-    UndoEffectuateTransactionUseCase,
-    ListOverdueUseCase,
-    GetForecastUseCase,
-    ImportSyncedTransactionUseCase,
-    ServiceAccountGuard,
-  ],
+  providers: [TransactionsService, ServiceAccountGuard],
 })
 export class TransactionsModule {}

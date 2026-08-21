@@ -1,0 +1,47 @@
+name: architecture
+
+# Gates structural drift from the backend NestJS convention
+# (feature 007-backend-module-restructure). The `architecture` job is the
+# drift detector — CHK-1/2/3/6/7 via `scripts/check-architecture.sh --no-build`
+# (structural only, no build/test), so it fails on layout regressions and never
+# on transient test/build noise. The `backend` job builds + tests the four
+# services only; whole-repo `pnpm -r test` is intentionally NOT used here
+# because `apps/web` carries pre-existing, out-of-scope frontend failures.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  architecture:
+    name: Structural conformance (CHK-1..7)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable corepack (pins pnpm from packageManager)
+        run: corepack enable
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Architecture check (structural drift gate)
+        run: pnpm check:arch
+
+  backend:
+    name: Backend build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable corepack (pins pnpm from packageManager)
+        run: corepack enable
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build backend services
+        run: pnpm --filter "./services/*" -r build
+      - name: Test backend services
+        run: pnpm --filter "./services/*" -r test

@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './auth/auth.module';
-import { SessionEntity } from './auth/session/session.entity';
-import { HealthModule } from './health/health.module';
-import { SharedModule } from './shared/shared.module';
-import { ReferenceModule } from './reference/reference.module';
-import { AccountsModule } from './accounts/accounts.module';
-import { CategoriesModule } from './categories/categories.module';
-import { CardsModule } from './cards/cards.module';
-import { TransactionsModule } from './transactions/transactions.module';
-import { BankConnectionsModule } from './bank-connections/bank-connections.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { SessionEntity } from './database/session.entity';
+import { HealthModule } from './modules/health/health.module';
+import { CommonModule } from './common/common.module';
+import { ReferenceModule } from './modules/reference/reference.module';
+import { AccountsModule } from './modules/accounts/accounts.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { CardsModule } from './modules/cards/cards.module';
+import { TransactionsModule } from './modules/transactions/transactions.module';
+import { BankConnectionsModule } from './modules/bank-connections/bank-connections.module';
 
 @Module({
   imports: [
@@ -22,7 +22,7 @@ import { BankConnectionsModule } from './bank-connections/bank-connections.modul
     }),
     AuthModule,
     HealthModule,
-    SharedModule,
+    CommonModule,
     ReferenceModule,
     AccountsModule,
     CategoriesModule,

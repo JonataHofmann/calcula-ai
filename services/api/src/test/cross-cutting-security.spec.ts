@@ -5,116 +5,103 @@
  *   1. A resource owned by another user is invisible → NotFound (surfaced as 404).
  *   2. Repeated writes are idempotent in effect (no duplication, no corruption).
  */
-import { Account } from '../modules/accounts/domain/account';
-import type { AccountRepository } from '../modules/accounts/domain/account.repository';
-import { AccountNotFoundError } from '../modules/accounts/domain/errors';
-import { UpdateAccountUseCase } from '../modules/accounts/application/use-cases/update-account/update-account.use-case';
-import { DeleteAccountUseCase } from '../modules/accounts/application/use-cases/delete-account/delete-account.use-case';
+import type { Repository } from 'typeorm';
+import { AccountsService } from '../modules/accounts/accounts.service';
+import { AccountEntity } from '../modules/accounts/entities/account.entity';
+import { AccountNotFoundError } from '../modules/accounts/accounts.types';
 
-import { CreditCard } from '../modules/cards/domain/credit-card';
-import type { CreditCardRepository } from '../modules/cards/domain/credit-card.repository';
-import { CreditCardNotFoundError } from '../modules/cards/domain/errors';
-import { UpdateCardUseCase } from '../modules/cards/application/use-cases/update-card/update-card.use-case';
-import { DeleteCardUseCase } from '../modules/cards/application/use-cases/delete-card/delete-card.use-case';
+import { CardsService } from '../modules/cards/cards.service';
+import { CreditCardEntity } from '../modules/cards/entities/credit-card.entity';
+import { CreditCardNotFoundError } from '../modules/cards/cards.types';
 
-import { CategoryNotFoundError } from '../modules/categories/domain/errors';
-import { UpdateCategoryUseCase } from '../modules/categories/application/use-cases/update-category/update-category.use-case';
-import { DeleteCategoryUseCase } from '../modules/categories/application/use-cases/delete-category/delete-category.use-case';
+import { CategoriesService } from '../modules/categories/categories.service';
+import { CategoryNotFoundError } from '../modules/categories/categories.types';
 import {
-  InMemoryCategoryRepository,
-  InMemoryHiddenCategoryRepository,
-  InMemoryCategoryOverrideRepository,
+  makeFakeCategoryRepo,
+  makeFakeHiddenRepo,
+  makeFakeOverrideRepo,
   customCategory,
   systemCategory,
-} from '../modules/categories/application/use-cases/__testing__/in-memory-repositories';
+} from '../modules/categories/__testing__/in-memory-repositories';
 
 const USER_A = '11111111-1111-1111-1111-111111111111';
 const USER_B = '22222222-2222-2222-2222-222222222222';
 const MISSING = '99999999-9999-9999-9999-999999999999';
 
-/** Owner-scoped in-memory fake mirroring the SQL WHERE user_id = :userId rule. */
-class InMemoryAccountRepository implements AccountRepository {
-  private items: Account[] = [];
-  async create(a: Account): Promise<void> {
-    this.items.push(a);
-  }
-  async save(a: Account): Promise<void> {
-    this.items = this.items.map((i) => (i.id === a.id ? a : i));
-  }
-  async findById(id: string, userId: string): Promise<Account | null> {
-    return this.items.find((i) => i.id === id && i.userId === userId) ?? null;
-  }
-  async findAllByUser(userId: string): Promise<Account[]> {
-    return this.items.filter((i) => i.userId === userId);
-  }
-  async delete(id: string, userId: string): Promise<void> {
-    this.items = this.items.filter((i) => !(i.id === id && i.userId === userId));
-  }
+/** Owner-scoped in-memory fake of the TypeORM repo, mirroring WHERE user_id = :userId. */
+function makeFakeAccountRepo(): Repository<AccountEntity> {
+  const store = new Map<string, AccountEntity>();
+  const fake = {
+    create: (data: Partial<AccountEntity>) => Object.assign(new AccountEntity(), data),
+    insert: async (e: AccountEntity) => void store.set(e.id, { ...e } as AccountEntity),
+    save: async (e: AccountEntity) => (store.set(e.id, { ...e } as AccountEntity), e),
+    find: async (o: { where: { userId: string } }) =>
+      [...store.values()].filter((a) => a.userId === o.where.userId),
+    findOne: async (o: { where: { id: string; userId: string } }) => {
+      const r = store.get(o.where.id);
+      return r && r.userId === o.where.userId ? r : null;
+    },
+    delete: async (c: { id: string; userId: string }) => {
+      const r = store.get(c.id);
+      if (r && r.userId === c.userId) store.delete(c.id);
+    },
+  };
+  return fake as unknown as Repository<AccountEntity>;
 }
 
-class InMemoryCardRepository implements CreditCardRepository {
-  private items: CreditCard[] = [];
-  async create(c: CreditCard): Promise<void> {
-    this.items.push(c);
-  }
-  async save(c: CreditCard): Promise<void> {
-    this.items = this.items.map((i) => (i.id === c.id ? c : i));
-  }
-  async findById(id: string, userId: string): Promise<CreditCard | null> {
-    return this.items.find((i) => i.id === id && i.userId === userId) ?? null;
-  }
-  async findAllByUser(userId: string): Promise<CreditCard[]> {
-    return this.items.filter((i) => i.userId === userId);
-  }
-  async delete(id: string, userId: string): Promise<void> {
-    this.items = this.items.filter((i) => !(i.id === id && i.userId === userId));
-  }
+const ACCOUNT_INPUT = { name: 'Conta', bankId: 'nubank', icon: 'utensils', color: 'primary' };
+const CARD_INPUT = {
+  name: 'Nubank',
+  lastDigits: '1234',
+  dueDay: 10,
+  closingDay: 3,
+  limit: '5000.00',
+  brandId: 'visa',
+};
+
+/** Owner-scoped in-memory fake of the TypeORM repo, mirroring WHERE user_id = :userId. */
+function makeFakeCardRepo(): Repository<CreditCardEntity> {
+  const store = new Map<string, CreditCardEntity>();
+  const fake = {
+    create: (data: Partial<CreditCardEntity>) => Object.assign(new CreditCardEntity(), data),
+    insert: async (e: CreditCardEntity) => void store.set(e.id, { ...e } as CreditCardEntity),
+    save: async (e: CreditCardEntity) => (store.set(e.id, { ...e } as CreditCardEntity), e),
+    find: async (o: { where: { userId: string } }) =>
+      [...store.values()].filter((c) => c.userId === o.where.userId),
+    findOne: async (o: { where: { id: string; userId: string } }) => {
+      const r = store.get(o.where.id);
+      return r && r.userId === o.where.userId ? r : null;
+    },
+    delete: async (c: { id: string; userId: string }) => {
+      const r = store.get(c.id);
+      if (r && r.userId === c.userId) store.delete(c.id);
+    },
+  };
+  return fake as unknown as Repository<CreditCardEntity>;
 }
 
 describe('Cross-cutting: user isolation → 404 (FR-021)', () => {
   it('accounts: another user cannot update or delete', async () => {
-    const repo = new InMemoryAccountRepository();
-    const account = Account.create({
-      id: crypto.randomUUID(),
-      userId: USER_A,
-      name: 'Conta',
-      bankId: 'nubank',
-      icon: 'utensils',
-      color: 'primary',
-    });
-    await repo.create(account);
+    const service = new AccountsService(makeFakeAccountRepo());
+    const account = await service.create(USER_A, ACCOUNT_INPUT);
 
     await expect(
-      new UpdateAccountUseCase(repo).execute(USER_B, account.id, { name: 'Hack' }),
+      service.update(USER_B, account.id, { name: 'Hack' }),
     ).rejects.toBeInstanceOf(AccountNotFoundError);
-    await expect(
-      new DeleteAccountUseCase(repo).execute(USER_B, account.id),
-    ).rejects.toBeInstanceOf(AccountNotFoundError);
+    await expect(service.delete(USER_B, account.id)).rejects.toBeInstanceOf(AccountNotFoundError);
     // Owner's row is untouched.
-    expect(await repo.findById(account.id, USER_A)).not.toBeNull();
+    expect((await service.list(USER_A)).find((a) => a.id === account.id)).toBeDefined();
   });
 
   it('cards: another user cannot update or delete', async () => {
-    const repo = new InMemoryCardRepository();
-    const card = CreditCard.create({
-      id: crypto.randomUUID(),
-      userId: USER_A,
-      name: 'Nubank',
-      lastDigits: '1234',
-      dueDay: 10,
-      closingDay: 3,
-      limit: '5000.00',
-      brandId: 'visa',
-    });
-    await repo.create(card);
+    const service = new CardsService(makeFakeCardRepo());
+    const card = await service.create(USER_A, CARD_INPUT);
 
     await expect(
-      new UpdateCardUseCase(repo).execute(USER_B, card.id, { name: 'Hack' }),
+      service.update(USER_B, card.id, { name: 'Hack' }),
     ).rejects.toBeInstanceOf(CreditCardNotFoundError);
-    await expect(
-      new DeleteCardUseCase(repo).execute(USER_B, card.id),
-    ).rejects.toBeInstanceOf(CreditCardNotFoundError);
-    expect(await repo.findById(card.id, USER_A)).not.toBeNull();
+    await expect(service.delete(USER_B, card.id)).rejects.toBeInstanceOf(CreditCardNotFoundError);
+    expect((await service.list(USER_A)).find((c) => c.id === card.id)).toBeDefined();
   });
 
   it("categories: another user cannot update or delete a user's custom node", async () => {
@@ -124,56 +111,35 @@ describe('Cross-cutting: user isolation → 404 (FR-021)', () => {
       name: 'Privado',
       type: 'expense',
     });
-    const categories = new InMemoryCategoryRepository([custom]);
-    const hidden = new InMemoryHiddenCategoryRepository();
-    const overrides = new InMemoryCategoryOverrideRepository();
+    const service = new CategoriesService(
+      makeFakeCategoryRepo([custom]),
+      makeFakeHiddenRepo(),
+      makeFakeOverrideRepo(),
+    );
 
     await expect(
-      new UpdateCategoryUseCase(categories, overrides).execute(USER_B, custom.id, {
-        name: 'Hack',
-      }),
+      service.update(USER_B, custom.id, { name: 'Hack' }),
     ).rejects.toBeInstanceOf(CategoryNotFoundError);
-    await expect(
-      new DeleteCategoryUseCase(categories, hidden).execute(USER_B, custom.id),
-    ).rejects.toBeInstanceOf(CategoryNotFoundError);
+    await expect(service.delete(USER_B, custom.id)).rejects.toBeInstanceOf(CategoryNotFoundError);
     // Missing id is a 404 too.
-    await expect(
-      new DeleteCategoryUseCase(categories, hidden).execute(USER_A, MISSING),
-    ).rejects.toBeInstanceOf(CategoryNotFoundError);
+    await expect(service.delete(USER_A, MISSING)).rejects.toBeInstanceOf(CategoryNotFoundError);
   });
 });
 
 describe('Cross-cutting: idempotent repeated writes (regra 7)', () => {
   it('accounts/cards: deleting another user’s resource repeatedly is a safe no-op', async () => {
-    const accounts = new InMemoryAccountRepository();
-    const account = Account.create({
-      id: crypto.randomUUID(),
-      userId: USER_A,
-      name: 'Conta',
-      bankId: 'nubank',
-      icon: 'utensils',
-      color: 'primary',
-    });
-    await accounts.create(account);
-    await accounts.delete(account.id, USER_B);
-    await accounts.delete(account.id, USER_B);
-    expect(await accounts.findById(account.id, USER_A)).not.toBeNull();
+    const accounts = new AccountsService(makeFakeAccountRepo());
+    const account = await accounts.create(USER_A, ACCOUNT_INPUT);
+    // At the HTTP boundary a cross-user delete is a 404 each time; the owner's row stays intact.
+    await expect(accounts.delete(USER_B, account.id)).rejects.toBeInstanceOf(AccountNotFoundError);
+    await expect(accounts.delete(USER_B, account.id)).rejects.toBeInstanceOf(AccountNotFoundError);
+    expect((await accounts.list(USER_A)).find((a) => a.id === account.id)).toBeDefined();
 
-    const cards = new InMemoryCardRepository();
-    const card = CreditCard.create({
-      id: crypto.randomUUID(),
-      userId: USER_A,
-      name: 'Nubank',
-      lastDigits: '1234',
-      dueDay: 10,
-      closingDay: 3,
-      limit: '5000.00',
-      brandId: 'visa',
-    });
-    await cards.create(card);
-    await cards.delete(card.id, USER_B);
-    await cards.delete(card.id, USER_B);
-    expect(await cards.findById(card.id, USER_A)).not.toBeNull();
+    const cards = new CardsService(makeFakeCardRepo());
+    const card = await cards.create(USER_A, CARD_INPUT);
+    await expect(cards.delete(USER_B, card.id)).rejects.toBeInstanceOf(CreditCardNotFoundError);
+    await expect(cards.delete(USER_B, card.id)).rejects.toBeInstanceOf(CreditCardNotFoundError);
+    expect((await cards.list(USER_A)).find((c) => c.id === card.id)).toBeDefined();
   });
 
   it('categories: hiding a system default twice hides it exactly once', async () => {
@@ -182,16 +148,18 @@ describe('Cross-cutting: idempotent repeated writes (regra 7)', () => {
       name: 'Alimentação',
       type: 'expense',
     });
-    const categories = new InMemoryCategoryRepository([system]);
-    const hidden = new InMemoryHiddenCategoryRepository();
-    const del = new DeleteCategoryUseCase(categories, hidden);
+    const categoryRepo = makeFakeCategoryRepo([system]);
+    const hiddenRepo = makeFakeHiddenRepo();
+    const service = new CategoriesService(categoryRepo, hiddenRepo, makeFakeOverrideRepo());
 
-    await del.execute(USER_A, system.id);
-    await del.execute(USER_A, system.id);
+    await service.delete(USER_A, system.id);
+    await service.delete(USER_A, system.id);
 
-    expect(await hidden.findHiddenIds(USER_A)).toEqual([system.id]);
+    expect((await hiddenRepo.find({ where: { userId: USER_A } })).map((h) => h.categoryId)).toEqual([
+      system.id,
+    ]);
     // The shared default row is never removed by a hide.
-    expect(await categories.findAccessible(system.id, USER_A)).not.toBeNull();
+    expect(await categoryRepo.findOne({ where: { id: system.id } })).not.toBeNull();
   });
 
   it('categories: editing a system default twice keeps a single override row', async () => {
@@ -200,17 +168,20 @@ describe('Cross-cutting: idempotent repeated writes (regra 7)', () => {
       name: 'Alimentação',
       type: 'expense',
     });
-    const categories = new InMemoryCategoryRepository([system]);
-    const overrides = new InMemoryCategoryOverrideRepository();
-    const update = new UpdateCategoryUseCase(categories, overrides);
+    const overrideRepo = makeFakeOverrideRepo();
+    const service = new CategoriesService(
+      makeFakeCategoryRepo([system]),
+      makeFakeHiddenRepo(),
+      overrideRepo,
+    );
 
-    await update.execute(USER_A, system.id, { name: 'Comida' });
-    await update.execute(USER_A, system.id, { name: 'Rango' });
+    await service.update(USER_A, system.id, { name: 'Comida' });
+    await service.update(USER_A, system.id, { name: 'Rango' });
 
-    const mine = await overrides.findByUser(USER_A);
+    const mine = await overrideRepo.find({ where: { userId: USER_A } });
     expect(mine).toHaveLength(1);
     expect(mine[0]?.name).toBe('Rango');
     // Other users still see the untouched default (no override leaks).
-    expect(await overrides.findOne(USER_B, system.id)).toBeNull();
+    expect(await overrideRepo.findOne({ where: { userId: USER_B, categoryId: system.id } })).toBeNull();
   });
 });

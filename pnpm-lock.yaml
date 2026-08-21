@@ -174,21 +174,21 @@ importers:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.50.0)
 
-  packages/auth:
+  libs/auth:
     dependencies:
       '@finance/contracts':
         specifier: workspace:*
-        version: link:../contracts
+        version: link:../../packages/contracts
       jose:
         specifier: ^5.9.6
         version: 5.10.0
     devDependencies:
       '@finance/eslint-config':
         specifier: workspace:*
-        version: link:../eslint-config
+        version: link:../../packages/eslint-config
       '@finance/tsconfig':
         specifier: workspace:*
-        version: link:../tsconfig
+        version: link:../../packages/tsconfig
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1
@@ -202,7 +202,7 @@ importers:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.50.0)
 
-  packages/config:
+  libs/config:
     dependencies:
       zod:
         specifier: ^3.24.1
@@ -210,10 +210,77 @@ importers:
     devDependencies:
       '@finance/eslint-config':
         specifier: workspace:*
-        version: link:../eslint-config
+        version: link:../../packages/eslint-config
       '@finance/tsconfig':
         specifier: workspace:*
-        version: link:../tsconfig
+        version: link:../../packages/tsconfig
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      eslint:
+        specifier: ^9.20.0
+        version: 9.39.5(jiti@2.7.0)
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.50.0)
+
+  libs/events:
+    devDependencies:
+      '@finance/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@finance/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      eslint:
+        specifier: ^9.20.0
+        version: 9.39.5(jiti@2.7.0)
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.50.0)
+
+  libs/logger:
+    dependencies:
+      pino:
+        specifier: ^9.6.0
+        version: 9.14.0
+    devDependencies:
+      '@finance/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@finance/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      eslint:
+        specifier: ^9.20.0
+        version: 9.39.5(jiti@2.7.0)
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.50.0)
+
+  libs/observability:
+    devDependencies:
+      '@finance/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@finance/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1
@@ -275,73 +342,6 @@ importers:
       typescript-eslint:
         specifier: ^8.24.0
         version: 8.67.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
-
-  packages/events:
-    devDependencies:
-      '@finance/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@finance/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
-      '@types/node':
-        specifier: ^22.20.1
-        version: 22.20.1
-      eslint:
-        specifier: ^9.20.0
-        version: 9.39.5(jiti@2.7.0)
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.0.5
-        version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.50.0)
-
-  packages/logger:
-    dependencies:
-      pino:
-        specifier: ^9.6.0
-        version: 9.14.0
-    devDependencies:
-      '@finance/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@finance/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
-      '@types/node':
-        specifier: ^22.20.1
-        version: 22.20.1
-      eslint:
-        specifier: ^9.20.0
-        version: 9.39.5(jiti@2.7.0)
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.0.5
-        version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.50.0)
-
-  packages/observability:
-    devDependencies:
-      '@finance/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@finance/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
-      '@types/node':
-        specifier: ^22.20.1
-        version: 22.20.1
-      eslint:
-        specifier: ^9.20.0
-        version: 9.39.5(jiti@2.7.0)
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.0.5
-        version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.50.0)
 
   packages/tsconfig: {}
 
@@ -407,19 +407,19 @@ importers:
     dependencies:
       '@finance/auth':
         specifier: workspace:*
-        version: link:../../packages/auth
+        version: link:../../libs/auth
       '@finance/config':
         specifier: workspace:*
-        version: link:../../packages/config
+        version: link:../../libs/config
       '@finance/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@finance/logger':
         specifier: workspace:*
-        version: link:../../packages/logger
+        version: link:../../libs/logger
       '@finance/observability':
         specifier: workspace:*
-        version: link:../../packages/observability
+        version: link:../../libs/observability
       '@nestjs/common':
         specifier: ^11.0.8
         version: 11.2.1(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -483,22 +483,22 @@ importers:
     dependencies:
       '@finance/auth':
         specifier: workspace:*
-        version: link:../../packages/auth
+        version: link:../../libs/auth
       '@finance/config':
         specifier: workspace:*
-        version: link:../../packages/config
+        version: link:../../libs/config
       '@finance/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@finance/events':
         specifier: workspace:*
-        version: link:../../packages/events
+        version: link:../../libs/events
       '@finance/logger':
         specifier: workspace:*
-        version: link:../../packages/logger
+        version: link:../../libs/logger
       '@finance/observability':
         specifier: workspace:*
-        version: link:../../packages/observability
+        version: link:../../libs/observability
       '@nestjs/common':
         specifier: ^11.0.8
         version: 11.2.1(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -583,19 +583,19 @@ importers:
     dependencies:
       '@finance/auth':
         specifier: workspace:*
-        version: link:../../packages/auth
+        version: link:../../libs/auth
       '@finance/config':
         specifier: workspace:*
-        version: link:../../packages/config
+        version: link:../../libs/config
       '@finance/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@finance/logger':
         specifier: workspace:*
-        version: link:../../packages/logger
+        version: link:../../libs/logger
       '@finance/observability':
         specifier: workspace:*
-        version: link:../../packages/observability
+        version: link:../../libs/observability
       '@nestjs/common':
         specifier: ^11.0.8
         version: 11.2.1(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -680,19 +680,19 @@ importers:
     dependencies:
       '@finance/auth':
         specifier: workspace:*
-        version: link:../../packages/auth
+        version: link:../../libs/auth
       '@finance/config':
         specifier: workspace:*
-        version: link:../../packages/config
+        version: link:../../libs/config
       '@finance/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@finance/logger':
         specifier: workspace:*
-        version: link:../../packages/logger
+        version: link:../../libs/logger
       '@finance/observability':
         specifier: workspace:*
-        version: link:../../packages/observability
+        version: link:../../libs/observability
       '@nestjs/common':
         specifier: ^11.0.8
         version: 11.2.1(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)

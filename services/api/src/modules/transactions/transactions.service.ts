@@ -1,0 +1,759 @@
+import { randomUUID } from 'node:crypto';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { IsNull, LessThan, Repository } from 'typeorm';
+import type {
+  CreateTransactionInput,
+  EffectuateInput,
+  ForecastQuery,
+  ForecastResponse,
+  ForecastRow,
+  GroupScope,
+  ListTransactionsQuery,
+  OverdueQuery,
+  TransactionSort,
+  TransactionType,
+  UpdateTransactionInput,
+} from '@finance/contracts';
+import { CategoryEntity } from '../categories/entities/category.entity';
+import { AccountEntity } from '../accounts/entities/account.entity';
+import { CreditCardEntity } from '../cards/entities/credit-card.entity';
+import { TransactionEntity } from './entities/transaction.entity';
+import { Transaction, type UpdateTransactionAttributes } from './transaction.model';
+import { addMonthClamped, fromCents, nextOccurrence, splitInstallments, toCents } from './recurrence';
+import {
+  InvalidTransactionError,
+  ReferenceNotFoundError,
+  SyncedImportConflictError,
+  TransactionNotFoundError,
+  type FindTransactionsFilter,
+} from './transactions.types';
+import type {
+  ImportSyncedTransactionInput,
+  PatchSyncedTransactionInput,
+  SyncedImportResult,
+} from './import-synced-transaction.schemas';
+
+const SORT_COLUMN: Record<TransactionSort, string> = {
+  dueDate: 't.due_date',
+  amount: 't.amount',
+  description: 't.description',
+  status: 't.status',
+  type: 't.type',
+  recurrence: 't.recurrence',
+};
+
+interface ReferenceInput {
+  type: TransactionType;
+  categoryId: string;
+  accountId?: string | null;
+  creditCardId?: string | null;
+}
+
+export interface EffectuateResult {
+  transaction: Transaction;
+  next: Transaction | null;
+}
+
+/**
+ * All business logic for the transactions module (10 folded use-cases + reference
+ * validation + persistence). The aggregate {@link Transaction} enforces value/origin/
+ * recurrence invariants; persistence is accessed exclusively via the four injected
+ * TypeORM repositories (FR-008, FR-009). Every query is scoped by `userId` so cross-user
+ * rows are invisible (→ 404). The service returns aggregates; the controller converts to DTOs.
+ */
+@Injectable()
+export class TransactionsService {
+  private readonly logger = new Logger(TransactionsService.name);
+
+  constructor(
+    @InjectRepository(TransactionEntity)
+    private readonly txRepo: Repository<TransactionEntity>,
+    @InjectRepository(CategoryEntity)
+    private readonly categoryRepo: Repository<CategoryEntity>,
+    @InjectRepository(AccountEntity)
+    private readonly accountRepo: Repository<AccountEntity>,
+    @InjectRepository(CreditCardEntity)
+    private readonly creditCardRepo: Repository<CreditCardEntity>,
+  ) {}
+
+  // --- commands ---
+
+  /** Create a single row, or a group (installment parcels / fixed occurrence) sharing a groupId. */
+  async create(userId: string, input: CreateTransactionInput): Promise<Transaction[]> {
+    this.logger.log(`Creating ${input.recurrence} transaction for user ${userId}`);
+    await this.validateReferences(userId, {
+      type: input.type,
+      categoryId: input.categoryId,
+      accountId: input.accountId ?? null,
+      creditCardId: input.creditCardId ?? null,
+    });
+
+    const dueDate = new Date(input.dueDate);
+    const common = {
+      userId,
+      description: input.description,
+      type: input.type,
+      categoryId: input.categoryId,
+      accountId: input.accountId ?? null,
+      creditCardId: input.creditCardId ?? null,
+      notes: input.notes ?? null,
+    };
+
+    if (input.recurrence === 'installment') {
+      const groupId = randomUUID();
+      const count = input.installmentCount;
+      const amounts =
+        input.totalAmount !== undefined
+          ? splitInstallments(toCents(input.totalAmount), count)
+          : Array.from({ length: count }, () => input.amount as string);
+      const rows = amounts.map((amount, i) =>
+        Transaction.create({
+          ...common,
+          id: randomUUID(),
+          recurrence: 'installment',
+          amount,
+          dueDate: addMonthClamped(dueDate, i),
+          installmentCount: count,
+          installmentNumber: i + 1,
+          groupId,
+        }),
+      );
+      await this.persistMany(rows);
+      this.logger.log(`Created installment group ${groupId} (${rows.length} rows) for user ${userId}`);
+      return rows;
+    }
+
+    if (input.recurrence === 'fixed') {
+      const transaction = Transaction.create({
+        ...common,
+        id: randomUUID(),
+        recurrence: 'fixed',
+        amount: input.amount,
+        dueDate,
+        endDate: input.endDate ? new Date(input.endDate) : null,
+        groupId: randomUUID(),
+      });
+      await this.persistOne(transaction);
+      this.logger.log(`Created fixed transaction ${transaction.id} for user ${userId}`);
+      return [transaction];
+    }
+
+    const transaction = Transaction.create({
+      ...common,
+      id: randomUUID(),
+      recurrence: 'single',
+      amount: input.amount,
+      dueDate,
+    });
+    await this.persistOne(transaction);
+    this.logger.log(`Created transaction ${transaction.id} for user ${userId}`);
+    return [transaction];
+  }
+
+  /** Applies editable fields to one occurrence or a group scope; paid rows keep effectuation (R3/R6). */
+  async update(
+    userId: string,
+    id: string,
+    input: UpdateTransactionInput,
+    scope?: GroupScope,
+  ): Promise<Transaction[]> {
+    this.logger.log(`Updating transaction ${id} for user ${userId}`);
+    const target = await this.findById(id, userId);
+    if (!target) {
+      this.logger.warn(`Transaction ${id} not found for user ${userId}`);
+      throw new TransactionNotFoundError(id);
+    }
+
+    await this.validateReferences(userId, {
+      type: input.type ?? target.type,
+      categoryId: input.categoryId ?? target.categoryId,
+      accountId: input.accountId !== undefined ? input.accountId : target.accountId,
+      creditCardId: input.creditCardId !== undefined ? input.creditCardId : target.creditCardId,
+    });
+
+    const patch = toDomainPatch(input);
+
+    if (!target.groupId || !scope || scope === 'one') {
+      target.update(patch);
+      await this.saveOne(target);
+      this.logger.log(`Updated transaction ${id} for user ${userId}`);
+      return [target];
+    }
+
+    const group = await this.findGroup(target.groupId, userId);
+    const targets =
+      scope === 'all'
+        ? group
+        : group.filter((t) => t.dueDate.getTime() >= target.dueDate.getTime());
+    for (const t of targets) t.update(patch);
+    await this.saveMany(targets);
+    this.logger.log(`Updated ${targets.length} transaction(s) in group ${target.groupId} for user ${userId}`);
+    return targets;
+  }
+
+  /** Deletes one occurrence, or a group scope (one/future/all) including paid rows (R6). */
+  async delete(userId: string, id: string, scope?: GroupScope): Promise<void> {
+    this.logger.log(`Deleting transaction ${id} (scope=${scope ?? 'one'}) for user ${userId}`);
+    const target = await this.findById(id, userId);
+    if (!target) {
+      this.logger.warn(`Transaction ${id} not found for user ${userId}`);
+      throw new TransactionNotFoundError(id);
+    }
+
+    if (!target.groupId || !scope || scope === 'one') {
+      await this.deleteOne(id, userId);
+      return;
+    }
+
+    if (scope === 'all') {
+      await this.deleteGroup(target.groupId, userId);
+      return;
+    }
+
+    // scope === 'future': this occurrence and every later one in the group.
+    const group = await this.findGroup(target.groupId, userId);
+    const targets = group.filter((t) => t.dueDate.getTime() >= target.dueDate.getTime());
+    for (const t of targets) {
+      await this.deleteOne(t.id, userId);
+    }
+  }
+
+  /** pending -> paid; a fixed occurrence materializes the next pending row (FR-014/R10). */
+  async effectuate(userId: string, id: string, input: EffectuateInput): Promise<EffectuateResult> {
+    this.logger.log(`Effectuating transaction ${id} for user ${userId}`);
+    const transaction = await this.findById(id, userId);
+    if (!transaction) {
+      this.logger.warn(`Transaction ${id} not found for user ${userId}`);
+      throw new TransactionNotFoundError(id);
+    }
+
+    transaction.effectuate({
+      date: input.date ? new Date(input.date) : undefined,
+      amount: input.amount,
+    });
+
+    const next = await this.materializeNext(userId, transaction);
+    if (next) {
+      await this.saveMany([transaction, next]);
+    } else {
+      await this.saveOne(transaction);
+    }
+    this.logger.log(`Effectuated transaction ${id} for user ${userId}${next ? ` (materialized ${next.id})` : ''}`);
+    return { transaction, next };
+  }
+
+  /** paid -> pending. Inverse of effectuate(); does not un-materialize a next fixed occurrence. */
+  async undoEffectuate(userId: string, id: string): Promise<Transaction> {
+    this.logger.log(`Undoing effectuation of transaction ${id} for user ${userId}`);
+    const transaction = await this.findById(id, userId);
+    if (!transaction) {
+      this.logger.warn(`Transaction ${id} not found for user ${userId}`);
+      throw new TransactionNotFoundError(id);
+    }
+    transaction.undoEffectuate();
+    await this.saveOne(transaction);
+    this.logger.log(`Undid effectuation of transaction ${id} for user ${userId}`);
+    return transaction;
+  }
+
+  // --- queries ---
+
+  async get(userId: string, id: string): Promise<Transaction> {
+    this.logger.log(`Fetching transaction ${id} for user ${userId}`);
+    const transaction = await this.findById(id, userId);
+    if (!transaction) {
+      this.logger.warn(`Transaction ${id} not found for user ${userId}`);
+      throw new TransactionNotFoundError(id);
+    }
+    return transaction;
+  }
+
+  async list(userId: string, query: ListTransactionsQuery): Promise<Transaction[]> {
+    this.logger.log(`Listing transactions for user ${userId}`);
+    return this.find(userId, {
+      dueFrom: new Date(query.dueFrom),
+      dueTo: new Date(query.dueTo),
+      search: query.search,
+      amount: query.amount,
+      recurrence: query.recurrence,
+      type: query.type,
+      categoryId: query.categoryId,
+      accountId: query.accountId,
+      creditCardId: query.creditCardId,
+      sort: query.sort,
+      order: query.order,
+    });
+  }
+
+  /** Pending occurrences due before the current month start (user timezone -> `before`). */
+  async listOverdue(userId: string, query: OverdueQuery): Promise<Transaction[]> {
+    this.logger.log(`Listing overdue transactions for user ${userId}`);
+    return this.findOverdue(userId, new Date(query.before));
+  }
+
+  async getForecast(userId: string, query: ForecastQuery): Promise<ForecastResponse> {
+    this.logger.log(`Building forecast for user ${userId}`);
+    const months = buildMonthsList(query.from, query.months);
+    const dueFrom = new Date(0);
+    const dueTo = addMonthClamped(parseMonth(months[months.length - 1] as string), 1);
+
+    const all = await this.find(userId, { dueFrom, dueTo, sort: 'dueDate', order: 'asc' });
+    const relevant = all.filter((t) => t.type === 'expense' && t.recurrence !== 'single');
+
+    const groups = new Map<string, Transaction[]>();
+    for (const t of relevant) {
+      const key = t.groupId as string;
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(t);
+      else groups.set(key, [t]);
+    }
+
+    const rows: ForecastRow[] = [];
+    for (const [key, group] of groups) {
+      const first = group[0] as Transaction;
+      if (first.recurrence === 'installment') {
+        rows.push({
+          key,
+          description: first.description,
+          recurrence: 'installment',
+          installmentCount: first.installmentCount,
+          cells: projectInstallmentCells(group, months),
+        });
+      } else {
+        rows.push({
+          key,
+          description: first.description,
+          recurrence: 'fixed',
+          installmentCount: null,
+          cells: projectFixedCells(group, months),
+        });
+      }
+    }
+
+    const totals = months.map((month, i) => {
+      const cents = rows.reduce((sum, row) => {
+        const cell = row.cells[i];
+        return sum + (cell?.amount ? toCents(cell.amount) : 0);
+      }, 0);
+      return { month, amount: fromCents(cents) };
+    });
+
+    return { months, rows, totals };
+  }
+
+  // --- synced import (service-to-service, banking-ms only) ---
+
+  /**
+   * Idempotent by `externalId`: a replay with the same body returns the existing result
+   * untouched; a replay with a different body throws `SyncedImportConflictError` (409).
+   * `pluggyStatus` is excluded from the comparison (not persisted on `Transaction`).
+   */
+  async importSyncedCreate(input: ImportSyncedTransactionInput): Promise<SyncedImportResult> {
+    this.logger.log(`Importing synced transaction ${input.externalId} for user ${input.userId}`);
+    const existing = await this.findByExternalId(input.externalId, input.userId);
+    if (existing) {
+      if (!matchesInput(existing, input)) {
+        this.logger.warn(`Idempotency conflict for externalId ${input.externalId}`);
+        throw new SyncedImportConflictError(input.externalId);
+      }
+      return toResult(existing, input.pluggyStatus);
+    }
+
+    const categoryId = input.categoryId ?? (await this.findDefaultCategoryId(input.type));
+    if (!categoryId) {
+      this.logger.warn(`No default category for type ${input.type}`);
+      throw new ReferenceNotFoundError('category', 'default');
+    }
+
+    await this.validateReferences(input.userId, {
+      type: input.type,
+      categoryId,
+      accountId: input.accountId,
+      creditCardId: input.creditCardId,
+    });
+
+    const transaction = Transaction.create({
+      id: randomUUID(),
+      userId: input.userId,
+      description: input.description,
+      dueDate: new Date(input.dueDate),
+      amount: input.amount,
+      recurrence: 'single',
+      type: input.type,
+      categoryId,
+      accountId: input.accountId,
+      creditCardId: input.creditCardId,
+      source: 'synced',
+      externalId: input.externalId,
+      installmentNumber: input.installmentNumber ?? null,
+      installmentCount: input.installmentCount ?? null,
+    });
+    await this.persistOne(transaction);
+    this.logger.log(`Imported synced transaction ${transaction.id} for user ${input.userId}`);
+    return toResult(transaction, input.pluggyStatus);
+  }
+
+  async importSyncedPatch(
+    userId: string,
+    externalId: string,
+    patch: PatchSyncedTransactionInput,
+  ): Promise<SyncedImportResult> {
+    this.logger.log(`Patching synced transaction ${externalId} for user ${userId}`);
+    const transaction = await this.findByExternalId(externalId, userId);
+    if (!transaction) {
+      this.logger.warn(`Synced transaction ${externalId} not found for user ${userId}`);
+      throw new TransactionNotFoundError(externalId);
+    }
+
+    transaction.update({
+      description: patch.description,
+      amount: patch.amount,
+      dueDate: patch.dueDate ? new Date(patch.dueDate) : undefined,
+      installmentNumber: patch.installmentNumber,
+      installmentCount: patch.installmentCount,
+    });
+    await this.saveOne(transaction);
+    return toResult(transaction, patch.pluggyStatus ?? 'posted');
+  }
+
+  async importSyncedDelete(userId: string, externalId: string): Promise<void> {
+    this.logger.log(`Deleting synced transaction ${externalId} for user ${userId}`);
+    const transaction = await this.findByExternalId(externalId, userId);
+    if (!transaction) {
+      this.logger.warn(`Synced transaction ${externalId} not found for user ${userId}`);
+      throw new TransactionNotFoundError(externalId);
+    }
+    await this.deleteOne(transaction.id, userId);
+  }
+
+  // --- reference validation (folded from validate-references + lookups) ---
+
+  /** Category/account/card must exist, belong to the user (else 404), and category type must match (R9/FR-022). */
+  private async validateReferences(userId: string, input: ReferenceInput): Promise<void> {
+    const categoryType = await this.findCategoryType(input.categoryId, userId);
+    if (categoryType === null) throw new ReferenceNotFoundError('category', input.categoryId);
+    if (categoryType !== input.type) {
+      throw new InvalidTransactionError('Category type does not match transaction type');
+    }
+
+    if (input.accountId) {
+      const ok = await this.accountRepo.exists({ where: { id: input.accountId, userId } });
+      if (!ok) throw new ReferenceNotFoundError('account', input.accountId);
+    }
+    if (input.creditCardId) {
+      const ok = await this.creditCardRepo.exists({ where: { id: input.creditCardId, userId } });
+      if (!ok) throw new ReferenceNotFoundError('card', input.creditCardId);
+    }
+  }
+
+  /** Category type if it exists and is owned by the user or a shared system default, else null. */
+  private async findCategoryType(id: string, userId: string): Promise<TransactionType | null> {
+    const own = await this.categoryRepo.findOne({ where: { id, ownerId: userId } });
+    const row = own ?? (await this.categoryRepo.findOne({ where: { id, ownerId: IsNull() } }));
+    return row ? (row.type as TransactionType) : null;
+  }
+
+  /** "Outros" system catch-all category id for a type (synced imports with no category), else null. */
+  private async findDefaultCategoryId(type: TransactionType): Promise<string | null> {
+    const row = await this.categoryRepo.findOne({
+      where: { ownerId: IsNull(), type, name: 'Outros', isSystem: true },
+    });
+    return row?.id ?? null;
+  }
+
+  // --- fixed-recurrence materialization ---
+
+  private async materializeNext(userId: string, current: Transaction): Promise<Transaction | null> {
+    if (current.recurrence !== 'fixed' || !current.groupId) return null;
+    const nextDue = nextOccurrence(current.dueDate, current.endDate);
+    if (!nextDue) return null;
+
+    const group = await this.findGroup(current.groupId, userId);
+    const exists = group.some((t) => t.dueDate.getTime() === nextDue.getTime());
+    if (exists) return null;
+
+    return Transaction.create({
+      id: randomUUID(),
+      userId,
+      description: current.description,
+      dueDate: nextDue,
+      amount: current.amount,
+      recurrence: 'fixed',
+      type: current.type,
+      categoryId: current.categoryId,
+      accountId: current.accountId,
+      creditCardId: current.creditCardId,
+      notes: current.notes,
+      endDate: current.endDate,
+      groupId: current.groupId,
+    });
+  }
+
+  // --- persistence (folded from the removed custom repository; every op scoped by userId) ---
+
+  private async persistOne(transaction: Transaction): Promise<void> {
+    await this.txRepo.insert(toEntity(transaction));
+  }
+
+  private async persistMany(transactions: Transaction[]): Promise<void> {
+    if (transactions.length === 0) return;
+    await this.txRepo.manager.transaction(async (manager) => {
+      await manager.insert(TransactionEntity, transactions.map(toEntity));
+    });
+  }
+
+  private async saveOne(transaction: Transaction): Promise<void> {
+    await this.txRepo.save(toEntity(transaction));
+  }
+
+  private async saveMany(transactions: Transaction[]): Promise<void> {
+    if (transactions.length === 0) return;
+    await this.txRepo.manager.transaction(async (manager) => {
+      await manager.save(transactions.map(toEntity));
+    });
+  }
+
+  private async findById(id: string, userId: string): Promise<Transaction | null> {
+    const row = await this.txRepo.findOne({ where: { id, userId } });
+    return row ? toDomain(row) : null;
+  }
+
+  private async findByExternalId(externalId: string, userId: string): Promise<Transaction | null> {
+    const row = await this.txRepo.findOne({ where: { externalId, userId } });
+    return row ? toDomain(row) : null;
+  }
+
+  private async findGroup(groupId: string, userId: string): Promise<Transaction[]> {
+    const rows = await this.txRepo.find({ where: { groupId, userId }, order: { dueDate: 'ASC' } });
+    return rows.map(toDomain);
+  }
+
+  private async findOverdue(userId: string, before: Date): Promise<Transaction[]> {
+    const rows = await this.txRepo.find({
+      where: { userId, status: 'pending', dueDate: LessThan(before) },
+      order: { dueDate: 'ASC', id: 'ASC' },
+    });
+    return rows.map(toDomain);
+  }
+
+  private async find(userId: string, filter: FindTransactionsFilter): Promise<Transaction[]> {
+    const qb = this.txRepo
+      .createQueryBuilder('t')
+      .where('t.user_id = :userId', { userId })
+      .andWhere('t.due_date >= :dueFrom', { dueFrom: filter.dueFrom })
+      .andWhere('t.due_date <= :dueTo', { dueTo: filter.dueTo });
+
+    if (filter.search) {
+      qb.andWhere(
+        '(t.description ILIKE :search OR t.notes ILIKE :search OR t.amount::text ILIKE :search)',
+        { search: `%${filter.search}%` },
+      );
+    }
+    if (filter.amount) {
+      qb.andWhere('t.amount::text ILIKE :amount', { amount: `%${filter.amount}%` });
+    }
+    if (filter.recurrence) qb.andWhere('t.recurrence = :recurrence', { recurrence: filter.recurrence });
+    if (filter.type) qb.andWhere('t.type = :type', { type: filter.type });
+    if (filter.categoryId) qb.andWhere('t.category_id = :categoryId', { categoryId: filter.categoryId });
+    if (filter.accountId) qb.andWhere('t.account_id = :accountId', { accountId: filter.accountId });
+    if (filter.creditCardId)
+      qb.andWhere('t.credit_card_id = :creditCardId', { creditCardId: filter.creditCardId });
+
+    qb.orderBy(SORT_COLUMN[filter.sort], filter.order === 'desc' ? 'DESC' : 'ASC');
+    qb.addOrderBy('t.id', 'ASC');
+
+    const rows = await qb.getMany();
+    return rows.map(toDomain);
+  }
+
+  private async deleteOne(id: string, userId: string): Promise<void> {
+    await this.txRepo.delete({ id, userId });
+  }
+
+  private async deleteGroup(groupId: string, userId: string): Promise<void> {
+    await this.txRepo.manager.transaction(async (manager) => {
+      await manager.delete(TransactionEntity, { groupId, userId });
+    });
+  }
+}
+
+// --- aggregate <-> entity mapping ---
+
+function toEntity(transaction: Transaction): TransactionEntity {
+  const props = transaction.toProps();
+  const entity = new TransactionEntity();
+  entity.id = props.id;
+  entity.userId = props.userId;
+  entity.description = props.description;
+  entity.dueDate = props.dueDate;
+  entity.amount = props.amount;
+  entity.effectiveAmount = props.effectiveAmount;
+  entity.recurrence = props.recurrence;
+  entity.effectiveDate = props.effectiveDate;
+  entity.type = props.type;
+  entity.notes = props.notes;
+  entity.status = props.status;
+  entity.endDate = props.endDate;
+  entity.installmentCount = props.installmentCount;
+  entity.installmentNumber = props.installmentNumber;
+  entity.groupId = props.groupId;
+  entity.categoryId = props.categoryId;
+  entity.accountId = props.accountId;
+  entity.creditCardId = props.creditCardId;
+  entity.source = props.source;
+  entity.externalId = props.externalId;
+  entity.createdAt = props.createdAt;
+  entity.updatedAt = props.updatedAt;
+  return entity;
+}
+
+function toDomain(row: TransactionEntity): Transaction {
+  return Transaction.restore({
+    id: row.id,
+    userId: row.userId,
+    description: row.description,
+    dueDate: row.dueDate,
+    amount: row.amount,
+    effectiveAmount: row.effectiveAmount,
+    recurrence: row.recurrence as Transaction['recurrence'],
+    effectiveDate: row.effectiveDate,
+    type: row.type as Transaction['type'],
+    notes: row.notes,
+    status: row.status as Transaction['status'],
+    endDate: row.endDate,
+    installmentCount: row.installmentCount,
+    installmentNumber: row.installmentNumber,
+    groupId: row.groupId,
+    categoryId: row.categoryId,
+    accountId: row.accountId,
+    creditCardId: row.creditCardId,
+    source: row.source as Transaction['source'],
+    externalId: row.externalId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  });
+}
+
+// --- update-input -> aggregate patch ---
+
+function toDomainPatch(input: UpdateTransactionInput): Partial<UpdateTransactionAttributes> {
+  const patch: Partial<UpdateTransactionAttributes> = {};
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.dueDate !== undefined) patch.dueDate = new Date(input.dueDate);
+  if (input.amount !== undefined) patch.amount = input.amount;
+  if (input.type !== undefined) patch.type = input.type;
+  if (input.notes !== undefined) patch.notes = input.notes ?? null;
+  if (input.categoryId !== undefined) patch.categoryId = input.categoryId;
+  if (input.accountId !== undefined) patch.accountId = input.accountId;
+  if (input.creditCardId !== undefined) patch.creditCardId = input.creditCardId;
+  if (input.endDate !== undefined) patch.endDate = input.endDate ? new Date(input.endDate) : null;
+  return patch;
+}
+
+// --- synced-import idempotency helpers ---
+
+/** Excludes `pluggyStatus` — not persisted on `Transaction`, has its own patch path. */
+function matchesInput(transaction: Transaction, input: ImportSyncedTransactionInput): boolean {
+  if (
+    transaction.description !== input.description ||
+    transaction.amount !== input.amount ||
+    transaction.dueDate.getTime() !== new Date(input.dueDate).getTime() ||
+    transaction.type !== input.type ||
+    transaction.accountId !== input.accountId ||
+    transaction.creditCardId !== input.creditCardId ||
+    (transaction.installmentNumber ?? null) !== (input.installmentNumber ?? null) ||
+    (transaction.installmentCount ?? null) !== (input.installmentCount ?? null)
+  ) {
+    return false;
+  }
+  if (input.categoryId !== undefined && transaction.categoryId !== input.categoryId) return false;
+  return true;
+}
+
+function toResult(
+  transaction: Transaction,
+  pluggyStatus: SyncedImportResult['pluggyStatus'],
+): SyncedImportResult {
+  return {
+    id: transaction.id,
+    source: 'synced',
+    externalId: transaction.externalId ?? '',
+    pluggyStatus,
+  };
+}
+
+// --- forecast projection (folded from get-forecast) ---
+
+function parseMonth(month: string): Date {
+  const [yearStr, monthStr] = month.split('-');
+  return new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, 1));
+}
+
+function formatMonth(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+function startOfMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
+
+function isSameMonth(a: Date, b: Date): boolean {
+  return startOfMonth(a).getTime() === startOfMonth(b).getTime();
+}
+
+function buildMonthsList(from: string, count: number): string[] {
+  const start = parseMonth(from);
+  return Array.from({ length: count }, (_, i) => formatMonth(addMonthClamped(start, i)));
+}
+
+function projectFixedCells(
+  group: Transaction[],
+  months: string[],
+): Array<{ month: string; amount: string | null }> {
+  const byMonth = new Map<string, Transaction>();
+  for (const row of group) byMonth.set(formatMonth(row.dueDate), row);
+  const anchor = group[group.length - 1] as Transaction;
+
+  let cursor = anchor.dueDate;
+  let amount = anchor.amount;
+  let terminated = false;
+
+  return months.map((month) => {
+    const monthDate = parseMonth(month);
+    if (monthDate.getTime() < startOfMonth(cursor).getTime()) {
+      return { month, amount: null };
+    }
+    if (terminated) return { month, amount: null };
+
+    while (!isSameMonth(cursor, monthDate)) {
+      const next = nextOccurrence(cursor, anchor.endDate);
+      if (next === null) {
+        terminated = true;
+        break;
+      }
+      cursor = next;
+      const actual = byMonth.get(formatMonth(cursor));
+      if (actual) amount = actual.amount;
+    }
+    if (terminated) return { month, amount: null };
+
+    const actual = byMonth.get(formatMonth(cursor));
+    if (actual) amount = actual.amount;
+    return { month, amount };
+  });
+}
+
+function projectInstallmentCells(
+  group: Transaction[],
+  months: string[],
+): Array<{ month: string; amount: string | null }> {
+  const byMonth = new Map<string, Transaction>();
+  for (const row of group) byMonth.set(formatMonth(row.dueDate), row);
+  return months.map((month) => {
+    const row = byMonth.get(month);
+    return { month, amount: row ? row.amount : null };
+  });
+}
