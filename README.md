@@ -51,11 +51,12 @@ pnpm dev                       # all apps/services in watch mode
 
 | App/Service | Port |
 | ----------- | ---- |
-| web         | 3000 |
-| api         | 3001 |
-| bff         | 3002 |
-| ai-ms       | 3003 |
-| admin       | 3010 |
+| web         | 3030 |
+| api         | 3031 |
+| bff         | 3032 |
+| ai-ms       | 3033 |
+| banking-ms  | 3034 |
+| admin       | 3040 |
 | Keycloak    | 8080 |
 | PostgreSQL  | 5432 |
 

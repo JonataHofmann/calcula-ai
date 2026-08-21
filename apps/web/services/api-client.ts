@@ -1,4 +1,4 @@
-const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:3002';
+const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:3032';
 
 export class ApiError extends Error {
   constructor(

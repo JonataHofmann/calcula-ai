@@ -44,7 +44,7 @@ export async function proxyRequest<T>(
 /** Thin HTTP client for BFF -> API-MS calls. */
 @Injectable()
 export class ApiClient {
-  private readonly base = process.env.API_URL ?? 'http://localhost:3001';
+  private readonly base = process.env.API_URL ?? 'http://localhost:3031';
 
   async get<T>(path: string, opts: ApiRequestOptions): Promise<T> {
     return proxyRequest<T>(this.base, 'GET', path, opts);

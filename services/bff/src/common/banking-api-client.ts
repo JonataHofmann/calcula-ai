@@ -4,7 +4,7 @@ import { proxyRequest, type ApiRequestOptions } from './api-client';
 /** Thin HTTP client for BFF -> banking-ms calls (Pluggy bank connections proxy). */
 @Injectable()
 export class BankingApiClient {
-  private readonly base = process.env.BANKING_MS_URL ?? 'http://localhost:3004';
+  private readonly base = process.env.BANKING_MS_URL ?? 'http://localhost:3034';
 
   async get<T>(path: string, opts: ApiRequestOptions): Promise<T> {
     return proxyRequest<T>(this.base, 'GET', path, opts);

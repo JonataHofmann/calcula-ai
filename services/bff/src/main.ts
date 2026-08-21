@@ -25,7 +25,7 @@ async function bootstrap(): Promise<void> {
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
 
-  await app.listen(process.env.BFF_PORT ?? 3002);
+  await app.listen(process.env.BFF_PORT ?? 3032);
 }
 
 void bootstrap();

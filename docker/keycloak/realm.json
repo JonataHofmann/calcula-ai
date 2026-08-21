@@ -8,9 +8,9 @@
       "publicClient": false,
       "secret": "dev-secret",
       "standardFlowEnabled": true,
-      "redirectUris": ["http://localhost:3002/auth/callback"],
+      "redirectUris": ["http://localhost:3032/auth/callback"],
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost:3000/*",
+        "post.logout.redirect.uris": "http://localhost:3030/*",
         "pkce.code.challenge.method": "S256"
       },
       "protocol": "openid-connect"

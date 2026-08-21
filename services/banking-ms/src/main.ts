@@ -31,7 +31,7 @@ async function bootstrap(): Promise<void> {
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 
-  await app.listen(process.env.BANKING_MS_PORT ?? 3003);
+  await app.listen(process.env.BANKING_MS_PORT ?? 3034);
 }
 
 void bootstrap();

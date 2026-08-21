@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const bffUrl = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:3002';
+  const bffUrl = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:3032';
   const returnTo = encodeURIComponent(`${pathname}${search}`);
   return NextResponse.redirect(`${bffUrl}/auth/login?returnTo=${returnTo}`, 307);
 }
