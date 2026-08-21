@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Post, Query } from '@nestjs/common';
 import {
   bankConnectionCreateInput,
   type BankConnectionCreateInput,
@@ -6,15 +6,19 @@ import {
   connectTokenInput,
   type ConnectTokenInput,
   type ConnectTokenResponse,
+  listSyncedTransactionsQuery,
+  type ListSyncedTransactionsQuery,
   refreshBankConnectionInput,
   type RefreshBankConnectionInput,
   type RetryConnectionImportsResponse,
+  type SyncedTransactionDto,
 } from '@finance/contracts';
 import type { AuthenticatedUser } from '@finance/contracts';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { BankConnectionsService } from './bank-connections.service';
 import { BankConnectionConverter } from './converters/bank-connection.converter';
+import { SyncedTransactionConverter } from './converters/synced-transaction.converter';
 
 @Controller()
 export class BankConnectionsController {
@@ -60,6 +64,21 @@ export class BankConnectionsController {
     this.logger.log(`GET /bank-connections for user ${user.id}`);
     const connections = await this.service.listConnections({ userId: user.id });
     return connections.map((c) => BankConnectionConverter.toResponse(c));
+  }
+
+  @Get('synced-transactions')
+  async listSyncedTransactions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(listSyncedTransactionsQuery)) query: ListSyncedTransactionsQuery,
+  ): Promise<SyncedTransactionDto[]> {
+    this.logger.log(
+      `GET /synced-transactions${query.status ? ` (status=${query.status})` : ''} for user ${user.id}`,
+    );
+    const transactions = await this.service.listSyncedTransactions({
+      userId: user.id,
+      syncStatus: query.status,
+    });
+    return transactions.map((t) => SyncedTransactionConverter.toResponse(t));
   }
 
   @Delete('bank-connections/:id')

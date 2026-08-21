@@ -1,6 +1,7 @@
 import type { AuthenticatedUser, BankConnectionDto } from '@finance/contracts';
 import { BankConnectionsController } from './bank-connections.controller';
 import type { BankConnectionsService } from './bank-connections.service';
+import { SyncedTransaction } from './synced-transaction';
 
 /**
  * Controller unit tests — the controller is a thin delegator (flat NestJS convention).
@@ -23,6 +24,7 @@ function setup() {
     disconnectConnection: jest.fn(),
     triggerManualRefresh: jest.fn(),
     retryConnectionImports: jest.fn(),
+    listSyncedTransactions: jest.fn(),
   };
   const controller = new BankConnectionsController(service as unknown as BankConnectionsService);
   return { controller, service };
@@ -141,6 +143,75 @@ describe('BankConnectionsController', () => {
       expect(result[0].accounts).toEqual([
         { id: 'acc-1', displayName: 'Conta', type: 'CHECKING_ACCOUNT', balance: '100.00', currency: 'BRL' },
       ]);
+    });
+  });
+
+  describe('listSyncedTransactions', () => {
+    it('forwards the status filter and maps each transaction through the converter', async () => {
+      const { controller, service } = setup();
+      service.listSyncedTransactions!.mockResolvedValue([
+        SyncedTransaction.restore({
+          id: 'synced-1',
+          linkedAccountId: 'acc-1',
+          linkedCreditCardId: null,
+          userId: 'user-a',
+          pluggyTransactionId: 'tx-1',
+          description: 'Compra teste',
+          amount: '50.00',
+          date: new Date('2026-08-01T00:00:00.000Z'),
+          direction: 'debit',
+          pluggyStatus: 'posted',
+          installmentNumber: null,
+          installmentTotal: null,
+          syncStatus: 'error',
+          transactionsMsId: null,
+          retryCount: 2,
+          lastError: 'boom',
+          createdAt: new Date('2026-08-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-08-02T00:00:00.000Z'),
+        }),
+      ]);
+
+      const result = await controller.listSyncedTransactions(USER, { status: 'error' });
+
+      expect(service.listSyncedTransactions).toHaveBeenCalledWith({
+        userId: 'user-a',
+        syncStatus: 'error',
+      });
+      expect(result).toEqual([
+        {
+          id: 'synced-1',
+          pluggyTransactionId: 'tx-1',
+          linkedAccountId: 'acc-1',
+          linkedCreditCardId: null,
+          description: 'Compra teste',
+          amount: '50.00',
+          date: '2026-08-01T00:00:00.000Z',
+          direction: 'debit',
+          pluggyStatus: 'posted',
+          installmentNumber: null,
+          installmentTotal: null,
+          syncStatus: 'error',
+          transactionsMsId: null,
+          retryCount: 2,
+          lastError: 'boom',
+          createdAt: '2026-08-01T00:00:00.000Z',
+          updatedAt: '2026-08-02T00:00:00.000Z',
+        },
+      ]);
+    });
+
+    it('forwards an undefined status when no filter is given', async () => {
+      const { controller, service } = setup();
+      service.listSyncedTransactions!.mockResolvedValue([]);
+
+      const result = await controller.listSyncedTransactions(USER, {});
+
+      expect(service.listSyncedTransactions).toHaveBeenCalledWith({
+        userId: 'user-a',
+        syncStatus: undefined,
+      });
+      expect(result).toEqual([]);
     });
   });
 

@@ -56,6 +56,11 @@ export interface CreateConnectTokenInput {
   bankConnectionId?: string;
 }
 
+export interface ListSyncedTransactionsInput {
+  userId: string;
+  syncStatus?: SyncStatus;
+}
+
 export interface CreateConnectTokenResult {
   connectToken: string;
   expiresAt: Date;
@@ -269,6 +274,18 @@ export class BankConnectionsService {
         (row) => row.linkedAccountId === linkedAccountId && row.linkedCreditCardId === linkedCreditCardId,
       )
       .map(toTransactionDomain);
+  }
+
+  /**
+   * Lists a user's synced (imported) transactions newest-first, optionally narrowed to one
+   * sync status (R8). Scoped by `userId` so a caller only ever sees their own import rows.
+   */
+  async listSyncedTransactions(input: ListSyncedTransactionsInput): Promise<SyncedTransaction[]> {
+    const where = input.syncStatus
+      ? { userId: input.userId, syncStatus: input.syncStatus }
+      : { userId: input.userId };
+    const rows = await this.transactionRepo.find({ where, order: { createdAt: 'DESC' } });
+    return rows.map(toTransactionDomain);
   }
 
   // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { CardsModule } from './modules/cards/cards.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { BankConnectionsModule } from './modules/bank-connections/bank-connections.module';
+import { SyncedTransactionsModule } from './modules/synced-transactions/synced-transactions.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { BankConnectionsModule } from './modules/bank-connections/bank-connectio
     CardsModule,
     TransactionsModule,
     BankConnectionsModule,
+    SyncedTransactionsModule,
   ],
 })
 export class AppModule {}

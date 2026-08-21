@@ -1502,3 +1502,92 @@ describe('BankConnectionsService.syncStaleConnections', () => {
     expect(pluggy.forceRefreshCalls.sort()).toEqual(['item-never', 'item-stale']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// listSyncedTransactions
+// ---------------------------------------------------------------------------
+
+describe('BankConnectionsService.listSyncedTransactions', () => {
+  function syncedTransaction(overrides: {
+    id: string;
+    userId?: string;
+    pluggyTransactionId: string;
+    syncStatus: 'pending' | 'processing' | 'success' | 'error';
+    createdAt: Date;
+  }) {
+    return SyncedTransaction.restore({
+      id: overrides.id,
+      linkedAccountId: 'acc-1',
+      linkedCreditCardId: null,
+      userId: overrides.userId ?? USER_A,
+      pluggyTransactionId: overrides.pluggyTransactionId,
+      description: 'Compra teste',
+      amount: '50.00',
+      date: new Date('2026-08-01'),
+      direction: 'debit',
+      pluggyStatus: 'posted',
+      installmentNumber: null,
+      installmentTotal: null,
+      syncStatus: overrides.syncStatus,
+      transactionsMsId: overrides.syncStatus === 'success' ? 'tx-ms-1' : null,
+      retryCount: overrides.syncStatus === 'error' ? 1 : 0,
+      lastError: overrides.syncStatus === 'error' ? 'boom' : null,
+      createdAt: overrides.createdAt,
+      updatedAt: overrides.createdAt,
+    });
+  }
+
+  it('returns all of the user\'s synced transactions newest-first', async () => {
+    const { service } = setup();
+    await service.upsertSyncedTransaction(
+      syncedTransaction({ id: 's-1', pluggyTransactionId: 'tx-1', syncStatus: 'success', createdAt: new Date('2026-08-01') }),
+    );
+    await service.upsertSyncedTransaction(
+      syncedTransaction({ id: 's-2', pluggyTransactionId: 'tx-2', syncStatus: 'error', createdAt: new Date('2026-08-03') }),
+    );
+    await service.upsertSyncedTransaction(
+      syncedTransaction({ id: 's-3', pluggyTransactionId: 'tx-3', syncStatus: 'pending', createdAt: new Date('2026-08-02') }),
+    );
+
+    const result = await service.listSyncedTransactions({ userId: USER_A });
+
+    expect(result.map((t) => t.id)).toEqual(['s-2', 's-3', 's-1']);
+  });
+
+  it('filters by sync status when provided', async () => {
+    const { service } = setup();
+    await service.upsertSyncedTransaction(
+      syncedTransaction({ id: 's-1', pluggyTransactionId: 'tx-1', syncStatus: 'success', createdAt: new Date('2026-08-01') }),
+    );
+    await service.upsertSyncedTransaction(
+      syncedTransaction({ id: 's-2', pluggyTransactionId: 'tx-2', syncStatus: 'error', createdAt: new Date('2026-08-02') }),
+    );
+
+    const result = await service.listSyncedTransactions({ userId: USER_A, syncStatus: 'error' });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('s-2');
+    expect(result[0].syncStatus).toBe('error');
+    expect(result[0].lastError).toBe('boom');
+  });
+
+  it('never returns another user\'s transactions', async () => {
+    const { service } = setup();
+    await service.upsertSyncedTransaction(
+      syncedTransaction({ id: 's-a', pluggyTransactionId: 'tx-a', syncStatus: 'success', createdAt: new Date('2026-08-01') }),
+    );
+    await service.upsertSyncedTransaction(
+      syncedTransaction({ id: 's-b', userId: USER_B, pluggyTransactionId: 'tx-b', syncStatus: 'success', createdAt: new Date('2026-08-02') }),
+    );
+
+    const result = await service.listSyncedTransactions({ userId: USER_A });
+
+    expect(result.map((t) => t.id)).toEqual(['s-a']);
+  });
+
+  it('returns an empty list when the user has no synced transactions', async () => {
+    const { service } = setup();
+    const result = await service.listSyncedTransactions({ userId: USER_A });
+    expect(result).toEqual([]);
+  });
+});
