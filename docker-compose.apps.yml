@@ -3,11 +3,10 @@
 #
 # Uso:  docker compose -f docker-compose.apps.yml up --build
 #
-# Os valores vêm do .env (carregado por env_file e também pela interpolação ${...} do compose).
-# Só sobrescrevemos o que depende da REDE do Docker:
-#   - localhost -> host.docker.internal  (DB/Keycloak estão no host, não no container)
-#   - localhost -> nome do serviço       (comunicação entre containers na rede do compose)
-# As portas e demais segredos são respeitados exatamente como estão no .env.
+# Envs definidas no painel do Dokploy chegam via interpolação ${...} do compose.
+# DATABASE_URL e KEYCLOAK_URL são injetadas pelo Dokploy (aponte-as para o host onde o
+# banco/Keycloak rodam — devem ser acessíveis de dentro do container).
+# Só derivamos as URLs de comunicação ENTRE containers (nome do serviço + porta).
 
 services:
   api:
@@ -17,8 +16,8 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://finance:finance@host.docker.internal:5432/finance
-      KEYCLOAK_URL: http://host.docker.internal:8080
+      DATABASE_URL: ${DATABASE_URL}
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
       CORS_ORIGINS: ${WEB_URL},http://localhost:${ADMIN_PORT:-3040},${BFF_PUBLIC_URL}
     ports:
       - "${API_PORT}:${API_PORT}"
@@ -45,8 +44,8 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://finance:finance@host.docker.internal:5432/finance
-      KEYCLOAK_URL: http://host.docker.internal:8080
+      DATABASE_URL: ${DATABASE_URL}
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
       TRANSACTIONS_MS_URL: http://api:${API_PORT}
       CORS_ORIGINS: ${WEB_URL},http://localhost:${ADMIN_PORT:-3040},${BFF_PUBLIC_URL}
     ports:
@@ -63,8 +62,8 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://finance:finance@host.docker.internal:5432/finance
-      KEYCLOAK_URL: http://host.docker.internal:8080
+      DATABASE_URL: ${DATABASE_URL}
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
       API_URL: http://api:${API_PORT}
       AI_MS_URL: http://ai-ms:${AI_MS_PORT}
       BANKING_MS_URL: http://banking-ms:${BANKING_MS_PORT}
