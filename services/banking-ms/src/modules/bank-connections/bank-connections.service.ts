@@ -26,7 +26,11 @@ import {
   type PluggyClient,
   type PluggyTransaction,
 } from './pluggy-client.port';
-import { TRANSACTIONS_IMPORTER, type TransactionsImporter } from './transactions-importer.port';
+import {
+  TRANSACTIONS_IMPORTER,
+  type ImportedTransactionType,
+  type TransactionsImporter,
+} from './transactions-importer.port';
 import { BankConnectionEntity } from './entities/bank-connection.entity';
 import { LinkedAccountEntity } from './entities/linked-account.entity';
 import { LinkedCreditCardEntity } from './entities/linked-credit-card.entity';
@@ -594,7 +598,7 @@ export class BankConnectionsService {
           description: tx.description,
           amount: fromCents(Math.abs(Math.round(tx.amount * 100))),
           dueDate: new Date(tx.date),
-          type: tx.type === 'DEBIT' ? 'expense' : 'income',
+          type: resolveImportedType(tx.type === 'CREDIT' ? 'credit' : 'debit', linkedCreditCardId !== null),
           accountId: apiAccountId,
           creditCardId: apiCreditCardId,
           installmentNumber: installments.installmentNumber,
@@ -680,7 +684,7 @@ export class BankConnectionsService {
         description: synced.description,
         amount: synced.amount,
         dueDate: synced.date,
-        type: synced.direction === 'credit' ? 'income' : 'expense',
+        type: resolveImportedType(synced.direction, synced.linkedCreditCardId !== null),
         accountId: apiAccountId,
         creditCardId: apiCreditCardId,
         installmentNumber: synced.installmentNumber,
@@ -1015,4 +1019,17 @@ function toTransactionDomain(row: SyncedTransactionEntity): SyncedTransaction {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });
+}
+
+/**
+ * Maps a Pluggy direction to the app transaction type, honoring `chk_transactions_origin`:
+ * a credit-card transaction is always an `expense` (the constraint forbids `income` on a card).
+ * Only account-originated transactions can be `income` (a `credit` inflow).
+ */
+function resolveImportedType(
+  direction: SyncedTransaction['direction'],
+  isCreditCard: boolean,
+): ImportedTransactionType {
+  if (isCreditCard) return 'expense';
+  return direction === 'credit' ? 'income' : 'expense';
 }

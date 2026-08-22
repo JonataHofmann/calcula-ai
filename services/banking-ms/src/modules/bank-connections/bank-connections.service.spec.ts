@@ -507,6 +507,53 @@ describe('BankConnectionsService.syncConnection', () => {
     expect(stored?.lastSyncedAt).not.toBeNull();
   });
 
+  it('imports a credit-card transaction as expense even when Pluggy reports it as CREDIT (chk_transactions_origin)', async () => {
+    const { service, pluggy, importer } = setup();
+    await createConnection(service);
+    pluggy.addItem('item-1', {
+      status: 'UPDATED',
+      institutionId: 'inst-1',
+      institutionName: 'Banco Teste',
+    });
+    pluggy.addAccounts('item-1', [
+      {
+        id: 'card-1',
+        itemId: 'item-1',
+        type: 'CREDIT',
+        name: 'Cartão de crédito',
+        number: '**** 5678',
+        balance: -200,
+        currencyCode: 'BRL',
+        creditData: {
+          brand: 'Visa',
+          creditLimit: 1000,
+          availableCreditLimit: 800,
+          balanceCloseDate: '2026-08-01',
+          balanceDueDate: '2026-08-10',
+        },
+      },
+    ]);
+    pluggy.addTransactions('card-1', [
+      {
+        id: 'tx-credit',
+        accountId: 'card-1',
+        description: 'SPOTIFY AB',
+        amount: 21.9,
+        date: '2026-06-01',
+        type: 'CREDIT',
+        status: 'POSTED',
+        creditCardMetadata: null,
+      },
+    ]);
+
+    await service.syncConnection({ userId: USER_A, bankConnectionId: 'conn-1' });
+
+    expect(importer.imported).toHaveLength(1);
+    expect(importer.imported[0].type).toBe('expense');
+    expect(importer.imported[0].accountId).toBeNull();
+    expect(importer.imported[0].creditCardId).not.toBeNull();
+  });
+
   it('marks the connection as needing attention when Pluggy reports a login error', async () => {
     const { service, pluggy } = setup();
     await createConnection(service);
