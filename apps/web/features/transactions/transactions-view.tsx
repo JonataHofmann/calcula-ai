@@ -90,13 +90,31 @@ export function TransactionsView() {
     return { dueFrom, dueTo, sort: 'dueDate', order: 'desc' };
   }, [period]);
 
+  // Credit-card expenses due before the current period — folded into the invoice groups when grouping is on
+  // so a card's invoice reflects prior-month expenses too, not just the selected month.
+  const priorCardQuery: ListTransactionsQuery = useMemo(() => {
+    const { dueFrom } = periodWindow(period);
+    const priorTo = new Date(new Date(dueFrom).getTime() - 1).toISOString();
+    return { dueFrom: new Date(0).toISOString(), dueTo: priorTo, type: 'expense', sort, order, ...filters };
+  }, [period, sort, order, filters]);
+
   const overdueBefore = useMemo(() => startOfMonth(reference), [reference]);
   const { data: transactions, isLoading } = useTransactions(query);
   const { data: periodTransactions } = useTransactions(periodQuery);
+  const { data: priorCardTransactions } = useTransactions(priorCardQuery, groupCreditCardExpenses);
   const { data: overdue } = useOverdue(overdueBefore, showOverdue);
   const { data: accounts } = useAccounts();
   const { data: cards } = useCards();
   const { data: categories } = useCategories();
+
+  // When grouping, merge prior-month card expenses into the table so they land in the invoice groups.
+  const tableTransactions = useMemo(() => {
+    const current = transactions ?? [];
+    if (!groupCreditCardExpenses || !priorCardTransactions?.length) return current;
+    const seen = new Set(current.map((t) => t.id));
+    const priorCards = priorCardTransactions.filter((t) => t.creditCardId && !seen.has(t.id));
+    return [...current, ...priorCards];
+  }, [transactions, priorCardTransactions, groupCreditCardExpenses]);
 
   const create = useCreateTransaction();
   const update = useUpdateTransaction();
@@ -252,9 +270,9 @@ export function TransactionsView() {
               <Skeleton key={i} className="h-12 w-full rounded-card" />
             ))}
           </div>
-        ) : transactions && transactions.length > 0 ? (
+        ) : tableTransactions.length > 0 ? (
           <TransactionsTable
-            transactions={transactions}
+            transactions={tableTransactions}
             categories={categories}
             accounts={accounts ?? []}
             cards={cards ?? []}

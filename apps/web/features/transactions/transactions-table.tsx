@@ -22,6 +22,8 @@ import {
   ArrowUp,
   ArrowUpDown,
   CheckCircle2,
+  CreditCard,
+  Landmark,
   Link2,
   Pencil,
   Receipt,
@@ -152,6 +154,27 @@ function CardDirectionIcon({ type }: { type: TransactionDto['type'] }) {
   );
 }
 
+type OriginKind = 'account' | 'card' | 'none';
+
+/** Origin cell — distinct icon + tint so a bank account reads differently from a credit card at a glance. */
+function OriginTag({ label, kind }: { label: string; kind: OriginKind }) {
+  if (kind === 'none') return <span className="text-text-muted text-xs">—</span>;
+  const isCard = kind === 'card';
+  const Icon = isCard ? CreditCard : Landmark;
+  return (
+    <span
+      className={cn(
+        'inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
+        isCard ? 'bg-warning-soft text-warning' : 'bg-info-soft text-info',
+      )}
+      title={isCard ? 'Cartão de crédito' : 'Conta'}
+    >
+      <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
 function CategoryTag({ category }: { category?: CategoryNodeDto }) {
   if (!category) return <span className="text-text-muted text-xs">—</span>;
   const Icon = getIcon(category.icon);
@@ -191,10 +214,10 @@ export function TransactionsTable({
 
   const { ungrouped, invoices } = buildInvoiceGroups(transactions, cardMap, groupCreditCardExpenses);
 
-  const origin = (t: TransactionDto): string => {
-    if (t.creditCardId) return cardMap.get(t.creditCardId) ?? '—';
-    if (t.accountId) return accountMap.get(t.accountId) ?? '—';
-    return '—';
+  const origin = (t: TransactionDto): { label: string; kind: OriginKind } => {
+    if (t.creditCardId) return { label: cardMap.get(t.creditCardId) ?? '—', kind: 'card' };
+    if (t.accountId) return { label: accountMap.get(t.accountId) ?? '—', kind: 'account' };
+    return { label: '—', kind: 'none' };
   };
 
   const sortIcon = (column: TransactionSort) => {
@@ -248,7 +271,9 @@ export function TransactionsTable({
                 </TableCell>
                 <TableCell className={cn(CELL, 'text-text-muted')}>{day(invoice.dueDate)}</TableCell>
                 <TableCell className={cn(CELL, 'text-text')}>{money(invoice.total)}</TableCell>
-                <TableCell className={cn(CELL, 'text-text-muted')}>{invoice.cardName}</TableCell>
+                <TableCell className={CELL}>
+                  <OriginTag label={invoice.cardName} kind="card" />
+                </TableCell>
                 <TableCell className={CELL}>
                   <Badge variant={TYPE_VARIANT.expense}>{TYPE_LABEL.expense}</Badge>
                 </TableCell>
@@ -309,7 +334,12 @@ export function TransactionsTable({
                 {t.creditCardId ? <CardDirectionIcon type={t.type} /> : null}
                 {money(t.amount)}
               </TableCell>
-              <TableCell className={cn(CELL, 'text-text-muted')}>{origin(t)}</TableCell>
+              <TableCell className={CELL}>
+                {(() => {
+                  const o = origin(t);
+                  return <OriginTag label={o.label} kind={o.kind} />;
+                })()}
+              </TableCell>
               <TableCell className={CELL}>
                 <Badge variant={TYPE_VARIANT[t.type]}>{TYPE_LABEL[t.type]}</Badge>
               </TableCell>

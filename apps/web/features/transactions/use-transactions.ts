@@ -22,10 +22,11 @@ import {
 export const TRANSACTIONS_QUERY_KEY = ['transactions'] as const;
 const KEY = TRANSACTIONS_QUERY_KEY;
 
-export function useTransactions(query: ListTransactionsQuery) {
+export function useTransactions(query: ListTransactionsQuery, enabled = true) {
   return useQuery({
     queryKey: [...KEY, query] as const,
     queryFn: () => listTransactions(query),
+    enabled,
   });
 }
 
