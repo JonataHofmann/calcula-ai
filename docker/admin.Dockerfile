@@ -3,6 +3,7 @@ RUN corepack enable pnpm
 WORKDIR /app
 
 FROM base AS build
+ENV CI=true
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm turbo run build --filter=@finance/admin
