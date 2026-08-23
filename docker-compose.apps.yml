@@ -1,14 +1,48 @@
-# Sobe TODAS as aplicações/módulos (sem banco e sem Keycloak).
-# Postgres e Keycloak rodam por fora; os containers os alcançam via host.docker.internal.
+# Sobe TODAS as aplicações/módulos + banco (Postgres) e Keycloak, tudo funcional.
 #
 # Uso:  docker compose -f docker-compose.apps.yml up --build
 #
-# Envs definidas no painel do Dokploy chegam via interpolação ${...} do compose.
-# DATABASE_URL e KEYCLOAK_URL são injetadas pelo Dokploy (aponte-as para o host onde o
-# banco/Keycloak rodam — devem ser acessíveis de dentro do container).
-# Só derivamos as URLs de comunicação ENTRE containers (nome do serviço + porta).
+# Postgres e Keycloak rodam DENTRO deste compose. As apps os alcançam pelos nomes
+# de serviço (postgres / keycloak). DATABASE_URL/KEYCLOAK_URL são fixados aqui para os
+# serviços internos (o bloco environment sobrepõe o env_file .env). Para apontar a um
+# banco/Keycloak externo no Dokploy, edite estes valores.
 
 services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: finance
+      POSTGRES_PASSWORD: finance
+      POSTGRES_DB: finance
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: finance
+      KC_DB_PASSWORD: finance
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docker/keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build:
       context: .
@@ -16,11 +50,16 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL}
-      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance
+      KEYCLOAK_URL: http://keycloak:8080
       CORS_ORIGINS: ${WEB_URL},http://localhost:${ADMIN_PORT:-3040},${BFF_PUBLIC_URL}
     ports:
       - "${API_PORT}:${API_PORT}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -44,14 +83,19 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL}
-      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance
+      KEYCLOAK_URL: http://keycloak:8080
       TRANSACTIONS_MS_URL: http://api:${API_PORT}
       CORS_ORIGINS: ${WEB_URL},http://localhost:${ADMIN_PORT:-3040},${BFF_PUBLIC_URL}
     ports:
       - "${BANKING_MS_PORT}:${BANKING_MS_PORT}"
     depends_on:
-      - api
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -62,8 +106,8 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL}
-      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance
+      KEYCLOAK_URL: http://keycloak:8080
       API_URL: http://api:${API_PORT}
       AI_MS_URL: http://ai-ms:${AI_MS_PORT}
       BANKING_MS_URL: http://banking-ms:${BANKING_MS_PORT}
@@ -102,3 +146,6 @@ services:
       - "${ADMIN_PORT:-3040}:${ADMIN_PORT:-3040}"
     depends_on:
       - bff
+
+volumes:
+  postgres-data:
