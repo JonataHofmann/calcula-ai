@@ -66,6 +66,11 @@ function installmentLabel(n: number | null, m: number | null): string {
   return n && m ? `${n}/${m}` : '';
 }
 
+/** A credit line (estorno/pagamento/crédito) arrives negative — it is a receita, not despesa. */
+function isIncomeLine(amount: string): boolean {
+  return Number(amount) < 0;
+}
+
 /**
  * Review step (FR-003a/FR-011): the user sets a category per line, may discard lines,
  * and can adjust the reference month before committing. Category defaults to the
@@ -97,8 +102,12 @@ export function InvoiceReviewModal({
   );
   const [localError, setLocalError] = useState<string>();
 
-  const categoryOptions = useMemo(
+  const expenseOptions = useMemo(
     () => (categories ? flatten(categories.expense) : []),
+    [categories],
+  );
+  const incomeOptions = useMemo(
+    () => (categories ? flatten(categories.income) : []),
     [categories],
   );
 
@@ -203,6 +212,7 @@ export function InvoiceReviewModal({
             <TableBody>
               {extraction.lines.map((line) => {
                 const state = lineState[line.lineId]!;
+                const income = isIncomeLine(line.amount);
                 return (
                   <TableRow
                     key={line.lineId}
@@ -237,14 +247,28 @@ export function InvoiceReviewModal({
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatBRL(line.amount)}
+                      <span
+                        className={
+                          income
+                            ? 'text-success font-medium'
+                            : 'text-text'
+                        }
+                      >
+                        {income ? '+' : ''}
+                        {formatBRL(String(Math.abs(Number(line.amount))))}
+                      </span>
+                      <span
+                        className={`mt-0.5 block text-xs ${income ? 'text-success' : 'text-text-muted'}`}
+                      >
+                        {income ? 'Receita' : 'Despesa'}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <EntitySelect
                         value={state.categoryId}
                         onChange={(v) => setCategory(line.lineId, v)}
-                        options={categoryOptions}
-                        placeholder="Categoria"
+                        options={income ? incomeOptions : expenseOptions}
+                        placeholder={income ? 'Categoria de receita' : 'Categoria'}
                         disabled={state.discarded}
                       />
                     </TableCell>

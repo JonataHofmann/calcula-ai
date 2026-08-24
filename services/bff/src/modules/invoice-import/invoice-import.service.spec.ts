@@ -198,6 +198,52 @@ describe('InvoiceImportService.extract', () => {
     expect(result.lines[1]?.suggestedCategoryId).toBe(SEM_CATEGORIA_ID);
   });
 
+  it('routes a negative line (estorno) to the income placeholder, not expense history', async () => {
+    const INCOME_SEM_CAT = 'income-sem-cat';
+    const tree = {
+      expense: [
+        {
+          id: SEM_CATEGORIA_ID,
+          name: 'Sem Categoria',
+          icon: null,
+          color: null,
+          type: 'expense',
+          source: 'default',
+          children: [],
+        },
+      ],
+      income: [
+        {
+          id: INCOME_SEM_CAT,
+          name: 'Sem Categoria',
+          icon: null,
+          color: null,
+          type: 'income',
+          source: 'default',
+          children: [],
+        },
+      ],
+    } as unknown as CategoryTreeDto;
+    const lines = [
+      line({ lineId: 'l1', description: 'Mercado', amount: '50.00', suggestedCategoryId: null }),
+      // Credit line: the AI (expense-only) wrongly guessed an expense cat — must be overridden.
+      line({ lineId: 'l2', description: 'Estorno', amount: '-30.00', suggestedCategoryId: 'ai-expense-cat' }),
+    ];
+    const { service, get } = setup(extraction(lines), [
+      { description: 'Mercado', categoryId: 'cat-food' },
+    ], tree);
+
+    const result = await service.extract(TOKEN, FILE, { creditCardId: 'card-1' });
+
+    expect(result.lines[0]?.suggestedCategoryId).toBe('cat-food');
+    expect(result.lines[1]?.suggestedCategoryId).toBe(INCOME_SEM_CAT);
+    // History is queried only for the expense line, never the credit line.
+    expect(get).toHaveBeenCalledWith(
+      '/transactions/category-suggestions?descriptions=Mercado',
+      { token: TOKEN },
+    );
+  });
+
   it('passes the invoice total through', async () => {
     const { service } = setup(extraction([], '173.45'), []);
 

@@ -395,5 +395,38 @@ maybe('TransactionsService (integration)', () => {
       ).rejects.toBeInstanceOf(ReferenceNotFoundError);
       expect(await cardRows()).toHaveLength(0);
     });
+
+    it('stores a negative line (estorno) as an income with the positive magnitude', async () => {
+      await service.commitInvoice(
+        USER_A,
+        commit({
+          lines: [
+            commitLine({
+              description: 'Estorno compra',
+              amount: '-30.00',
+              categoryId: CAT_INCOME,
+            }),
+          ],
+        }),
+      );
+
+      const rows = await cardRows();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.type).toBe('income');
+      expect(rows[0]?.amount).toBe('30.00');
+      expect(rows[0]?.source).toBe('imported');
+    });
+
+    it('rejects a negative line categorized as an expense (type mismatch)', async () => {
+      await expect(
+        service.commitInvoice(
+          USER_A,
+          commit({
+            lines: [commitLine({ amount: '-30.00', categoryId: CAT_EXPENSE })],
+          }),
+        ),
+      ).rejects.toThrow();
+      expect(await cardRows()).toHaveLength(0);
+    });
   });
 });

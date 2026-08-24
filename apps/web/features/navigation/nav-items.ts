@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   PiggyBank,
   Receipt,
+  Settings,
   Tags,
   Target,
   TrendingDown,
@@ -31,4 +32,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Importar Fatura', href: '/importar-fatura', icon: FileUp },
   { label: 'Bancos', href: '/bancos', icon: Landmark },
   { label: 'Transações Importadas', href: '/transacoes-importadas', icon: FileClock },
+  { label: 'Configurações', href: '/configuracoes', icon: Settings },
 ];

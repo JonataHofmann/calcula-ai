@@ -34,17 +34,19 @@ function flattenExpenseCategories(
   return out;
 }
 
-/** The "Sem Categoria" placeholder id, or null if it is not in the tree. */
-function findSemCategoriaId(tree: CategoryTreeDto): string | null {
-  const find = (nodes: CategoryNodeDto[]): string | null => {
-    for (const node of nodes) {
-      if (node.name === SEM_CATEGORIA) return node.id;
-      const child = find(node.children);
-      if (child) return child;
-    }
-    return null;
-  };
-  return find(tree.expense);
+/** The "Sem Categoria" placeholder id within a category branch, or null if absent. */
+function findSemCategoriaId(nodes: CategoryNodeDto[]): string | null {
+  for (const node of nodes) {
+    if (node.name === SEM_CATEGORIA) return node.id;
+    const child = findSemCategoriaId(node.children);
+    if (child) return child;
+  }
+  return null;
+}
+
+/** A line is a credit (estorno/pagamento/crédito) when its amount is negative — a receita. */
+function isIncomeLine(amount: string): boolean {
+  return Number(amount) < 0;
 }
 
 /**
@@ -78,7 +80,10 @@ export class InvoiceImportService {
       form,
     );
 
-    return this.enrichWithSuggestions(token, extraction, findSemCategoriaId(tree));
+    return this.enrichWithSuggestions(token, extraction, {
+      expense: findSemCategoriaId(tree.expense),
+      income: findSemCategoriaId(tree.income),
+    });
   }
 
   /**
@@ -99,63 +104,52 @@ export class InvoiceImportService {
   }
 
   /**
-   * Fills any line the AI left uncategorized (`suggestedCategoryId === null`) from history,
-   * then defaults whatever is still null to the "Sem Categoria" placeholder so no line is
-   * ever imported without a category.
+   * Fills each expense line the AI left uncategorized (`suggestedCategoryId === null`) from
+   * history, then defaults whatever is still null to the expense "Sem Categoria" placeholder.
+   * Credit lines (negative amount) are receitas: the AI only ever sees expense categories, so
+   * any suggestion it made for them is the wrong type — those are overridden to the income
+   * placeholder (or cleared to null so the user picks an income category in review). This keeps
+   * every line's category coherent with its type before the commit validates it.
    */
   private async enrichWithSuggestions(
     token: string,
     extraction: InvoiceExtractionResult,
-    defaultCategoryId: string | null,
+    placeholders: { expense: string | null; income: string | null },
   ): Promise<InvoiceExtractionResult> {
-    // Only lines the AI could not categorize need a history lookup.
+    // History matching (expense-only upstream) applies just to expense lines still uncategorized.
     const descriptions = [
       ...new Set(
         extraction.lines
-          .filter((l) => l.suggestedCategoryId === null)
+          .filter((l) => !isIncomeLine(l.amount) && l.suggestedCategoryId === null)
           .map((l) => l.description),
       ),
     ];
-    if (descriptions.length === 0) {
-      return this.applyDefaultCategory(extraction, defaultCategoryId);
+
+    const byDescription = new Map<string, string | null>();
+    if (descriptions.length > 0) {
+      const query = descriptions
+        .map((d) => `descriptions=${encodeURIComponent(d)}`)
+        .join('&');
+      const suggestions = await this.api.get<CategorySuggestionResult>(
+        `/transactions/category-suggestions?${query}`,
+        { token },
+      );
+      for (const s of suggestions) byDescription.set(s.description, s.categoryId);
     }
 
-    const query = descriptions
-      .map((d) => `descriptions=${encodeURIComponent(d)}`)
-      .join('&');
-    const suggestions = await this.api.get<CategorySuggestionResult>(
-      `/transactions/category-suggestions?${query}`,
-      { token },
-    );
-
-    const byDescription = new Map(
-      suggestions.map((s) => [s.description, s.categoryId]),
-    );
-
     return {
       ...extraction,
-      lines: extraction.lines.map((line) => ({
-        ...line,
-        suggestedCategoryId:
-          line.suggestedCategoryId ??
-          byDescription.get(line.description) ??
-          defaultCategoryId,
-      })),
-    };
-  }
-
-  /** Assigns the "Sem Categoria" placeholder to every still-uncategorized line. */
-  private applyDefaultCategory(
-    extraction: InvoiceExtractionResult,
-    defaultCategoryId: string | null,
-  ): InvoiceExtractionResult {
-    if (defaultCategoryId === null) return extraction;
-    return {
-      ...extraction,
-      lines: extraction.lines.map((line) => ({
-        ...line,
-        suggestedCategoryId: line.suggestedCategoryId ?? defaultCategoryId,
-      })),
+      lines: extraction.lines.map((line) =>
+        isIncomeLine(line.amount)
+          ? { ...line, suggestedCategoryId: placeholders.income }
+          : {
+              ...line,
+              suggestedCategoryId:
+                line.suggestedCategoryId ??
+                byDescription.get(line.description) ??
+                placeholders.expense,
+            },
+      ),
     };
   }
 }

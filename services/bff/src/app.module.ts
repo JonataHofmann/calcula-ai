@@ -12,6 +12,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
 import { BankConnectionsModule } from './modules/bank-connections/bank-connections.module';
 import { SyncedTransactionsModule } from './modules/synced-transactions/synced-transactions.module';
 import { InvoiceImportModule } from './modules/invoice-import/invoice-import.module';
+import { AccountModule } from './modules/account/account.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { InvoiceImportModule } from './modules/invoice-import/invoice-import.mod
     BankConnectionsModule,
     SyncedTransactionsModule,
     InvoiceImportModule,
+    AccountModule,
   ],
 })
 export class AppModule {}

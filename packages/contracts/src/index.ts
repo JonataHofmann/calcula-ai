@@ -6,6 +6,7 @@ export * from './reference/bank.js';
 export * from './reference/brand.js';
 export * from './reference/icon.js';
 export * from './reference/color.js';
+export * from './account/reset.js';
 export * from './accounts/account.js';
 export * from './categories/category.js';
 export * from './cards/credit-card.js';

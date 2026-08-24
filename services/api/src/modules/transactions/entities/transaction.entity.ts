@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -12,6 +13,13 @@ import {
 @Index('idx_transactions_user_due', ['userId', 'dueDate'])
 @Index('idx_transactions_user_status_due', ['userId', 'status', 'dueDate'])
 @Index('idx_transactions_group', ['groupId'])
+// Espelha as CHECK constraints das migrations para que os testes de integração
+// (synchronize:true) reproduzam as mesmas invariantes do banco migrado.
+@Check('chk_transactions_amount_positive', `"amount" > 0`)
+@Check(
+  'chk_transactions_origin',
+  `("account_id" IS NOT NULL AND "credit_card_id" IS NULL) OR ("account_id" IS NULL AND "credit_card_id" IS NOT NULL)`,
+)
 export class TransactionEntity {
   @PrimaryColumn('uuid')
   id!: string;

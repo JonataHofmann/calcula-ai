@@ -24,6 +24,7 @@ vi.mock('./invoice-import-api', () => ({
 
 const CARD = { id: 'card-1', name: 'Nubank', lastDigits: '1234' };
 const CATEGORY = { id: 'cat-food', name: 'Alimentação', icon: 'tag', color: 'primary' };
+const INCOME_CATEGORY = { id: 'cat-refund', name: 'Reembolsos', icon: 'tag', color: 'success' };
 
 vi.mock('../cards/use-cards', () => ({
   useCards: () => ({ data: [CARD] }),
@@ -32,7 +33,7 @@ vi.mock('../cards/use-cards', () => ({
 vi.mock('../categories/use-categories', () => ({
   useCategories: () => ({
     data: {
-      income: [],
+      income: [{ ...INCOME_CATEGORY, parentId: null, children: [] }],
       expense: [{ ...CATEGORY, parentId: null, children: [] }],
     } as unknown as CategoryTreeDto,
   }),
@@ -135,6 +136,52 @@ describe('InvoiceImportView flow', () => {
     expect(payload.lines[0]?.discarded).toBe(false);
     expect(payload.lines[0]?.description).toBe('iFood');
     expect(payload.lines[0]?.originalDescription).toBe('Mercado');
+  });
+
+  it('labels a negative line as Receita and commits it with the income category', async () => {
+    extractInvoiceMock.mockResolvedValue({
+      referenceMonth: '2026-08',
+      dueDate: null,
+      total: null,
+      lines: [
+        {
+          lineId: '22222222-2222-2222-2222-222222222222',
+          date: '2026-08-05T00:00:00.000Z',
+          description: 'Estorno compra',
+          amount: '-30.00',
+          installmentNumber: null,
+          installmentCount: null,
+          uncertain: false,
+          // BFF routes credit lines to an income category.
+          suggestedCategoryId: INCOME_CATEGORY.id,
+        },
+      ],
+    } satisfies InvoiceExtractionResult);
+    commitInvoiceMock.mockResolvedValue({ added: 1, skipped: 0, removed: 0 });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /Enviar PDF/i }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: CARD.id } });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(['%PDF-1.4'], 'fatura.pdf', { type: 'application/pdf' })],
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Extrair transações/i }));
+
+    // The credit line is flagged as a receita in review.
+    await screen.findByDisplayValue('Estorno compra');
+    expect(screen.getByText('Receita')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Importar$/i }));
+
+    await waitFor(() => expect(commitInvoiceMock).toHaveBeenCalledTimes(1));
+    const payload = commitInvoiceMock.mock.calls[0]![0] as CommitInvoiceInput;
+    expect(payload.lines[0]?.amount).toBe('-30.00');
+    expect(payload.lines[0]?.categoryId).toBe(INCOME_CATEGORY.id);
   });
 
   it('lets the user choose replace before importing', async () => {

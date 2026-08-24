@@ -383,7 +383,9 @@ export class TransactionsService {
   }
 
   /**
-   * Commits reviewed invoice lines as `pending` expenses on the card (FR-012..FR-019).
+   * Commits reviewed invoice lines as `pending` transactions on the card (FR-012..FR-019).
+   * Each line's type is derived from its amount sign — purchases (positive) become despesas,
+   * refunds/credits (negative) become receitas — and its category must match that type.
    * `dueDate` = card due day in the reference month (billing-cycle). Lines with an
    * installment marker become an `installment` group; others `single`. `replace` deletes
    * the card+month scope first; `merge` inserts only lines whose (day, amount, normalized
@@ -407,9 +409,12 @@ export class TransactionsService {
 
     const kept = input.lines.filter((line) => !line.discarded);
     // Validate each kept line's category (type coherence + ownership) before writing.
+    // The line's type is derived from the sign of its amount: a credit-card invoice lists
+    // purchases as positive (despesa) and refunds/credits/payments — estorno, "pagamento",
+    // crédito — as negative (receita). The chosen category must match that type.
     for (const line of kept) {
       await this.validateReferences(userId, {
-        type: 'expense',
+        type: invoiceLineType(line.amount),
         categoryId: line.categoryId,
         accountId: null,
         creditCardId: input.creditCardId,
@@ -439,8 +444,8 @@ export class TransactionsService {
     );
 
     for (const line of kept) {
-      // Imported lines are expenses; refunds arrive negative — store the positive magnitude
-      // and dedup on that same value so a re-import matches the stored row.
+      // Refunds/credits arrive negative — store the positive magnitude (the type carries the
+      // direction) and dedup on that same value so a re-import matches the stored row.
       const amount = fromCents(Math.abs(toCents(line.amount)));
       if (input.mode === 'merge') {
         const key = dedupKey(
@@ -455,7 +460,14 @@ export class TransactionsService {
         seen.add(key);
       }
       toInsert.push(
-        ...this.buildInvoiceRows(userId, input.creditCardId, line, dueDate, amount),
+        ...this.buildInvoiceRows(
+          userId,
+          input.creditCardId,
+          line,
+          dueDate,
+          amount,
+          invoiceLineType(line.amount),
+        ),
       );
       added++;
     }
@@ -486,6 +498,7 @@ export class TransactionsService {
     line: CommitInvoiceInput['lines'][number],
     dueDate: Date,
     amount: string,
+    type: TransactionType,
   ): Transaction[] {
     // Persist the raw text only when the user actually renamed the line, so the
     // merchant string stays available for future category matching.
@@ -497,7 +510,7 @@ export class TransactionsService {
       userId,
       description: line.description,
       originalDescription,
-      type: 'expense' as const,
+      type,
       categoryId: line.categoryId,
       accountId: null,
       creditCardId,
@@ -808,6 +821,15 @@ function toEntity(transaction: Transaction): TransactionEntity {
 function dedupKey(dueDate: Date, amount: string, description: string): string {
   const day = dueDate.toISOString().slice(0, 10);
   return `${day}|${amount}|${normalizeDescription(description)}`;
+}
+
+/**
+ * Type of an imported invoice line from the sign of its amount: negative means a
+ * refund/credit/payment (estorno, crédito, "pagamento") the card gave back — a receita;
+ * anything else is a purchase — a despesa.
+ */
+function invoiceLineType(amount: string): TransactionType {
+  return toCents(amount) < 0 ? 'income' : 'expense';
 }
 
 function toDomain(row: TransactionEntity): Transaction {
