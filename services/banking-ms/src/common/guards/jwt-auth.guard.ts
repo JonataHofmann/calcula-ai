@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { getRequestContext } from '@finance/observability';
 import { toAuthenticatedUser, type TokenVerifier } from '@finance/auth';
 import type { AuthenticatedUser } from '@finance/contracts';
 import type { Request } from 'express';
@@ -41,6 +42,8 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const verified = await this.tokenVerifier.verify(token);
       request.user = toAuthenticatedUser(verified, verified.sub);
+      const ctx = getRequestContext();
+      if (ctx) ctx.userId = verified.sub;
       return true;
     } catch {
       throw new UnauthorizedException({ code: 'UNAUTHENTICATED' });

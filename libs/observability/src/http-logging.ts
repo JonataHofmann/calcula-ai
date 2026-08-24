@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { runWithRequestContext } from './request-context.js';
+import { getRequestContext, runWithRequestContext } from './request-context.js';
 
 const REQUEST_ID_HEADER = 'x-request-id';
 const CORRELATION_ID_HEADER = 'x-correlation-id';
@@ -23,6 +23,8 @@ interface MinimalResponse {
 
 interface RequestLogger {
   info(obj: Record<string, unknown>, msg?: string): void;
+  warn(obj: Record<string, unknown>, msg?: string): void;
+  error(obj: Record<string, unknown>, msg?: string): void;
 }
 
 function headerValue(headers: MinimalHeaders, name: string): string | undefined {
@@ -48,13 +50,16 @@ export function createRequestLoggingMiddleware(logger: RequestLogger) {
       logger.info({ requestId, correlationId, method: req.method, url }, 'request received');
 
       res.on('finish', () => {
-        logger.info(
+        const status = res.statusCode;
+        const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
+        logger[level](
           {
             requestId,
             correlationId,
+            userId: getRequestContext()?.userId,
             method: req.method,
             url,
-            statusCode: res.statusCode,
+            statusCode: status,
             durationMs: Date.now() - start,
           },
           'request completed',

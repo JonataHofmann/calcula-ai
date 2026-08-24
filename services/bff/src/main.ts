@@ -2,7 +2,11 @@ import 'reflect-metadata';
 
 import { loadDotEnv } from '@finance/config';
 import { createLogger } from '@finance/logger';
-import { createRequestLoggingMiddleware } from '@finance/observability';
+import {
+  createRequestLoggingMiddleware,
+  PinoNestLogger,
+  requestContextMixin,
+} from '@finance/observability';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
@@ -11,10 +15,11 @@ import { AppModule } from './app.module';
 
 loadDotEnv();
 
-const logger = createLogger({ name: 'bff' });
+const logger = createLogger({ name: 'bff', mixin: requestContextMixin() });
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(new PinoNestLogger(logger));
 
   app.use(helmet());
   app.use(createRequestLoggingMiddleware(logger));

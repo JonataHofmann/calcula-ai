@@ -1,4 +1,5 @@
 import { HttpException, Injectable } from '@nestjs/common';
+import { outgoingTraceHeaders } from '@finance/observability';
 
 export interface ApiRequestOptions {
   token: string;
@@ -20,6 +21,7 @@ export async function proxyRequest<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
+    ...outgoingTraceHeaders(),
   };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;

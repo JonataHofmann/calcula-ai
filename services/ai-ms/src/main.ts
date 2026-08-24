@@ -4,14 +4,19 @@ loadDotEnv();
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { createLogger } from '@finance/logger';
-import { createRequestLoggingMiddleware } from '@finance/observability';
+import {
+  createRequestLoggingMiddleware,
+  PinoNestLogger,
+  requestContextMixin,
+} from '@finance/observability';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
-const logger = createLogger({ name: 'ai-ms' });
+const logger = createLogger({ name: 'ai-ms', mixin: requestContextMixin() });
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(new PinoNestLogger(logger));
 
   app.use(helmet());
   app.use(createRequestLoggingMiddleware(logger));

@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { getRequestContext } from '@finance/observability';
 import type { AuthenticatedUser } from '@finance/contracts';
 import type { Request, Response } from 'express';
 import { AuthService } from '../auth.service';
@@ -92,6 +93,9 @@ export class SessionAuthGuard implements CanActivate {
       roles: [],
     };
     request.session = session;
+
+    const ctx = getRequestContext();
+    if (ctx) ctx.userId = session.keycloakUserId;
     return true;
   }
 }

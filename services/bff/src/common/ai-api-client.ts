@@ -1,4 +1,5 @@
 import { HttpException, Injectable } from '@nestjs/common';
+import { outgoingTraceHeaders } from '@finance/observability';
 
 /** A PDF upload forwarded from the web through the BFF to ai-ms. */
 export interface UploadedInvoice {
@@ -33,7 +34,7 @@ export class AiApiClient {
 
     const res = await fetch(`${this.base}/invoice-extract`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, ...outgoingTraceHeaders() },
       body: form,
     });
 

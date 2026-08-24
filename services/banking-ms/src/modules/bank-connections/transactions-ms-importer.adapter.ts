@@ -7,6 +7,7 @@ import type {
 } from './transactions-importer.port';
 
 import { Injectable, Logger } from '@nestjs/common';
+import { outgoingTraceHeaders } from '@finance/observability';
 
 interface KeycloakTokenResponse {
   access_token: string;
@@ -144,6 +145,7 @@ export class TransactionsMsImporterAdapter implements TransactionsImporter {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
         'Idempotency-Key': idempotencyKey,
+        ...outgoingTraceHeaders(),
       },
       body: JSON.stringify(body),
     });
