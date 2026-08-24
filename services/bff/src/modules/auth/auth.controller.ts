@@ -1,25 +1,12 @@
-import {
-  Controller,
-  Get,
-  Inject,
-  Logger,
-  Post,
-  Query,
-  Req,
-  Res,
-} from '@nestjs/common';
-import { sessionUserSchema, type SessionUser } from '@finance/contracts';
 import { extractRoles } from '@finance/auth';
+import { sessionUserSchema, type SessionUser } from '@finance/contracts';
+import { Controller, Get, Inject, Logger, Post, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import {
-  AuthService,
-  InvalidCallbackError,
-  ProviderUnavailableError,
-} from './auth.service';
 import { Public } from '../../common/decorators/public.decorator';
+import { AuthService, InvalidCallbackError, ProviderUnavailableError } from './auth.service';
 import { clearSessionCookie, setSessionCookie } from './session/cookie.util';
-import { SESSION_SECRET_TOKEN } from './session/typeorm-session.store';
 import { SESSION_STORE, type Session, type SessionStore } from './session/session.store';
+import { SESSION_SECRET_TOKEN } from './session/typeorm-session.store';
 
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const parts = token.split('.');
@@ -83,14 +70,10 @@ export class AuthController {
   @Get('callback')
   async callback(@Req() req: Request, @Res() res: Response) {
     this.logger.log('GET /auth/callback');
-    const currentUrl = new URL(
-      req.originalUrl,
-      this.authService.options.bffPublicUrl,
-    );
+    const currentUrl = new URL(req.originalUrl, this.authService.options.bffPublicUrl);
     try {
       const result = await this.authService.handleCallback(currentUrl);
-      const keycloakUserId =
-        typeof result.claims['sub'] === 'string' ? result.claims['sub'] : '';
+      const keycloakUserId = typeof result.claims['sub'] === 'string' ? result.claims['sub'] : '';
       if (!keycloakUserId) {
         throw new InvalidCallbackError('Missing sub claim');
       }
@@ -100,10 +83,13 @@ export class AuthController {
         expiresAt: result.refreshExpiresAt,
       });
       setSessionCookie(res, session.id, this.sessionSecret);
+      this.logger.log(`redirect ${this.authService.options.webUrl}${result.returnTo}`);
       return res.redirect(302, `${this.authService.options.webUrl}${result.returnTo}`);
     } catch (error) {
       const reason =
         error instanceof ProviderUnavailableError ? 'provider_unavailable' : 'invalid_callback';
+      const detail = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Auth callback failed (${reason}): ${detail}`);
       return res.redirect(302, `${this.authService.options.webUrl}/auth/error?reason=${reason}`);
     }
   }

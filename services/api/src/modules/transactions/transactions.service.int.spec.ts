@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { DataSource, Repository } from 'typeorm';
-import type { CreateTransactionInput, ListTransactionsQuery } from '@finance/contracts';
+import type {
+  CommitInvoiceInput,
+  CreateTransactionInput,
+  ListTransactionsQuery,
+} from '@finance/contracts';
 import { TransactionsService } from './transactions.service';
+import { ReferenceNotFoundError } from './transactions.types';
 import { TransactionEntity } from './entities/transaction.entity';
 import { CategoryEntity } from '../categories/entities/category.entity';
 import { AccountEntity } from '../accounts/entities/account.entity';
@@ -19,9 +24,12 @@ const url = process.env.TEST_DATABASE_URL;
 const maybe = url ? describe : describe.skip;
 
 const USER_A = '11111111-1111-1111-1111-111111111111';
+const USER_B = '55555555-5555-5555-5555-555555555555';
 const CAT_EXPENSE = '22222222-2222-2222-2222-222222222222';
 const CAT_INCOME = '44444444-4444-4444-4444-444444444444';
 const ACC = '33333333-3333-3333-3333-333333333333';
+const CARD_A = '66666666-6666-6666-6666-666666666666';
+const CARD_B = '77777777-7777-7777-7777-777777777777';
 
 function categoryEntity(id: string, type: 'expense' | 'income'): CategoryEntity {
   return Object.assign(new CategoryEntity(), {
@@ -46,6 +54,21 @@ function accountEntity(id: string, userId: string): AccountEntity {
     bankId: 'itau',
     icon: 'bank',
     color: 'primary',
+    createdAt: new Date(Date.UTC(2026, 0, 1)),
+    updatedAt: new Date(Date.UTC(2026, 0, 1)),
+  });
+}
+
+function creditCardEntity(id: string, userId: string, dueDay: number): CreditCardEntity {
+  return Object.assign(new CreditCardEntity(), {
+    id,
+    userId,
+    name: 'Cartão',
+    lastDigits: '1234',
+    dueDay,
+    closingDay: 1,
+    limit: '5000.00',
+    brandId: 'visa',
     createdAt: new Date(Date.UTC(2026, 0, 1)),
     updatedAt: new Date(Date.UTC(2026, 0, 1)),
   });
@@ -106,6 +129,10 @@ maybe('TransactionsService (integration)', () => {
       categoryEntity(CAT_INCOME, 'income'),
     ]);
     await dataSource.getRepository(AccountEntity).save(accountEntity(ACC, USER_A));
+    await dataSource.getRepository(CreditCardEntity).save([
+      creditCardEntity(CARD_A, USER_A, 10),
+      creditCardEntity(CARD_B, USER_B, 10),
+    ]);
   });
 
   afterAll(async () => {
@@ -197,6 +224,126 @@ maybe('TransactionsService (integration)', () => {
         dueTo: new Date(Date.UTC(2026, 1, 28)).toISOString(),
       });
       expect(feb).toHaveLength(0);
+    });
+  });
+
+  describe('invoice import commit', () => {
+    function commitLine(
+      over: Partial<CommitInvoiceInput['lines'][number]> = {},
+    ): CommitInvoiceInput['lines'][number] {
+      return {
+        lineId: randomUUID(),
+        date: '2026-08-03T00:00:00.000Z',
+        description: 'Mercado',
+        amount: '50.00',
+        installmentNumber: null,
+        installmentCount: null,
+        uncertain: false,
+        suggestedCategoryId: null,
+        categoryId: CAT_EXPENSE,
+        discarded: false,
+        ...over,
+      };
+    }
+
+    function commit(
+      over: Partial<CommitInvoiceInput> = {},
+    ): CommitInvoiceInput {
+      return {
+        creditCardId: CARD_A,
+        referenceMonth: '2026-08',
+        mode: 'merge',
+        lines: [commitLine()],
+        ...over,
+      };
+    }
+
+    async function cardRows() {
+      return txEntities.find({ where: { userId: USER_A, creditCardId: CARD_A } });
+    }
+
+    it('merges without duplicating on re-import (0% duplicates)', async () => {
+      const input = commit({
+        lines: [
+          commitLine({ description: 'Mercado', amount: '50.00' }),
+          commitLine({ description: 'Posto', amount: '80.00' }),
+        ],
+      });
+
+      expect(await service.commitInvoice(USER_A, input)).toEqual({
+        added: 2,
+        skipped: 0,
+        removed: 0,
+      });
+      expect(await service.commitInvoice(USER_A, input)).toEqual({
+        added: 0,
+        skipped: 2,
+        removed: 0,
+      });
+      expect(await cardRows()).toHaveLength(2);
+    });
+
+    it('replace deletes the card+month scope then inserts, atomically', async () => {
+      await service.commitInvoice(
+        USER_A,
+        commit({
+          lines: [
+            commitLine({ description: 'Antiga 1', amount: '10.00' }),
+            commitLine({ description: 'Antiga 2', amount: '20.00' }),
+          ],
+        }),
+      );
+
+      const result = await service.commitInvoice(
+        USER_A,
+        commit({
+          mode: 'replace',
+          lines: [commitLine({ description: 'Nova', amount: '99.00' })],
+        }),
+      );
+
+      expect(result).toEqual({ added: 1, skipped: 0, removed: 2 });
+      const rows = await cardRows();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.description).toBe('Nova');
+    });
+
+    it('turns an installment line into an installment group with dueDate via billing-cycle', async () => {
+      await service.commitInvoice(
+        USER_A,
+        commit({
+          lines: [
+            commitLine({
+              description: 'Curso',
+              amount: '100.00',
+              installmentNumber: 1,
+              installmentCount: 3,
+            }),
+          ],
+        }),
+      );
+
+      const rows = (await cardRows()).sort(
+        (a, b) => a.dueDate.getTime() - b.dueDate.getTime(),
+      );
+      expect(rows).toHaveLength(3);
+      expect(rows.every((r) => r.recurrence === 'installment')).toBe(true);
+      expect(rows.every((r) => r.groupId === rows[0]?.groupId)).toBe(true);
+      expect(rows.map((r) => r.installmentNumber)).toEqual([1, 2, 3]);
+      expect(rows.map((r) => r.dueDate.toISOString().slice(0, 10))).toEqual([
+        '2026-08-10',
+        '2026-09-10',
+        '2026-10-10',
+      ]);
+      expect(rows.every((r) => r.source === 'imported')).toBe(true);
+      expect(rows.every((r) => r.status === 'pending')).toBe(true);
+    });
+
+    it('rejects a card owned by another user (not found)', async () => {
+      await expect(
+        service.commitInvoice(USER_A, commit({ creditCardId: CARD_B })),
+      ).rejects.toBeInstanceOf(ReferenceNotFoundError);
+      expect(await cardRows()).toHaveLength(0);
     });
   });
 });

@@ -21,8 +21,10 @@ export type TransactionStatus = z.infer<typeof transactionStatusSchema>;
 export const groupScopeSchema = z.enum(['one', 'future', 'all']);
 export type GroupScope = z.infer<typeof groupScopeSchema>;
 
-/** Origin of the transaction. `synced` = imported from a bank connection (R7). Default `manual`. */
-export const transactionSourceSchema = z.enum(['manual', 'synced']).default('manual');
+/** Origin of the transaction. `synced` = bank connection (R7); `imported` = credit-card invoice import (008). Default `manual`. */
+export const transactionSourceSchema = z
+  .enum(['manual', 'synced', 'imported'])
+  .default('manual');
 export type TransactionSource = z.infer<typeof transactionSourceSchema>;
 
 /**

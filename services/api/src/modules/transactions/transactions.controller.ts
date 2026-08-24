@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import {
   type AuthenticatedUser,
+  type CategorySuggestionResult,
   createTransactionInput,
   type CreateTransactionInput,
   effectuateInput,
@@ -32,6 +33,12 @@ import {
   updateTransactionInput,
   type UpdateTransactionInput,
 } from '@finance/contracts';
+import {
+  commitInvoiceInputSchema,
+  type CommitInvoiceInput,
+  type CommitInvoiceResult,
+} from './invoice-import.schemas';
+import { z } from 'zod';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ServiceAccountGuard } from '../../common/guards/service-account.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -48,6 +55,15 @@ import {
 } from './import-synced-transaction.schemas';
 
 const scopePipe = new ZodValidationPipe(groupScopeSchema.optional());
+
+/** `?descriptions=a&descriptions=b` (single value arrives as a string). */
+const categorySuggestionsQuery = z.object({
+  descriptions: z.preprocess(
+    (v) => (Array.isArray(v) ? v : v == null ? [] : [v]),
+    z.array(z.string().min(1).max(120)).min(1).max(500),
+  ),
+});
+type CategorySuggestionsQuery = z.infer<typeof categorySuggestionsQuery>;
 
 /**
  * HTTP surface for the transactions module: routing, request validation (Zod pipes),
@@ -68,6 +84,24 @@ export class TransactionsController {
     this.logger.log(`POST /transactions user=${user.id}`);
     const created = await this.transactions.create(user.id, input);
     return { transactions: created.map(TransactionConverter.toResponse) };
+  }
+
+  @Post('invoice-import')
+  async commitInvoice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body(new ZodValidationPipe(commitInvoiceInputSchema)) input: CommitInvoiceInput,
+  ): Promise<CommitInvoiceResult> {
+    this.logger.log(
+      `POST /transactions/invoice-import user=${user.id} card=${input.creditCardId} mode=${input.mode}`,
+    );
+    if (!idempotencyKey) {
+      throw new BadRequestException({
+        code: 'VALIDATION',
+        message: 'Idempotency-Key header is required',
+      });
+    }
+    return this.transactions.commitInvoice(user.id, input);
   }
 
   @Get()
@@ -97,6 +131,15 @@ export class TransactionsController {
   ): Promise<ForecastResponse> {
     this.logger.log(`GET /transactions/forecast user=${user.id}`);
     return this.transactions.getForecast(user.id, query);
+  }
+
+  @Get('category-suggestions')
+  async categorySuggestions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(categorySuggestionsQuery)) query: CategorySuggestionsQuery,
+  ): Promise<CategorySuggestionResult> {
+    this.logger.log(`GET /transactions/category-suggestions user=${user.id}`);
+    return this.transactions.suggestCategories(user.id, query.descriptions);
   }
 
   @Get(':id')

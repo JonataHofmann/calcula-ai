@@ -3,6 +3,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, LessThan, Repository } from 'typeorm';
 import type {
+  CategorySuggestionResult,
+  CommitInvoiceInput,
+  CommitInvoiceResult,
   CreateTransactionInput,
   EffectuateInput,
   ForecastQuery,
@@ -15,6 +18,8 @@ import type {
   TransactionType,
   UpdateTransactionInput,
 } from '@finance/contracts';
+import { normalizeDescription } from './normalize-description';
+import { invoiceDueDate, referenceMonthWindow } from './billing-cycle';
 import { CategoryEntity } from '../categories/entities/category.entity';
 import { AccountEntity } from '../accounts/entities/account.entity';
 import { CreditCardEntity } from '../cards/entities/credit-card.entity';
@@ -342,6 +347,177 @@ export class TransactionsService {
     return { months, rows, totals };
   }
 
+  /**
+   * For each requested description, the category of the user's most recent expense with the
+   * same normalized description (trim/lowercase/collapsed spaces), or null when none exists.
+   * Scoped to the user; used by invoice import to pre-fill categories (FR-011). One row per
+   * requested description, preserving the original text and order.
+   */
+  async suggestCategories(
+    userId: string,
+    descriptions: string[],
+  ): Promise<CategorySuggestionResult> {
+    this.logger.log(`Suggesting categories for ${descriptions.length} description(s), user ${userId}`);
+    const targets = new Set(descriptions.map(normalizeDescription));
+
+    const rows = await this.txRepo.find({
+      where: { userId, type: 'expense' },
+      order: { dueDate: 'DESC', createdAt: 'DESC' },
+    });
+
+    // rows are newest-first: the first match for a normalized description wins.
+    const byNormalized = new Map<string, string>();
+    for (const row of rows) {
+      const norm = normalizeDescription(row.description);
+      if (targets.has(norm) && !byNormalized.has(norm)) {
+        byNormalized.set(norm, row.categoryId);
+      }
+    }
+
+    return descriptions.map((description) => ({
+      description,
+      categoryId: byNormalized.get(normalizeDescription(description)) ?? null,
+    }));
+  }
+
+  /**
+   * Commits reviewed invoice lines as `pending` expenses on the card (FR-012..FR-019).
+   * `dueDate` = card due day in the reference month (billing-cycle). Lines with an
+   * installment marker become an `installment` group; others `single`. `replace` deletes
+   * the card+month scope first; `merge` inserts only lines whose (day, amount, normalized
+   * description) is absent from the scope. Delete + insert run in one DB transaction.
+   * The card must belong to the user (else 404); `userId` comes from the JWT, never the body.
+   */
+  async commitInvoice(
+    userId: string,
+    input: CommitInvoiceInput,
+  ): Promise<CommitInvoiceResult> {
+    this.logger.log(
+      `Committing invoice import (${input.mode}) for user ${userId}, card ${input.creditCardId}, month ${input.referenceMonth}`,
+    );
+    const card = await this.creditCardRepo.findOne({
+      where: { id: input.creditCardId, userId },
+    });
+    if (!card) throw new ReferenceNotFoundError('card', input.creditCardId);
+
+    const dueDate = invoiceDueDate(input.referenceMonth, card.dueDay);
+    const { start, endExclusive } = referenceMonthWindow(input.referenceMonth);
+
+    const kept = input.lines.filter((line) => !line.discarded);
+    // Validate each kept line's category (type coherence + ownership) before writing.
+    for (const line of kept) {
+      await this.validateReferences(userId, {
+        type: 'expense',
+        categoryId: line.categoryId,
+        accountId: null,
+        creditCardId: input.creditCardId,
+      });
+    }
+
+    const scopeRows = (
+      await this.txRepo.find({
+        where: { userId, creditCardId: input.creditCardId },
+      })
+    ).filter(
+      (row) =>
+        row.dueDate.getTime() >= start.getTime() &&
+        row.dueDate.getTime() < endExclusive.getTime(),
+    );
+
+    const toInsert: Transaction[] = [];
+    let added = 0;
+    let skipped = 0;
+
+    const seen = new Set(
+      input.mode === 'merge'
+        ? scopeRows.map((r) => dedupKey(r.dueDate, r.amount, r.description))
+        : [],
+    );
+
+    for (const line of kept) {
+      // Imported lines are expenses; refunds arrive negative — store the positive magnitude
+      // and dedup on that same value so a re-import matches the stored row.
+      const amount = fromCents(Math.abs(toCents(line.amount)));
+      if (input.mode === 'merge') {
+        const key = dedupKey(dueDate, amount, line.description);
+        if (seen.has(key)) {
+          skipped++;
+          continue;
+        }
+        seen.add(key);
+      }
+      toInsert.push(
+        ...this.buildInvoiceRows(userId, input.creditCardId, line, dueDate, amount),
+      );
+      added++;
+    }
+
+    const removed = input.mode === 'replace' ? scopeRows.length : 0;
+
+    await this.txRepo.manager.transaction(async (manager) => {
+      if (input.mode === 'replace') {
+        for (const row of scopeRows) {
+          await manager.delete(TransactionEntity, { id: row.id, userId });
+        }
+      }
+      if (toInsert.length > 0) {
+        await manager.insert(TransactionEntity, toInsert.map(toEntity));
+      }
+    });
+
+    this.logger.log(
+      `Invoice import committed for user ${userId}: added=${added} skipped=${skipped} removed=${removed}`,
+    );
+    return { added, skipped, removed };
+  }
+
+  /** One reviewed line -> a `single` row or a full `installment` group (reuses create's rules). */
+  private buildInvoiceRows(
+    userId: string,
+    creditCardId: string,
+    line: CommitInvoiceInput['lines'][number],
+    dueDate: Date,
+    amount: string,
+  ): Transaction[] {
+    const common = {
+      userId,
+      description: line.description,
+      type: 'expense' as const,
+      categoryId: line.categoryId,
+      accountId: null,
+      creditCardId,
+      notes: null,
+      source: 'imported' as const,
+    };
+
+    if (line.installmentNumber && line.installmentCount) {
+      const groupId = randomUUID();
+      const count = line.installmentCount;
+      return Array.from({ length: count }, (_, i) =>
+        Transaction.create({
+          ...common,
+          id: randomUUID(),
+          recurrence: 'installment',
+          amount,
+          dueDate: addMonthClamped(dueDate, i),
+          installmentCount: count,
+          installmentNumber: i + 1,
+          groupId,
+        }),
+      );
+    }
+
+    return [
+      Transaction.create({
+        ...common,
+        id: randomUUID(),
+        recurrence: 'single',
+        amount,
+        dueDate,
+      }),
+    ];
+  }
+
   // --- synced import (service-to-service, banking-ms only) ---
 
   /**
@@ -606,6 +782,16 @@ function toEntity(transaction: Transaction): TransactionEntity {
   entity.createdAt = props.createdAt;
   entity.updatedAt = props.updatedAt;
   return entity;
+}
+
+/**
+ * Merge dedup key (FR-019): a line duplicates an existing scope row when the due day,
+ * amount and normalized description all match. Purchase date is not persisted (only the
+ * invoice `dueDate` is), so the day component uses the UTC calendar day of `dueDate`.
+ */
+function dedupKey(dueDate: Date, amount: string, description: string): string {
+  const day = dueDate.toISOString().slice(0, 10);
+  return `${day}|${amount}|${normalizeDescription(description)}`;
 }
 
 function toDomain(row: TransactionEntity): Transaction {

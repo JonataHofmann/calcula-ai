@@ -908,3 +908,106 @@ describe('TransactionsService synced import', () => {
     });
   });
 });
+
+// --- category suggestions (invoice import) -------------------------------------------------------
+
+describe('TransactionsService.suggestCategories', () => {
+  /** Service seeded with expense history rows for USER_A (and one for USER_B). */
+  function suggestSetup(seed: TransactionEntity[]) {
+    const txRepo = makeFakeTransactionRepo(seed);
+    const categoryRepo = makeFakeCategoryRepo([
+      categoryRow({ id: CAT_EXPENSE, type: 'expense' }),
+    ]);
+    const service = new TransactionsService(
+      txRepo,
+      categoryRepo,
+      makeFakeAccountRepo(),
+      makeFakeCreditCardRepo(),
+    );
+    return { service };
+  }
+
+  it('returns null for a description with no history', async () => {
+    const { service } = suggestSetup([]);
+    const result = await service.suggestCategories(USER_A, ['Mercado']);
+    expect(result).toEqual([{ description: 'Mercado', categoryId: null }]);
+  });
+
+  it('matches on the normalized description (trim/case/spaces)', async () => {
+    const { service } = suggestSetup([
+      transactionEntity({
+        userId: USER_A,
+        description: 'Padaria  Do  Zé',
+        categoryId: 'cat-food',
+        type: 'expense',
+      }),
+    ]);
+    const result = await service.suggestCategories(USER_A, ['  padaria do zé ']);
+    expect(result[0]?.categoryId).toBe('cat-food');
+    // the original text is echoed back unchanged
+    expect(result[0]?.description).toBe('  padaria do zé ');
+  });
+
+  it('uses the most recent occurrence by dueDate', async () => {
+    const { service } = suggestSetup([
+      transactionEntity({
+        userId: USER_A,
+        description: 'Netflix',
+        categoryId: 'cat-old',
+        dueDate: new Date('2026-01-10T00:00:00.000Z'),
+        type: 'expense',
+      }),
+      transactionEntity({
+        userId: USER_A,
+        description: 'Netflix',
+        categoryId: 'cat-new',
+        dueDate: new Date('2026-05-10T00:00:00.000Z'),
+        type: 'expense',
+      }),
+    ]);
+    const result = await service.suggestCategories(USER_A, ['Netflix']);
+    expect(result[0]?.categoryId).toBe('cat-new');
+  });
+
+  it('does not leak another user history', async () => {
+    const { service } = suggestSetup([
+      transactionEntity({
+        userId: USER_B,
+        description: 'Uber',
+        categoryId: 'cat-b',
+        type: 'expense',
+      }),
+    ]);
+    const result = await service.suggestCategories(USER_A, ['Uber']);
+    expect(result[0]?.categoryId).toBeNull();
+  });
+
+  it('ignores income rows (only expense history counts)', async () => {
+    const { service } = suggestSetup([
+      transactionEntity({
+        userId: USER_A,
+        description: 'Salário',
+        categoryId: 'cat-income',
+        type: 'income',
+      }),
+    ]);
+    const result = await service.suggestCategories(USER_A, ['Salário']);
+    expect(result[0]?.categoryId).toBeNull();
+  });
+
+  it('resolves a batch, one row per requested description in order', async () => {
+    const { service } = suggestSetup([
+      transactionEntity({
+        userId: USER_A,
+        description: 'Mercado',
+        categoryId: 'cat-market',
+        type: 'expense',
+      }),
+    ]);
+    const result = await service.suggestCategories(USER_A, ['Mercado', 'Desconhecido']);
+    expect(result).toEqual([
+      { description: 'Mercado', categoryId: 'cat-market' },
+      { description: 'Desconhecido', categoryId: null },
+    ]);
+  });
+});

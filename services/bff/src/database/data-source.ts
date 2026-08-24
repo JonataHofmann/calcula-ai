@@ -5,6 +5,7 @@ import { SessionEntity } from './session.entity';
 export const BffDataSource = new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
+  schema: 'bff',
   entities: [SessionEntity],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

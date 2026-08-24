@@ -28,7 +28,10 @@
     "realm": [
       { "name": "user", "description": "Regular platform user" },
       { "name": "admin", "description": "Platform administrator" },
-      { "name": "svc-transactions-import", "description": "Service account role for machine-to-machine sync imports" }
+      {
+        "name": "svc-transactions-import",
+        "description": "Service account role for machine-to-machine sync imports"
+      }
     ]
   },
   "defaultRoles": ["user"],

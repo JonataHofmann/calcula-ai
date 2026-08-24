@@ -11,12 +11,14 @@ import { CardsModule } from './modules/cards/cards.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { BankConnectionsModule } from './modules/bank-connections/bank-connections.module';
 import { SyncedTransactionsModule } from './modules/synced-transactions/synced-transactions.module';
+import { InvoiceImportModule } from './modules/invoice-import/invoice-import.module';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
+      schema: 'bff',
       entities: [SessionEntity],
       synchronize: false,
       autoLoadEntities: true,
@@ -31,6 +33,7 @@ import { SyncedTransactionsModule } from './modules/synced-transactions/synced-t
     TransactionsModule,
     BankConnectionsModule,
     SyncedTransactionsModule,
+    InvoiceImportModule,
   ],
 })
 export class AppModule {}
