@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './modules/auth/auth.module';
@@ -23,6 +24,9 @@ import { AccountModule } from './modules/account/account.module';
       entities: [SessionEntity],
       synchronize: false,
       autoLoadEntities: true,
+      // Roda migrations pendentes no boot (Docker/prod). Idempotente: só aplica o que falta.
+      migrations: [join(__dirname, 'database', 'migrations', '*.{js,ts}')],
+      migrationsRun: true,
     }),
     AuthModule,
     HealthModule,
