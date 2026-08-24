@@ -27,20 +27,28 @@ export function verifySessionCookie(value: string, secret: string): string | nul
   return sessionId;
 }
 
-export function setSessionCookie(res: Response, sessionId: string, secret: string): void {
-  res.cookie(SESSION_COOKIE_NAME, signSessionId(sessionId, secret), {
+/**
+ * Atributos compartilhados. Em produção web e bff vivem em subdomínios distintos
+ * (ex.: calculaai.dominio / calculaaibff.dominio). Sem `Domain`, o cookie é host-only
+ * (só o bff o recebe) e o middleware do web nunca vê a sessão → loop de login.
+ * Setar SESSION_COOKIE_DOMAIN=.dominio compartilha o cookie entre os subdomínios.
+ * Em dev (localhost:PORT) deixe vazio: cookie host-only já é compartilhado entre portas.
+ */
+function cookieOptions() {
+  const domain = process.env.SESSION_COOKIE_DOMAIN;
+  return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'lax' as const,
     path: '/',
-  });
+    ...(domain ? { domain } : {}),
+  };
+}
+
+export function setSessionCookie(res: Response, sessionId: string, secret: string): void {
+  res.cookie(SESSION_COOKIE_NAME, signSessionId(sessionId, secret), cookieOptions());
 }
 
 export function clearSessionCookie(res: Response): void {
-  res.clearCookie(SESSION_COOKIE_NAME, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-  });
+  res.clearCookie(SESSION_COOKIE_NAME, cookieOptions());
 }
