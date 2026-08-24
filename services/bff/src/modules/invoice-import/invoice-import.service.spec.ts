@@ -17,6 +17,26 @@ const FILE: UploadedInvoice = {
 
 const EMPTY_TREE: CategoryTreeDto = { expense: [], income: [] };
 
+/** Builds an expense-only tree of root categories from {id, name} pairs. */
+function treeOf(
+  expense: Array<{ id: string; name: string }>,
+): CategoryTreeDto {
+  return {
+    income: [],
+    expense: expense.map((c) => ({
+      id: c.id,
+      name: c.name,
+      icon: null,
+      color: null,
+      type: 'expense',
+      source: 'default',
+      children: [],
+    })),
+  } as unknown as CategoryTreeDto;
+}
+
+const SEM_CATEGORIA_ID = 'sem-cat-id';
+
 function line(
   overrides: Partial<InvoiceExtractionResult['lines'][number]> = {},
 ): InvoiceExtractionResult['lines'][number] {
@@ -141,6 +161,41 @@ describe('InvoiceImportService.extract', () => {
       '/transactions/category-suggestions?descriptions=Posto',
       { token: TOKEN },
     );
+  });
+
+  it('never offers the "Sem Categoria" placeholder to the AI', async () => {
+    const tree = treeOf([
+      { id: 'cat-food', name: 'Alimentação' },
+      { id: SEM_CATEGORIA_ID, name: 'Sem Categoria' },
+    ]);
+    const { service, extractInvoice } = setup(extraction([]), [], tree);
+
+    await service.extract(TOKEN, FILE, { creditCardId: 'card-1' });
+
+    const categories = JSON.parse(
+      (extractInvoice.mock.calls[0][2] as { categories: string }).categories,
+    );
+    expect(categories).toEqual([{ id: 'cat-food', name: 'Alimentação' }]);
+  });
+
+  it('defaults still-uncategorized lines to "Sem Categoria"', async () => {
+    const tree = treeOf([
+      { id: 'cat-food', name: 'Alimentação' },
+      { id: SEM_CATEGORIA_ID, name: 'Sem Categoria' },
+    ]);
+    const lines = [
+      line({ lineId: 'l1', description: 'X', suggestedCategoryId: 'ai-cat' }),
+      line({ lineId: 'l2', description: 'Y', suggestedCategoryId: null }),
+    ];
+    // History has nothing for Y either.
+    const { service } = setup(extraction(lines), [
+      { description: 'Y', categoryId: null },
+    ], tree);
+
+    const result = await service.extract(TOKEN, FILE, { creditCardId: 'card-1' });
+
+    expect(result.lines[0]?.suggestedCategoryId).toBe('ai-cat');
+    expect(result.lines[1]?.suggestedCategoryId).toBe(SEM_CATEGORIA_ID);
   });
 
   it('passes the invoice total through', async () => {

@@ -38,10 +38,16 @@ export type InvoiceExtractionResult = z.infer<
   typeof invoiceExtractionResultSchema
 >;
 
-/** Reviewed line (commit input). `categoryId` required at write; discarded lines are not persisted. */
+/**
+ * Reviewed line (commit input). `categoryId` required at write; discarded lines are not
+ * persisted. `description` may have been edited by the user; `originalDescription` carries
+ * the raw AI-extracted text so category matching (find similar transactions) stays anchored
+ * to the merchant string, not the human-friendly label.
+ */
 export const invoiceReviewLineSchema = extractedInvoiceLineSchema.extend({
   categoryId: z.string().uuid(),
   discarded: z.boolean().default(false),
+  originalDescription: z.string().min(1).max(120).optional(),
 });
 export type InvoiceReviewLine = z.infer<typeof invoiceReviewLineSchema>;
 

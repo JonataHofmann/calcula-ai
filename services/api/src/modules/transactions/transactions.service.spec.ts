@@ -948,6 +948,23 @@ describe('TransactionsService.suggestCategories', () => {
     expect(result[0]?.description).toBe('  padaria do zé ');
   });
 
+  it('matches a renamed row on its original (raw) description', async () => {
+    const { service } = suggestSetup([
+      transactionEntity({
+        userId: USER_A,
+        description: 'iFood',
+        originalDescription: 'PG *IFD37272 SAO PAULO',
+        categoryId: 'cat-food',
+        type: 'expense',
+      }),
+    ]);
+    // The importer sends the raw merchant string; the friendly label must not shadow it.
+    const result = await service.suggestCategories(USER_A, [
+      'PG *IFD37272 SAO PAULO',
+    ]);
+    expect(result[0]?.categoryId).toBe('cat-food');
+  });
+
   it('uses the most recent occurrence by dueDate', async () => {
     const { service } = suggestSetup([
       transactionEntity({

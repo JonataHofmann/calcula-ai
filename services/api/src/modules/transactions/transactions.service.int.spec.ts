@@ -339,6 +339,56 @@ maybe('TransactionsService (integration)', () => {
       expect(rows.every((r) => r.status === 'pending')).toBe(true);
     });
 
+    it('persists the original (raw) description when the line was renamed', async () => {
+      await service.commitInvoice(
+        USER_A,
+        commit({
+          lines: [
+            commitLine({
+              description: 'iFood',
+              originalDescription: 'PG *IFD37272 SAO PAULO',
+              amount: '42.00',
+            }),
+          ],
+        }),
+      );
+
+      const rows = await cardRows();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.description).toBe('iFood');
+      expect(rows[0]?.originalDescription).toBe('PG *IFD37272 SAO PAULO');
+    });
+
+    it('dedups a re-import on the raw description even when the label differs', async () => {
+      const first = commit({
+        lines: [
+          commitLine({
+            description: 'iFood',
+            originalDescription: 'PG *IFD37272 SAO PAULO',
+            amount: '42.00',
+          }),
+        ],
+      });
+      expect((await service.commitInvoice(USER_A, first)).added).toBe(1);
+
+      // Same raw merchant string, different friendly label -> still a duplicate.
+      const second = commit({
+        lines: [
+          commitLine({
+            description: 'iFood delivery',
+            originalDescription: 'PG *IFD37272 SAO PAULO',
+            amount: '42.00',
+          }),
+        ],
+      });
+      expect(await service.commitInvoice(USER_A, second)).toEqual({
+        added: 0,
+        skipped: 1,
+        removed: 0,
+      });
+      expect(await cardRows()).toHaveLength(1);
+    });
+
     it('rejects a card owned by another user (not found)', async () => {
       await expect(
         service.commitInvoice(USER_A, commit({ creditCardId: CARD_B })),

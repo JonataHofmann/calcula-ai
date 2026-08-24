@@ -11,6 +11,8 @@ export interface TransactionProps {
   id: string;
   userId: string;
   description: string;
+  /** Raw imported description before user edit; null for manual/unedited rows. Used for category matching. */
+  originalDescription: string | null;
   dueDate: Date;
   amount: string;
   effectiveAmount: string | null;
@@ -50,6 +52,7 @@ export interface CreateTransactionData {
   id: string;
   userId: string;
   description: string;
+  originalDescription?: string | null;
   dueDate: Date;
   amount: string;
   recurrence: Recurrence;
@@ -92,6 +95,7 @@ export class Transaction {
       id: input.id,
       userId: input.userId,
       description,
+      originalDescription: input.originalDescription ?? null,
       dueDate: input.dueDate,
       amount: input.amount,
       effectiveAmount: null,
@@ -182,6 +186,9 @@ export class Transaction {
   }
   get description(): string {
     return this.props.description;
+  }
+  get originalDescription(): string | null {
+    return this.props.originalDescription;
   }
   get dueDate(): Date {
     return this.props.dueDate;

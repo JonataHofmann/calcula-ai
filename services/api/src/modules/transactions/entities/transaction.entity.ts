@@ -22,6 +22,9 @@ export class TransactionEntity {
   @Column({ type: 'varchar', length: 120 })
   description!: string;
 
+  @Column({ name: 'original_description', type: 'varchar', length: 120, nullable: true })
+  originalDescription!: string | null;
+
   @Column({ name: 'due_date', type: 'timestamptz' })
   dueDate!: Date;
 

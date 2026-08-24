@@ -43,6 +43,7 @@ export interface InvoiceReviewModalProps {
 interface LineState {
   categoryId: string;
   discarded: boolean;
+  description: string;
 }
 
 /** Flattens the expense branch into indented options carrying icon + color. */
@@ -86,7 +87,11 @@ export function InvoiceReviewModal({
     Object.fromEntries(
       extraction.lines.map((l) => [
         l.lineId,
-        { categoryId: l.suggestedCategoryId ?? '', discarded: false },
+        {
+          categoryId: l.suggestedCategoryId ?? '',
+          discarded: false,
+          description: l.description,
+        },
       ]),
     ),
   );
@@ -99,6 +104,10 @@ export function InvoiceReviewModal({
 
   function setCategory(lineId: string, categoryId: string) {
     setLineState((s) => ({ ...s, [lineId]: { ...s[lineId]!, categoryId } }));
+  }
+
+  function setDescription(lineId: string, description: string) {
+    setLineState((s) => ({ ...s, [lineId]: { ...s[lineId]!, description } }));
   }
 
   function toggleDiscard(lineId: string) {
@@ -123,16 +132,29 @@ export function InvoiceReviewModal({
         `Informe a categoria de ${missing.length} lançamento(s)`,
       );
     }
+    const blank = kept.filter((l) => !lineState[l.lineId]?.description.trim());
+    if (blank.length > 0) {
+      return setLocalError(
+        `Informe a descrição de ${blank.length} lançamento(s)`,
+      );
+    }
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(referenceMonth)) {
       return setLocalError('Mês de referência deve ser YYYY-MM');
     }
     setLocalError(undefined);
 
-    const lines: InvoiceReviewLine[] = extraction.lines.map((l) => ({
-      ...l,
-      categoryId: lineState[l.lineId]!.categoryId,
-      discarded: lineState[l.lineId]!.discarded,
-    }));
+    const lines: InvoiceReviewLine[] = extraction.lines.map((l) => {
+      const state = lineState[l.lineId]!;
+      const description = state.description.trim();
+      return {
+        ...l,
+        description,
+        // Keep the raw extracted text when the user renamed the line.
+        originalDescription: description !== l.description ? l.description : undefined,
+        categoryId: state.categoryId,
+        discarded: state.discarded,
+      };
+    });
     await onConfirm({ referenceMonth: referenceMonth as ReferenceMonth, lines });
   }
 
@@ -197,7 +219,15 @@ export function InvoiceReviewModal({
                             aria-label="Extração incerta — confira"
                           />
                         )}
-                        {line.description}
+                        <Input
+                          value={state.description}
+                          onChange={(e) =>
+                            setDescription(line.lineId, e.target.value)
+                          }
+                          disabled={state.discarded}
+                          maxLength={120}
+                          aria-label="Descrição"
+                        />
                       </span>
                     </TableCell>
                     <TableCell>

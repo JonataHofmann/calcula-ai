@@ -366,9 +366,11 @@ export class TransactionsService {
     });
 
     // rows are newest-first: the first match for a normalized description wins.
+    // Match on the raw imported text when present so a renamed row still matches
+    // the merchant string sent by the importer.
     const byNormalized = new Map<string, string>();
     for (const row of rows) {
-      const norm = normalizeDescription(row.description);
+      const norm = normalizeDescription(row.originalDescription ?? row.description);
       if (targets.has(norm) && !byNormalized.has(norm)) {
         byNormalized.set(norm, row.categoryId);
       }
@@ -430,7 +432,9 @@ export class TransactionsService {
 
     const seen = new Set(
       input.mode === 'merge'
-        ? scopeRows.map((r) => dedupKey(r.dueDate, r.amount, r.description))
+        ? scopeRows.map((r) =>
+            dedupKey(r.dueDate, r.amount, r.originalDescription ?? r.description),
+          )
         : [],
     );
 
@@ -439,7 +443,11 @@ export class TransactionsService {
       // and dedup on that same value so a re-import matches the stored row.
       const amount = fromCents(Math.abs(toCents(line.amount)));
       if (input.mode === 'merge') {
-        const key = dedupKey(dueDate, amount, line.description);
+        const key = dedupKey(
+          dueDate,
+          amount,
+          line.originalDescription ?? line.description,
+        );
         if (seen.has(key)) {
           skipped++;
           continue;
@@ -479,9 +487,16 @@ export class TransactionsService {
     dueDate: Date,
     amount: string,
   ): Transaction[] {
+    // Persist the raw text only when the user actually renamed the line, so the
+    // merchant string stays available for future category matching.
+    const originalDescription =
+      line.originalDescription && line.originalDescription !== line.description
+        ? line.originalDescription
+        : null;
     const common = {
       userId,
       description: line.description,
+      originalDescription,
       type: 'expense' as const,
       categoryId: line.categoryId,
       accountId: null,
@@ -762,6 +777,7 @@ function toEntity(transaction: Transaction): TransactionEntity {
   entity.id = props.id;
   entity.userId = props.userId;
   entity.description = props.description;
+  entity.originalDescription = props.originalDescription;
   entity.dueDate = props.dueDate;
   entity.amount = props.amount;
   entity.effectiveAmount = props.effectiveAmount;
@@ -799,6 +815,7 @@ function toDomain(row: TransactionEntity): Transaction {
     id: row.id,
     userId: row.userId,
     description: row.description,
+    originalDescription: row.originalDescription,
     dueDate: row.dueDate,
     amount: row.amount,
     effectiveAmount: row.effectiveAmount,

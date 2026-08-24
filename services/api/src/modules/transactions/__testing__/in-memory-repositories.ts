@@ -290,6 +290,7 @@ export function transactionEntity(overrides: Partial<TransactionEntity> = {}): T
     id: `tx-${seq}`,
     userId: USER_A,
     description: 'Test',
+    originalDescription: null,
     dueDate: new Date('2026-01-10T00:00:00.000Z'),
     amount: '100.00',
     effectiveAmount: null,

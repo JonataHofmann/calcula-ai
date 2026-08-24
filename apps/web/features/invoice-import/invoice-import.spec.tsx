@@ -101,13 +101,17 @@ describe('InvoiceImportView flow', () => {
       screen.getByRole('button', { name: /Extrair transações/i }),
     );
 
-    // Review modal shows the extracted line.
-    expect(await screen.findByText('Mercado')).toBeInTheDocument();
+    // Review modal shows the extracted line in an editable description field.
+    const descInput = await screen.findByDisplayValue('Mercado');
+    expect(descInput).toBeInTheDocument();
     expect(extractInvoiceMock).toHaveBeenCalledWith({
       file,
       creditCardId: CARD.id,
       password: undefined,
     });
+
+    // Rename the line — the raw text must ride along as originalDescription.
+    fireEvent.change(descInput, { target: { value: 'iFood' } });
 
     // Confirm the review (category is pre-filled from the suggestion).
     fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
@@ -129,6 +133,8 @@ describe('InvoiceImportView flow', () => {
     expect(payload.lines).toHaveLength(1);
     expect(payload.lines[0]?.categoryId).toBe(CATEGORY.id);
     expect(payload.lines[0]?.discarded).toBe(false);
+    expect(payload.lines[0]?.description).toBe('iFood');
+    expect(payload.lines[0]?.originalDescription).toBe('Mercado');
   });
 
   it('lets the user choose replace before importing', async () => {
@@ -151,7 +157,7 @@ describe('InvoiceImportView flow', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /Extrair transações/i }));
 
-    await screen.findByText('Mercado');
+    await screen.findByDisplayValue('Mercado');
     fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
 
     // Choose "Substituir" then import.

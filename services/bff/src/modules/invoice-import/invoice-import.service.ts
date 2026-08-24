@@ -10,13 +10,21 @@ import type {
 import { AiApiClient, type UploadedInvoice } from '../../common/ai-api-client';
 import { ApiClient } from '../../common/api-client';
 
-/** Flattens the expense branch into {id, path-name} options for the AI to pick from. */
+/** Name of the system placeholder assigned when nothing categorizes a line. */
+const SEM_CATEGORIA = 'Sem Categoria';
+
+/**
+ * Flattens the expense branch into {id, path-name} options for the AI to pick from.
+ * The "Sem Categoria" placeholder is left out so the model can't pick it as a cop-out —
+ * it is applied by us only as the last-resort fallback.
+ */
 function flattenExpenseCategories(
   tree: CategoryTreeDto,
 ): Array<{ id: string; name: string }> {
   const out: Array<{ id: string; name: string }> = [];
   const walk = (nodes: CategoryNodeDto[], prefix: string) => {
     for (const node of nodes) {
+      if (node.name === SEM_CATEGORIA) continue;
       const name = prefix ? `${prefix} > ${node.name}` : node.name;
       out.push({ id: node.id, name });
       if (node.children.length > 0) walk(node.children, name);
@@ -24,6 +32,19 @@ function flattenExpenseCategories(
   };
   walk(tree.expense, '');
   return out;
+}
+
+/** The "Sem Categoria" placeholder id, or null if it is not in the tree. */
+function findSemCategoriaId(tree: CategoryTreeDto): string | null {
+  const find = (nodes: CategoryNodeDto[]): string | null => {
+    for (const node of nodes) {
+      if (node.name === SEM_CATEGORIA) return node.id;
+      const child = find(node.children);
+      if (child) return child;
+    }
+    return null;
+  };
+  return find(tree.expense);
 }
 
 /**
@@ -57,7 +78,7 @@ export class InvoiceImportService {
       form,
     );
 
-    return this.enrichWithSuggestions(token, extraction);
+    return this.enrichWithSuggestions(token, extraction, findSemCategoriaId(tree));
   }
 
   /**
@@ -77,10 +98,15 @@ export class InvoiceImportService {
     });
   }
 
-  /** Fills any line the AI left uncategorized (`suggestedCategoryId === null`) from history. */
+  /**
+   * Fills any line the AI left uncategorized (`suggestedCategoryId === null`) from history,
+   * then defaults whatever is still null to the "Sem Categoria" placeholder so no line is
+   * ever imported without a category.
+   */
   private async enrichWithSuggestions(
     token: string,
     extraction: InvoiceExtractionResult,
+    defaultCategoryId: string | null,
   ): Promise<InvoiceExtractionResult> {
     // Only lines the AI could not categorize need a history lookup.
     const descriptions = [
@@ -90,7 +116,9 @@ export class InvoiceImportService {
           .map((l) => l.description),
       ),
     ];
-    if (descriptions.length === 0) return extraction;
+    if (descriptions.length === 0) {
+      return this.applyDefaultCategory(extraction, defaultCategoryId);
+    }
 
     const query = descriptions
       .map((d) => `descriptions=${encodeURIComponent(d)}`)
@@ -111,7 +139,22 @@ export class InvoiceImportService {
         suggestedCategoryId:
           line.suggestedCategoryId ??
           byDescription.get(line.description) ??
-          null,
+          defaultCategoryId,
+      })),
+    };
+  }
+
+  /** Assigns the "Sem Categoria" placeholder to every still-uncategorized line. */
+  private applyDefaultCategory(
+    extraction: InvoiceExtractionResult,
+    defaultCategoryId: string | null,
+  ): InvoiceExtractionResult {
+    if (defaultCategoryId === null) return extraction;
+    return {
+      ...extraction,
+      lines: extraction.lines.map((line) => ({
+        ...line,
+        suggestedCategoryId: line.suggestedCategoryId ?? defaultCategoryId,
       })),
     };
   }
