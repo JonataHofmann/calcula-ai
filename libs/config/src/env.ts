@@ -10,7 +10,10 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().min(32).optional(),
   BFF_PUBLIC_URL: z.string().url().optional(),
   WEB_URL: z.string().url().optional(),
-  NEXT_PUBLIC_BFF_URL: z.string().url().optional(),
+  // URL absoluta OU caminho relativo (`/bff`) quando servido via proxy reverso same-origin.
+  NEXT_PUBLIC_BFF_URL: z
+    .union([z.string().url(), z.string().startsWith('/')])
+    .optional(),
   AI_ROUTER_URL: z.string().url().optional(),
   AI_ROUTER_API_KEY: z.string().optional(),
   PLUGGY_CLIENT_ID: z.string().optional(),
