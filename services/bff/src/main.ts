@@ -1,13 +1,15 @@
 import 'reflect-metadata';
+
 import { loadDotEnv } from '@finance/config';
-loadDotEnv();
-import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
 import { createLogger } from '@finance/logger';
 import { createRequestLoggingMiddleware } from '@finance/observability';
+import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+
+loadDotEnv();
 
 const logger = createLogger({ name: 'bff' });
 
@@ -17,6 +19,8 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
   app.use(createRequestLoggingMiddleware(logger));
   app.use(cookieParser());
+  const origin = process.env.WEB_URL ?? process.env.CORS_ORIGINS?.split(',') ?? [];
+  console.log(`CORS:`, origin);
   app.enableCors({
     origin: process.env.WEB_URL ?? process.env.CORS_ORIGINS?.split(',') ?? [],
     credentials: true,
