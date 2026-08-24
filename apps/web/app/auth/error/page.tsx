@@ -14,7 +14,8 @@ export default async function AuthErrorPage({
 }) {
   const { reason } = await searchParams;
   const message = (reason && MESSAGES[reason]) || GENERIC_MESSAGE;
-  const bffUrl = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:3032';
+  // Same-origin via proxy reverso do BFF (`/bff/*`).
+  const bffUrl = process.env.NEXT_PUBLIC_BFF_URL ?? '/bff';
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4">

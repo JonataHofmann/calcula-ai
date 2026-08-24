@@ -14,11 +14,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const bffUrl = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:3032';
+  // Same-origin via proxy reverso (`/bff/*`). URL absoluta na própria origem do
+  // request — o cookie setado no callback cai no host do web e o middleware o vê.
   const returnTo = encodeURIComponent(`${pathname}${search}`);
-  return NextResponse.redirect(`${bffUrl}/auth/login?returnTo=${returnTo}`, 307);
+  const loginUrl = new URL(`/bff/auth/login?returnTo=${returnTo}`, request.nextUrl.origin);
+  return NextResponse.redirect(loginUrl, 307);
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
+  // Exclui `bff` — são rotas do proxy reverso (login/callback/API do BFF). O middleware
+  // roda antes dos rewrites; sem isso, /bff/auth/login entraria em loop de redirect.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|bff/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+  ],
 };

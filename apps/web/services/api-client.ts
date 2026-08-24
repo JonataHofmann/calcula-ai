@@ -1,4 +1,6 @@
-const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:3032';
+// Mesma origem via proxy reverso do Next (`/bff/*` -> BFF). Relativo, sem CORS
+// e sem cookie cross-subdomínio. Override só se apontar direto pro BFF.
+const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL ?? '/bff';
 
 export class ApiError extends Error {
   constructor(

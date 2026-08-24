@@ -1,6 +1,6 @@
 import { sessionUserSchema, type SessionUser } from '@finance/contracts';
 
-const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL ?? 'http://localhost:3032';
+const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL ?? '/bff';
 
 export class UnauthenticatedError extends Error {
   constructor() {

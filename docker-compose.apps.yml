@@ -129,6 +129,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: ${WEB_PORT:-3030}
+      # Alvo interno do proxy reverso (`/bff/*` -> BFF na rede docker).
+      BFF_INTERNAL_URL: http://bff:${BFF_PORT:-3032}
     ports:
       - "${WEB_PORT:-3030}:${WEB_PORT:-3030}"
     depends_on:
