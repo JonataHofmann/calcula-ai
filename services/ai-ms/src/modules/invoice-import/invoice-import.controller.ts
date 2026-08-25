@@ -150,12 +150,10 @@ export class InvoiceImportController {
       write({ step: 'done', status: 'done', message: 'Extração concluída', result });
     } catch (error) {
       const mapped = mapExtractError(error);
-      write({
-        step: 'error',
-        status: 'error',
-        code: mapped?.code ?? 'INTERNAL',
-        message: mapped?.message ?? 'Falha inesperada na extração',
-      });
+      // Erro desconhecido: repassa a mensagem REAL (ex.: timeout do AI router), não um genérico —
+      // o BFF a repassa ao cliente, mantendo o erro rastreável ponta a ponta.
+      const message = mapped?.message ?? (error instanceof Error ? error.message : String(error));
+      write({ step: 'error', status: 'error', code: mapped?.code ?? 'INTERNAL', message });
       if (!mapped) {
         this.logger.error(
           error instanceof Error ? error.message : String(error),

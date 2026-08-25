@@ -29,6 +29,31 @@ export class InvoiceExtractionError extends Error {
 export type InvoiceStepEmitter = (event: InvoiceImportProgressEvent) => void;
 const NO_STEP_EMIT: InvoiceStepEmitter = () => {};
 
+/** De quanto em quanto tempo pulsar durante a chamada da IA (mantém o stream vivo). */
+const AI_HEARTBEAT_MS = 3000;
+
+/**
+ * Roda `fn` (a chamada da IA, que pode levar dezenas de segundos) emitindo um pulso a cada
+ * poucos segundos. Sem isso o stream fica em silêncio durante toda a chamada e proxies/idle
+ * timeouts (ex.: rewrite do Next) seguram ou derrubam a conexão — a UI congela no passo da IA.
+ */
+async function withAiHeartbeat<T>(
+  onEvent: InvoiceStepEmitter,
+  message: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  const timer = setInterval(() => {
+    const secs = Math.round((Date.now() - startedAt) / 1000);
+    onEvent({ step: 'extracting_ai', status: 'start', message: `${message} (${secs}s)` });
+  }, AI_HEARTBEAT_MS);
+  try {
+    return await fn();
+  } finally {
+    clearInterval(timer);
+  }
+}
+
 @Injectable()
 export class InvoiceImportService {
   private readonly logger = new Logger(InvoiceImportService.name);
@@ -56,11 +81,13 @@ export class InvoiceImportService {
     let parsed: ModelInvoiceExtraction;
 
     onEvent({ step: 'extracting_ai', status: 'start', message: 'Enviando para a IA' });
-    const first = await this.ai.generate({
-      messages,
-      model: EXTRACTION_MODEL,
-      temperature: 0,
-    });
+    const first = await withAiHeartbeat(onEvent, 'Analisando com a IA', () =>
+      this.ai.generate({
+        messages,
+        model: EXTRACTION_MODEL,
+        temperature: 0,
+      }),
+    );
 
     try {
       parsed = parseModelExtraction(first.content);
@@ -73,15 +100,17 @@ export class InvoiceImportService {
         status: 'start',
         message: 'Resposta inesperada, tentando novamente',
       });
-      const retry = await this.ai.generate({
-        messages: [
-          ...messages,
-          { role: 'assistant', content: first.content },
-          buildRetryMessage(summary),
-        ],
-        model: EXTRACTION_MODEL,
-        temperature: 0,
-      });
+      const retry = await withAiHeartbeat(onEvent, 'Tentando novamente com a IA', () =>
+        this.ai.generate({
+          messages: [
+            ...messages,
+            { role: 'assistant', content: first.content },
+            buildRetryMessage(summary),
+          ],
+          model: EXTRACTION_MODEL,
+          temperature: 0,
+        }),
+      );
       try {
         parsed = parseModelExtraction(retry.content);
       } catch {
