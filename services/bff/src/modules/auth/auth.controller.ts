@@ -70,7 +70,16 @@ export class AuthController {
   @Get('callback')
   async callback(@Req() req: Request, @Res() res: Response) {
     this.logger.log('GET /auth/callback');
-    const currentUrl = new URL(req.originalUrl, this.authService.options.bffPublicUrl);
+    // O proxy reverso do web tira o prefixo `/bff`, então req.originalUrl chega como
+    // `/auth/callback?...`. Como é path ABSOLUTO, `new URL(path, base)` descarta o
+    // `/bff` da base. O openid-client deriva o redirect_uri do token exchange desta
+    // URL (sem query) — precisa ser IDÊNTICO ao do authorize (`${bffPublicUrl}/auth/
+    // callback`, COM `/bff`), senão o Keycloak rejeita com invalid_grant. Reconstrói
+    // preservando só a query.
+    const incoming = new URL(req.originalUrl, this.authService.options.bffPublicUrl);
+    const currentUrl = new URL(
+      `${this.authService.options.bffPublicUrl}/auth/callback${incoming.search}`,
+    );
     try {
       const result = await this.authService.handleCallback(currentUrl);
       const keycloakUserId = typeof result.claims['sub'] === 'string' ? result.claims['sub'] : '';

@@ -135,6 +135,16 @@ export class AuthService {
       if (error instanceof ProviderUnavailableError) {
         throw error;
       }
+      // Loga a causa real do Keycloak (invalid_grant / invalid_client / redirect_uri…).
+      const err = error as {
+        message?: string;
+        error?: string;
+        error_description?: string;
+        cause?: unknown;
+      };
+      this.logger.warn(
+        `Token exchange failed: ${err.error ?? ''} ${err.error_description ?? ''} ${err.message ?? String(error)}`,
+      );
       throw new InvalidCallbackError('Token exchange failed');
     }
 
