@@ -4,6 +4,11 @@ WORKDIR /app
 
 FROM base AS build
 ENV CI=true
+# NEXT_PUBLIC_* precisa existir no ambiente DURANTE o build (embutido no bundle).
+ARG NEXT_PUBLIC_BFF_URL=/bff
+ARG NEXT_PUBLIC_PLUGGY_INCLUDE_SANDBOX=true
+ENV NEXT_PUBLIC_BFF_URL=$NEXT_PUBLIC_BFF_URL
+ENV NEXT_PUBLIC_PLUGGY_INCLUDE_SANDBOX=$NEXT_PUBLIC_PLUGGY_INCLUDE_SANDBOX
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm turbo run build --filter=@finance/web
