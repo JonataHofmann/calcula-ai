@@ -39,6 +39,38 @@ export type InvoiceExtractionResult = z.infer<
 >;
 
 /**
+ * Passos do fluxo de importação de fatura, emitidos em tempo real (NDJSON) do
+ * ai-ms/bff para o web. Ordem lógica: uploading -> loading_categories -> reading_pdf
+ * -> extracting_ai -> processing -> categorizing -> done. `error` encerra o fluxo.
+ */
+export const invoiceImportStepSchema = z.enum([
+  'uploading',
+  'loading_categories',
+  'reading_pdf',
+  'extracting_ai',
+  'processing',
+  'categorizing',
+  'done',
+  'error',
+]);
+export type InvoiceImportStep = z.infer<typeof invoiceImportStepSchema>;
+
+/**
+ * Um evento de progresso do stream de importação. `result` só vem no evento terminal
+ * `done`; `code` só em `error`. `status` marca início/fim/erro de cada passo.
+ */
+export const invoiceImportProgressEventSchema = z.object({
+  step: invoiceImportStepSchema,
+  status: z.enum(['start', 'done', 'error']),
+  message: z.string(),
+  result: invoiceExtractionResultSchema.optional(),
+  code: z.string().optional(),
+});
+export type InvoiceImportProgressEvent = z.infer<
+  typeof invoiceImportProgressEventSchema
+>;
+
+/**
  * Reviewed line (commit input). `categoryId` required at write; discarded lines are not
  * persisted. `description` may have been edited by the user; `originalDescription` carries
  * the raw AI-extracted text so category matching (find similar transactions) stays anchored

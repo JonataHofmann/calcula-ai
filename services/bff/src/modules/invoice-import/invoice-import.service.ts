@@ -7,7 +7,11 @@ import type {
   CommitInvoiceResult,
   InvoiceExtractionResult,
 } from '@finance/contracts';
-import { AiApiClient, type UploadedInvoice } from '../../common/ai-api-client';
+import {
+  AiApiClient,
+  type InvoiceStepEmitter,
+  type UploadedInvoice,
+} from '../../common/ai-api-client';
 import { ApiClient } from '../../common/api-client';
 
 /** Name of the system placeholder assigned when nothing categorizes a line. */
@@ -83,6 +87,54 @@ export class InvoiceImportService {
     return this.enrichWithSuggestions(token, extraction, {
       expense: findSemCategoriaId(tree.expense),
       income: findSemCategoriaId(tree.income),
+    });
+  }
+
+  /**
+   * Igual a extract, mas transmite o progresso passo a passo via `onEvent`: emite os passos
+   * do BFF (upload recebido, carregando categorias, categorizando, concluído) e repassa os
+   * passos do ai-ms (lendo PDF, IA, processando). O evento `done` final carrega o resultado
+   * JÁ enriquecido. Erros propagam como exceção para o controller emitir o evento `error`.
+   */
+  async extractStream(
+    token: string,
+    file: UploadedInvoice,
+    fields: { creditCardId: string; password?: string },
+    onEvent: InvoiceStepEmitter,
+  ): Promise<void> {
+    onEvent({ step: 'uploading', status: 'done', message: 'Arquivo recebido' });
+
+    onEvent({ step: 'loading_categories', status: 'start', message: 'Carregando categorias' });
+    const tree = await this.api.get<CategoryTreeDto>('/categories', { token });
+    onEvent({ step: 'loading_categories', status: 'done', message: 'Categorias carregadas' });
+
+    const form: Record<string, string> = {
+      creditCardId: fields.creditCardId,
+      categories: JSON.stringify(flattenExpenseCategories(tree)),
+    };
+    if (fields.password !== undefined) form.password = fields.password;
+
+    // Repassa os passos do ai-ms (reading_pdf/extracting_ai/processing); o `done` do ai-ms
+    // é consumido internamente e devolve o resultado bruto aqui.
+    const extraction = await this.ai.extractInvoiceStream<InvoiceExtractionResult>(
+      token,
+      file,
+      form,
+      onEvent,
+    );
+
+    onEvent({ step: 'categorizing', status: 'start', message: 'Categorizando transações' });
+    const enriched = await this.enrichWithSuggestions(token, extraction, {
+      expense: findSemCategoriaId(tree.expense),
+      income: findSemCategoriaId(tree.income),
+    });
+    onEvent({ step: 'categorizing', status: 'done', message: 'Transações categorizadas' });
+
+    onEvent({
+      step: 'done',
+      status: 'done',
+      message: 'Importação pronta para revisão',
+      result: enriched,
     });
   }
 

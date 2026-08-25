@@ -14,11 +14,11 @@ import type {
 } from '@finance/contracts';
 import { InvoiceImportView } from './invoice-import-view';
 
-const extractInvoiceMock = vi.hoisted(() => vi.fn());
+const extractInvoiceStreamMock = vi.hoisted(() => vi.fn());
 const commitInvoiceMock = vi.hoisted(() => vi.fn());
 
 vi.mock('./invoice-import-api', () => ({
-  extractInvoice: extractInvoiceMock,
+  extractInvoiceStream: extractInvoiceStreamMock,
   commitInvoice: commitInvoiceMock,
 }));
 
@@ -41,9 +41,23 @@ vi.mock('../categories/use-categories', () => ({
 
 afterEach(() => {
   cleanup();
-  extractInvoiceMock.mockReset();
+  extractInvoiceStreamMock.mockReset();
   commitInvoiceMock.mockReset();
 });
+
+/** Mocka o stream: emite os eventos de passo e resolve com o resultado, como o BFF faz. */
+function mockStream(result: InvoiceExtractionResult) {
+  extractInvoiceStreamMock.mockImplementation(
+    async (
+      _input: unknown,
+      onEvent: (event: { step: string; status: string; message: string }) => void,
+    ) => {
+      onEvent({ step: 'uploading', status: 'done', message: 'Arquivo recebido' });
+      onEvent({ step: 'processing', status: 'done', message: 'Processando' });
+      return result;
+    },
+  );
+}
 
 function extraction(): InvoiceExtractionResult {
   return {
@@ -78,7 +92,7 @@ function renderView() {
 
 describe('InvoiceImportView flow', () => {
   it('walks upload -> review -> commit and shows the summary', async () => {
-    extractInvoiceMock.mockResolvedValue(extraction());
+    mockStream(extraction());
     commitInvoiceMock.mockResolvedValue({ added: 1, skipped: 0, removed: 0 });
 
     renderView();
@@ -105,11 +119,10 @@ describe('InvoiceImportView flow', () => {
     // Review modal shows the extracted line in an editable description field.
     const descInput = await screen.findByDisplayValue('Mercado');
     expect(descInput).toBeInTheDocument();
-    expect(extractInvoiceMock).toHaveBeenCalledWith({
-      file,
-      creditCardId: CARD.id,
-      password: undefined,
-    });
+    expect(extractInvoiceStreamMock).toHaveBeenCalledWith(
+      { file, creditCardId: CARD.id, password: undefined },
+      expect.any(Function),
+    );
 
     // Rename the line — the raw text must ride along as originalDescription.
     fireEvent.change(descInput, { target: { value: 'iFood' } });
@@ -139,7 +152,7 @@ describe('InvoiceImportView flow', () => {
   });
 
   it('labels a negative line as Receita and commits it with the income category', async () => {
-    extractInvoiceMock.mockResolvedValue({
+    mockStream({
       referenceMonth: '2026-08',
       dueDate: null,
       total: null,
@@ -185,7 +198,7 @@ describe('InvoiceImportView flow', () => {
   });
 
   it('lets the user choose replace before importing', async () => {
-    extractInvoiceMock.mockResolvedValue(extraction());
+    mockStream(extraction());
     commitInvoiceMock.mockResolvedValue({ added: 1, skipped: 0, removed: 3 });
 
     renderView();

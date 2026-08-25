@@ -17,13 +17,16 @@ import {
   type InvoiceReviewValues,
 } from './invoice-review-modal';
 import { InvoiceCommitModal } from './invoice-commit-modal';
-import { useCommitInvoice, useExtractInvoice } from './use-invoice-import';
+import { InvoiceProgressModal } from './invoice-progress-modal';
+import { useCommitInvoice } from './use-invoice-import';
+import { useInvoiceStream } from './use-invoice-stream';
 
 export function InvoiceImportView() {
-  const extract = useExtractInvoice();
+  const stream = useInvoiceStream();
   const commit = useCommitInvoice();
   const { data: categories } = useCategories();
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [commitOpen, setCommitOpen] = useState(false);
   const [creditCardId, setCreditCardId] = useState<string>();
@@ -32,11 +35,17 @@ export function InvoiceImportView() {
   const [summary, setSummary] = useState<CommitInvoiceResult>();
 
   async function handleUpload(values: InvoiceUploadValues) {
-    const data = await extract.mutateAsync(values);
     setCreditCardId(values.creditCardId);
-    setExtraction(data);
     setUploadOpen(false);
-    setReviewOpen(true);
+    setProgressOpen(true);
+    try {
+      const data = await stream.run(values);
+      setExtraction(data);
+      setProgressOpen(false);
+      setReviewOpen(true);
+    } catch {
+      // O erro fica visível no modal de progresso (stream.error), no passo que falhou.
+    }
   }
 
   function handleReviewConfirm(values: InvoiceReviewValues) {
@@ -70,7 +79,7 @@ export function InvoiceImportView() {
         </div>
         <Button
           onClick={() => {
-            extract.reset();
+            stream.reset();
             commit.reset();
             setReviewed(undefined);
             setSummary(undefined);
@@ -113,8 +122,17 @@ export function InvoiceImportView() {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         onSubmit={handleUpload}
-        submitting={extract.isPending}
-        error={extract.error?.message}
+        submitting={stream.isRunning}
+      />
+
+      <InvoiceProgressModal
+        open={progressOpen}
+        steps={stream.steps}
+        error={stream.error}
+        onClose={() => {
+          setProgressOpen(false);
+          stream.reset();
+        }}
       />
 
       {extraction && (

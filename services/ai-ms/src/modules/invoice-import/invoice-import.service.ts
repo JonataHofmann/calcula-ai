@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   invoiceExtractionResultSchema,
   type InvoiceExtractionResult,
+  type InvoiceImportProgressEvent,
 } from '@finance/contracts';
 import type { AIProvider } from '../../common/ai-provider';
 import { AI_PROVIDER } from '../../common/ai-provider.token';
@@ -24,6 +25,10 @@ export class InvoiceExtractionError extends Error {
   }
 }
 
+/** Callback de progresso por passo. No-op quando a extração não é streamed. */
+export type InvoiceStepEmitter = (event: InvoiceImportProgressEvent) => void;
+const NO_STEP_EMIT: InvoiceStepEmitter = () => {};
+
 @Injectable()
 export class InvoiceImportService {
   private readonly logger = new Logger(InvoiceImportService.name);
@@ -41,12 +46,16 @@ export class InvoiceImportService {
     fileBuffer: Buffer,
     password: string | undefined,
     categories: InvoiceCategoryOption[] = [],
+    onEvent: InvoiceStepEmitter = NO_STEP_EMIT,
   ): Promise<InvoiceExtractionResult> {
+    onEvent({ step: 'reading_pdf', status: 'start', message: 'Extraindo texto do PDF' });
     const pdfText = await readPdfText(fileBuffer, password);
+    onEvent({ step: 'reading_pdf', status: 'done', message: 'Texto do PDF extraído' });
 
     const messages = buildExtractionMessages(pdfText, categories);
     let parsed: ModelInvoiceExtraction;
 
+    onEvent({ step: 'extracting_ai', status: 'start', message: 'Enviando para a IA' });
     const first = await this.ai.generate({
       messages,
       model: EXTRACTION_MODEL,
@@ -59,6 +68,11 @@ export class InvoiceImportService {
       const summary =
         firstError instanceof Error ? firstError.message : 'formato inesperado';
       this.logger.warn(`Extraction JSON invalid, retrying once: ${summary}`);
+      onEvent({
+        step: 'extracting_ai',
+        status: 'start',
+        message: 'Resposta inesperada, tentando novamente',
+      });
       const retry = await this.ai.generate({
         messages: [
           ...messages,
@@ -74,7 +88,9 @@ export class InvoiceImportService {
         throw new InvoiceExtractionError();
       }
     }
+    onEvent({ step: 'extracting_ai', status: 'done', message: 'IA respondeu' });
 
+    onEvent({ step: 'processing', status: 'start', message: 'Processando transações' });
     const allowedCategoryIds = new Set(categories.map((c) => c.id));
     const result: InvoiceExtractionResult = {
       referenceMonth: parsed.referenceMonth,
@@ -109,6 +125,11 @@ export class InvoiceImportService {
     this.logger.log(
       `Extracted ${validated.data.lines.length} line(s), referenceMonth=${validated.data.referenceMonth}`,
     );
+    onEvent({
+      step: 'processing',
+      status: 'done',
+      message: `${validated.data.lines.length} transação(ões) extraída(s)`,
+    });
     return validated.data;
   }
 }
