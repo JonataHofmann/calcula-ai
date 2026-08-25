@@ -7,7 +7,7 @@ import type { NextConfig } from 'next';
  * Dev: BFF_INTERNAL_URL=http://localhost:3032. Docker: http://bff:3032.
  */
 const BFF_INTERNAL_URL = process.env.BFF_INTERNAL_URL ?? 'http://calculaai-bff-9ff0uq:3032';
-
+console.log('BFF_INTERNAL_URL', BFF_INTERNAL_URL);
 const nextConfig: NextConfig = {
   transpilePackages: ['@finance/ui', '@finance/contracts'],
   async rewrites() {

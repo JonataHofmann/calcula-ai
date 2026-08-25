@@ -1,6 +1,11 @@
 import 'reflect-metadata';
 
 import { loadDotEnv } from '@finance/config';
+
+// ANTES de importar AppModule: o TypeORM.forRoot lê process.env.DATABASE_URL no
+// import do módulo. Carregar o .env aqui garante que as envs existam nesse ponto.
+loadDotEnv();
+
 import { createLogger } from '@finance/logger';
 import {
   createRequestLoggingMiddleware,
@@ -12,8 +17,6 @@ import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-
-loadDotEnv();
 
 const logger = createLogger({ name: 'bff', mixin: requestContextMixin() });
 
