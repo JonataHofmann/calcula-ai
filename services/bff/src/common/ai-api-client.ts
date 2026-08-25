@@ -1,5 +1,6 @@
-import { HttpException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { outgoingTraceHeaders } from '@finance/observability';
+import { UpstreamError, upstreamMessage } from './upstream-error';
 
 /** A PDF upload forwarded from the web through the BFF to ai-ms. */
 export interface UploadedInvoice {
@@ -16,6 +17,7 @@ export interface UploadedInvoice {
  */
 @Injectable()
 export class AiApiClient {
+  private readonly service = 'ai-ms';
   private readonly base = process.env.AI_MS_URL ?? 'http://localhost:3033';
 
   async extractInvoice<T>(
@@ -32,17 +34,41 @@ export class AiApiClient {
       form.append(key, value);
     }
 
-    const res = await fetch(`${this.base}/invoice-extract`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, ...outgoingTraceHeaders() },
-      body: form,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${this.base}/invoice-extract`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, ...outgoingTraceHeaders() },
+        body: form,
+      });
+    } catch (cause) {
+      throw new UpstreamError({
+        service: this.service,
+        status: 502,
+        message: `Falha de rede ao contatar ${this.service} (POST /invoice-extract): ${
+          cause instanceof Error ? cause.message : String(cause)
+        }`,
+        cause,
+      });
+    }
 
     const text = await res.text();
-    const data = text ? JSON.parse(text) : undefined;
+    let data: unknown;
+    try {
+      data = text ? JSON.parse(text) : undefined;
+    } catch {
+      data = text;
+    }
 
     if (!res.ok) {
-      throw new HttpException(data ?? { message: res.statusText }, res.status);
+      throw new UpstreamError({
+        service: this.service,
+        status: res.status,
+        upstreamStatus: res.status,
+        body: data,
+        message:
+          upstreamMessage(data) ?? res.statusText ?? `Erro ${res.status} em ${this.service}`,
+      });
     }
     return data as T;
   }

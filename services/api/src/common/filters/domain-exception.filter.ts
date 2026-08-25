@@ -6,16 +6,26 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { getRequestContext } from '@finance/observability';
 import type { Response } from 'express';
+
+/** Stack só é omitida do RESPONSE se ERROR_EXPOSE_STACK === 'false' (default: expõe). */
+const EXPOSE_STACK = process.env.ERROR_EXPOSE_STACK !== 'false';
 
 /**
  * Maps framework-agnostic domain errors to HTTP responses by class-name convention:
  * `*NotFoundError` -> 404 (also the cross-user access response, FR-021),
  * `Invalid*`/`*ValidationError` -> 400. HttpExceptions pass through untouched.
+ *
+ * Erros não-mapeados (500) devolvem a MENSAGEM REAL + nome + stack + service +
+ * requestId/correlationId — nunca um "Internal server error" nu — para o BFF repassar
+ * o erro rastreável ao cliente.
  */
 @Catch()
 export class DomainExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(DomainExceptionFilter.name);
+
+  constructor(private readonly service = 'api-ms') {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
@@ -42,9 +52,17 @@ export class DomainExceptionFilter implements ExceptionFilter {
       return;
     }
 
-    this.logger.error(message, exception instanceof Error ? exception.stack : undefined);
-    response
-      .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .json({ code: 'INTERNAL', message: 'Internal server error' });
+    const stack = exception instanceof Error ? exception.stack : undefined;
+    this.logger.error(message, stack);
+    const ctx = getRequestContext();
+    response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      code: 'INTERNAL',
+      error: name || 'UnknownError',
+      message,
+      service: this.service,
+      requestId: ctx?.requestId,
+      correlationId: ctx?.correlationId,
+      ...(EXPOSE_STACK && stack ? { stack } : {}),
+    });
   }
 }

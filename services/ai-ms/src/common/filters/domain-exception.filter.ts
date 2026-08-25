@@ -15,7 +15,7 @@ const EXPOSE_STACK = process.env.ERROR_EXPOSE_STACK !== 'false';
 /**
  * Maps framework-agnostic domain errors to HTTP responses by class-name convention:
  * `*NotFoundError` -> 404, `Invalid*`/`*ValidationError` -> 400,
- * `Duplicate*`/`*ConflictError` -> 409. HttpExceptions pass through untouched.
+ * `*ConflictError` -> 409. HttpExceptions pass through untouched.
  *
  * Erros não-mapeados (500) devolvem a MENSAGEM REAL + nome + stack + service +
  * requestId/correlationId — nunca um "Internal server error" nu — para o BFF repassar
@@ -25,7 +25,7 @@ const EXPOSE_STACK = process.env.ERROR_EXPOSE_STACK !== 'false';
 export class DomainExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(DomainExceptionFilter.name);
 
-  constructor(private readonly service = 'banking-ms') {}
+  constructor(private readonly service = 'ai-ms') {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
@@ -47,7 +47,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
       response.status(HttpStatus.BAD_REQUEST).json({ code: 'VALIDATION', message });
       return;
     }
-    if (name.startsWith('Duplicate') || name.endsWith('ConflictError')) {
+    if (name.endsWith('ConflictError')) {
       response.status(HttpStatus.CONFLICT).json({ code: 'CONFLICT', message });
       return;
     }

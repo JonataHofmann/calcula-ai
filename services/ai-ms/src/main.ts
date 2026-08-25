@@ -11,6 +11,7 @@ import {
 } from '@finance/observability';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { DomainExceptionFilter } from './common/filters/domain-exception.filter';
 
 const logger = createLogger({ name: 'ai-ms', mixin: requestContextMixin() });
 
@@ -24,6 +25,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
+  app.useGlobalFilters(new DomainExceptionFilter());
 
   await app.listen(process.env.AI_MS_PORT ?? 3033);
 }

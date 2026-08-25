@@ -16,6 +16,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { AppModule } from './app.module';
 
 const logger = createLogger({ name: 'bff', mixin: requestContextMixin() });
@@ -36,6 +37,9 @@ async function bootstrap(): Promise<void> {
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
+  // Erro rastreável SEMPRE: qual microserviço falhou, status/corpo do upstream, stack,
+  // requestId/correlationId. Nunca "Internal Server Error" nu.
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   await app.listen(process.env.BFF_PORT ?? 3032);
 }
