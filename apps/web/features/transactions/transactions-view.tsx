@@ -224,7 +224,20 @@ export function TransactionsView() {
           <PeriodSelector />
         </div>
       </div>
-
+      <Card className="flex flex-col gap-4 p-4">
+        <TransactionsFilters
+          filters={filters}
+          onChange={(patch: TransactionFilters) => dispatch(setFilters(patch))}
+          onClear={() => dispatch(clearFilters())}
+          categories={categories}
+          accounts={accounts ?? []}
+          cards={cards ?? []}
+          groupCreditCardExpenses={groupCreditCardExpenses}
+          onGroupCreditCardExpensesChange={(v) => dispatch(setGroupCreditCardExpenses(v))}
+          showOverdue={showOverdue}
+          onShowOverdueChange={(v) => dispatch(setShowOverdue(v))}
+        />
+      </Card>
       <AnimatePresence initial={false}>
         {showOverdue ? (
           <motion.div
@@ -252,19 +265,6 @@ export function TransactionsView() {
       </AnimatePresence>
 
       <Card className="flex flex-col gap-4 p-4">
-        <TransactionsFilters
-          filters={filters}
-          onChange={(patch: TransactionFilters) => dispatch(setFilters(patch))}
-          onClear={() => dispatch(clearFilters())}
-          categories={categories}
-          accounts={accounts ?? []}
-          cards={cards ?? []}
-          groupCreditCardExpenses={groupCreditCardExpenses}
-          onGroupCreditCardExpensesChange={(v) => dispatch(setGroupCreditCardExpenses(v))}
-          showOverdue={showOverdue}
-          onShowOverdueChange={(v) => dispatch(setShowOverdue(v))}
-        />
-
         {isLoading ? (
           <div className="flex flex-col gap-2">
             {[0, 1, 2, 3].map((i) => (
@@ -295,7 +295,9 @@ export function TransactionsView() {
             </span>
             <div>
               <p className="text-text text-sm font-semibold">Nenhuma transação neste mês</p>
-              <p className="text-text-muted text-sm">Cadastre sua primeira transação para começar.</p>
+              <p className="text-text-muted text-sm">
+                Cadastre sua primeira transação para começar.
+              </p>
             </div>
           </div>
         )}
