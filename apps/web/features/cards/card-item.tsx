@@ -35,7 +35,7 @@ export function CardItem({ card, index, onEdit, onDelete }: CardItemProps) {
         holderName={card.name}
         maskedNumber={`•••• •••• •••• ${card.lastDigits}`}
         balance={card.limit}
-        className="max-w-none"
+        className="max-w-[20rem]"
       />
 
       <div className="absolute top-3 right-3 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">

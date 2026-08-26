@@ -61,7 +61,7 @@ export function CardsView() {
       {isLoading ? (
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="aspect-[16/10] w-full rounded-2xl" />
+            <Skeleton key={i} className="aspect-[16/10] w-full max-w-[20rem] rounded-2xl" />
           ))}
         </div>
       ) : cards && cards.length > 0 ? (
