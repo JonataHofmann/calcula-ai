@@ -98,7 +98,7 @@ const createInstallment = z.object({
 });
 
 /**
- * Origin XOR by type (R7): expense = exactly one of account/card; income = account only.
+ * Origin XOR (R7): expense and income both take exactly one of account/card.
  * installment = exactly one of amount (per-parcel) / totalAmount.
  * fixed = endDate null or >= dueDate.
  */
@@ -115,31 +115,19 @@ function refineTransaction(
   },
   ctx: z.RefinementCtx,
 ): void {
-  if (data.type === 'expense') {
-    const hasAccount = Boolean(data.accountId);
-    const hasCard = Boolean(data.creditCardId);
-    if (hasAccount === hasCard) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Despesa exige exatamente uma conta OU um cartão',
-        path: ['accountId'],
-      });
-    }
-  } else {
-    if (!data.accountId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Receita exige uma conta',
-        path: ['accountId'],
-      });
-    }
-    if (data.creditCardId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Receita não pode usar cartão',
-        path: ['creditCardId'],
-      });
-    }
+  // Both types: exactly one origin (account XOR card). A card income = estorno/reembolso/
+  // pagamento da fatura — reduz a fatura do cartão (agrupada dentro dele).
+  const hasAccount = Boolean(data.accountId);
+  const hasCard = Boolean(data.creditCardId);
+  if (hasAccount === hasCard) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        data.type === 'expense'
+          ? 'Despesa exige exatamente uma conta OU um cartão'
+          : 'Receita exige exatamente uma conta OU um cartão',
+      path: ['accountId'],
+    });
   }
 
   if (data.recurrence === 'installment') {

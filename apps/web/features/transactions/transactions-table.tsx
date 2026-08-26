@@ -74,7 +74,7 @@ function buildInvoiceGroups(
   const byCard = new Map<string, TransactionDto[]>();
 
   for (const t of transactions) {
-    if (t.type === 'expense' && t.creditCardId) {
+    if (t.creditCardId) {
       const list = byCard.get(t.creditCardId) ?? [];
       list.push(t);
       byCard.set(t.creditCardId, list);
@@ -83,8 +83,12 @@ function buildInvoiceGroups(
     }
   }
 
+  // Receita no cartão (estorno/reembolso/pagamento) reduz a fatura → entra negativa no total.
   const invoices: InvoiceGroup[] = Array.from(byCard.entries()).map(([cardId, items]) => {
-    const totalCents = items.reduce((sum, t) => sum + toCents(t.amount), 0);
+    const totalCents = items.reduce(
+      (sum, t) => sum + (t.type === 'income' ? -toCents(t.amount) : toCents(t.amount)),
+      0,
+    );
     const dueDate = items.reduce((max, t) => (t.dueDate > max ? t.dueDate : max), items[0]!.dueDate);
     const status = items.some((t) => t.status === 'pending') ? 'pending' : 'paid';
     return {

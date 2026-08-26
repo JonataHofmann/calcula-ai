@@ -223,7 +223,8 @@ maybe('TransactionsService (integration)', () => {
         dueFrom: new Date(Date.UTC(2026, 1, 1)).toISOString(),
         dueTo: new Date(Date.UTC(2026, 1, 28)).toISOString(),
       });
-      expect(feb).toHaveLength(0);
+      // Single 'Fora' (Jan) is out of window; the fixed 'Curso' is projected into Feb.
+      expect(feb.map((t) => t.description)).toEqual(['Curso']);
     });
   });
 

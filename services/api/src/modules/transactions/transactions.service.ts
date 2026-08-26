@@ -276,9 +276,15 @@ export class TransactionsService {
 
   async list(userId: string, query: ListTransactionsQuery): Promise<Transaction[]> {
     this.logger.log(`Listing transactions for user ${userId}`);
+    const dueFrom = new Date(query.dueFrom);
+    const dueTo = new Date(query.dueTo);
+    // A fixed expense persists only one row; future months are materialized lazily when
+    // the user navigates to them, so the monthly list shows the occurrence like any other
+    // real (effectuable/editable) row. Forecast keeps its own pure projection (find()).
+    await this.ensureFixedOccurrences(userId, dueFrom, dueTo);
     return this.find(userId, {
-      dueFrom: new Date(query.dueFrom),
-      dueTo: new Date(query.dueTo),
+      dueFrom,
+      dueTo,
       search: query.search,
       amount: query.amount,
       recurrence: query.recurrence,
@@ -667,6 +673,72 @@ export class TransactionsService {
   }
 
   // --- fixed-recurrence materialization ---
+
+  /**
+   * Persists the fixed occurrences that fall inside [dueFrom, dueTo] but don't exist yet, so a
+   * fixed expense shows up in future months as soon as the user opens them. Each group is chained
+   * forward from its latest row (same date math as the forecast projection). Idempotent: months
+   * that already have a row are skipped; bounded by MAX_PROJECTED_MONTHS to cap growth. Rows are
+   * created `pending` and are fully actionable (effectuate/edit/delete).
+   */
+  private async ensureFixedOccurrences(userId: string, dueFrom: Date, dueTo: Date): Promise<void> {
+    if (dueTo.getTime() < dueFrom.getTime()) return;
+    const rows = await this.txRepo.find({ where: { userId, recurrence: 'fixed' } });
+    if (rows.length === 0) return;
+
+    const groups = new Map<string, TransactionEntity[]>();
+    for (const row of rows) {
+      const key = row.groupId ?? row.id;
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(row);
+      else groups.set(key, [row]);
+    }
+
+    const MAX_PROJECTED_MONTHS = 36;
+    const toCreate: Transaction[] = [];
+
+    for (const group of groups.values()) {
+      const anchor = group.reduce((a, b) => (b.dueDate.getTime() > a.dueDate.getTime() ? b : a));
+      const existingMonths = new Set(group.map((r) => formatMonth(r.dueDate)));
+
+      let cursor: Date | null = anchor.dueDate;
+      for (let step = 0; step < MAX_PROJECTED_MONTHS; step += 1) {
+        cursor = nextOccurrence(cursor, anchor.endDate);
+        if (!cursor) break; // past endDate
+        if (cursor.getTime() > dueTo.getTime()) break; // beyond the requested window
+        if (cursor.getTime() < dueFrom.getTime()) continue; // gap month before the window
+        const month = formatMonth(cursor);
+        if (existingMonths.has(month)) continue;
+        existingMonths.add(month);
+        toCreate.push(this.buildFixedOccurrence(userId, anchor, cursor));
+      }
+    }
+
+    if (toCreate.length > 0) await this.persistMany(toCreate);
+  }
+
+  /** A new pending fixed occurrence for `dueDate`, copying the group's latest row (reflects edits). */
+  private buildFixedOccurrence(
+    userId: string,
+    anchor: TransactionEntity,
+    dueDate: Date,
+  ): Transaction {
+    return Transaction.create({
+      id: randomUUID(),
+      userId,
+      description: anchor.description,
+      dueDate,
+      amount: anchor.amount,
+      recurrence: 'fixed',
+      type: anchor.type as TransactionType,
+      categoryId: anchor.categoryId,
+      accountId: anchor.accountId,
+      creditCardId: anchor.creditCardId,
+      notes: anchor.notes,
+      endDate: anchor.endDate,
+      groupId: anchor.groupId,
+    });
+  }
 
   private async materializeNext(userId: string, current: Transaction): Promise<Transaction | null> {
     if (current.recurrence !== 'fixed' || !current.groupId) return null;

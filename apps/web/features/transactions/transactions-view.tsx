@@ -90,12 +90,13 @@ export function TransactionsView() {
     return { dueFrom, dueTo, sort: 'dueDate', order: 'desc' };
   }, [period]);
 
-  // Credit-card expenses due before the current period — folded into the invoice groups when grouping is on
-  // so a card's invoice reflects prior-month expenses too, not just the selected month.
+  // Credit-card transactions due before the current period — folded into the invoice groups when grouping
+  // is on so a card's invoice reflects prior-month expenses AND incomes (estorno/reembolso/pagamento),
+  // not just the selected month.
   const priorCardQuery: ListTransactionsQuery = useMemo(() => {
     const { dueFrom } = periodWindow(period);
     const priorTo = new Date(new Date(dueFrom).getTime() - 1).toISOString();
-    return { dueFrom: new Date(0).toISOString(), dueTo: priorTo, type: 'expense', sort, order, ...filters };
+    return { dueFrom: new Date(0).toISOString(), dueTo: priorTo, sort, order, ...filters };
   }, [period, sort, order, filters]);
 
   const overdueBefore = useMemo(() => startOfMonth(reference), [reference]);

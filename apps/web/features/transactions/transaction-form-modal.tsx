@@ -71,26 +71,19 @@ const formSchema = z
       });
     }
 
-    if (v.type === 'expense') {
-      if (v.originKind === 'account' && !v.accountId) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['accountId'],
-          message: 'Selecione a conta',
-        });
-      }
-      if (v.originKind === 'card' && !v.creditCardId) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['creditCardId'],
-          message: 'Selecione o cartão',
-        });
-      }
-    } else if (!v.accountId) {
+    // Origem vale pros dois tipos: conta OU cartão (receita-cartão = estorno/reembolso/pagamento).
+    if (v.originKind === 'account' && !v.accountId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['accountId'],
-        message: 'Receita exige uma conta',
+        message: 'Selecione a conta',
+      });
+    }
+    if (v.originKind === 'card' && !v.creditCardId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['creditCardId'],
+        message: 'Selecione o cartão',
       });
     }
 
@@ -205,9 +198,8 @@ function toInput(v: FormValues): CreateTransactionInput {
     dueDate: v.dueDate,
     categoryId: v.categoryId,
     notes: v.notes.trim() === '' ? undefined : v.notes,
-    accountId: v.type === 'income' || v.originKind === 'account' ? v.accountId || undefined : undefined,
-    creditCardId:
-      v.type === 'expense' && v.originKind === 'card' ? v.creditCardId || undefined : undefined,
+    accountId: v.originKind === 'account' ? v.accountId || undefined : undefined,
+    creditCardId: v.originKind === 'card' ? v.creditCardId || undefined : undefined,
   };
   if (v.recurrence === 'installment') {
     const count = Number(v.installmentCount);
@@ -481,17 +473,15 @@ export function TransactionFormModal({
               />
             </div>
 
-            {type === 'expense' ? (
-              <Controller
-                control={control}
-                name="originKind"
-                render={({ field }) => (
-                  <Select label="Origem" options={ORIGIN_OPTIONS} {...field} />
-                )}
-              />
-            ) : null}
+            <Controller
+              control={control}
+              name="originKind"
+              render={({ field }) => (
+                <Select label="Origem" options={ORIGIN_OPTIONS} {...field} />
+              )}
+            />
 
-            {type === 'income' || originKind === 'account' ? (
+            {originKind === 'account' ? (
               <Controller
                 control={control}
                 name="accountId"
