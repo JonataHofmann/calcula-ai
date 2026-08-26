@@ -267,6 +267,14 @@ function makeExistsRepo<E extends { id: string }>(seed: E[]): Repository<E> {
         matchesWhere(r as unknown as Record<string, unknown>, options.where),
       );
     },
+    async find(options: { where?: Record<string, unknown> } = {}) {
+      const filtered = options.where
+        ? rows.filter((r) =>
+            matchesWhere(r as unknown as Record<string, unknown>, options.where as Record<string, unknown>),
+          )
+        : rows;
+      return filtered.map((r) => ({ ...r }));
+    },
   };
   return fake as unknown as Repository<E>;
 }

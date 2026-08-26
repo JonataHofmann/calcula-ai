@@ -22,6 +22,10 @@ export const forecastRowSchema = z.object({
   description: z.string(),
   recurrence: z.enum(['installment', 'fixed']),
   installmentCount: z.number().int().positive().nullable(),
+  /** Origin of the commitment: which account or card it is charged to. */
+  originKind: z.enum(['account', 'card']).nullable(),
+  originId: z.string().uuid().nullable(),
+  originName: z.string().nullable(),
   cells: z.array(
     z.object({
       month: z.string().regex(/^\d{4}-\d{2}$/),

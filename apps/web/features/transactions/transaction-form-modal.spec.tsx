@@ -49,12 +49,14 @@ describe('TransactionFormModal', () => {
     expect(screen.getByRole('combobox', { name: 'Cartão de crédito' })).toBeInTheDocument();
   });
 
-  it('hides the origin selector and card for income (conta only)', () => {
+  it('shows the origin selector for income too (card = estorno/reembolso/pagamento)', () => {
     setup();
     fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'income' } });
-    expect(screen.queryByLabelText('Origem')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Origem')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Conta' })).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: 'Cartão de crédito' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Origem'), { target: { value: 'card' } });
+    expect(screen.getByRole('combobox', { name: 'Cartão de crédito' })).toBeInTheDocument();
   });
 
   it('submits a valid single expense with an account origin', async () => {

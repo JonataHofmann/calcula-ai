@@ -25,6 +25,9 @@ function forecast(over: Partial<ForecastResponse> = {}): ForecastResponse {
         description: 'carro',
         recurrence: 'installment',
         installmentCount: 36,
+        originKind: 'card',
+        originId: '11111111-1111-4111-8111-111111111111',
+        originName: 'Nubank',
         cells: [
           { month: '2026-01', amount: '500.00' },
           { month: '2026-02', amount: '500.00' },
@@ -35,6 +38,9 @@ function forecast(over: Partial<ForecastResponse> = {}): ForecastResponse {
         description: 'aluguel',
         recurrence: 'fixed',
         installmentCount: null,
+        originKind: 'account',
+        originId: '22222222-2222-4222-8222-222222222222',
+        originName: 'Conta Corrente',
         cells: [
           { month: '2026-01', amount: '1200.00' },
           { month: '2026-02', amount: null },
@@ -73,6 +79,22 @@ describe('ForecastReport', () => {
     expect(
       screen.getByText('Nenhum parcelamento ou despesa fixa cadastrado'),
     ).toBeInTheDocument();
+  });
+
+  it('shows the origin caption next to each commitment', () => {
+    render(<ForecastReport forecast={forecast()} />);
+    expect(screen.getByText('Nubank')).toBeInTheDocument();
+    expect(screen.getByText('Conta Corrente')).toBeInTheDocument();
+  });
+
+  it('collapses card commitments and fixed expenses when grouping by card', () => {
+    render(<ForecastReport forecast={forecast()} groupByCard />);
+    // The card row is labelled by the card name; fixed expenses fold into a single row.
+    expect(screen.getByText('Despesas fixas')).toBeInTheDocument();
+    expect(screen.queryByText('carro (36x)')).not.toBeInTheDocument();
+    expect(screen.queryByText('aluguel (fixa)')).not.toBeInTheDocument();
+    const cardRow = screen.getAllByText('Nubank')[0]!.closest('tr') as HTMLElement;
+    expect(within(cardRow).getAllByText('R$ 500,00')).toHaveLength(2);
   });
 });
 

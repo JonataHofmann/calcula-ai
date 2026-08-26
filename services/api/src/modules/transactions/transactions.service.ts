@@ -320,15 +320,26 @@ export class TransactionsService {
       else groups.set(key, [t]);
     }
 
+    const [cardMap, accountMap] = await Promise.all([
+      this.creditCardRepo
+        .find({ where: { userId } })
+        .then((cs) => new Map(cs.map((c) => [c.id, c.name]))),
+      this.accountRepo
+        .find({ where: { userId } })
+        .then((as) => new Map(as.map((a) => [a.id, a.name]))),
+    ]);
+
     const rows: ForecastRow[] = [];
     for (const [key, group] of groups) {
       const first = group[0] as Transaction;
+      const origin = resolveOrigin(first, cardMap, accountMap);
       if (first.recurrence === 'installment') {
         rows.push({
           key,
           description: first.description,
           recurrence: 'installment',
           installmentCount: first.installmentCount,
+          ...origin,
           cells: projectInstallmentCells(group, months),
         });
       } else {
@@ -337,10 +348,14 @@ export class TransactionsService {
           description: first.description,
           recurrence: 'fixed',
           installmentCount: null,
+          ...origin,
           cells: projectFixedCells(group, months),
         });
       }
     }
+
+    // Card commitments first, then fixed (non-card), then the rest — matches the report ordering.
+    rows.sort((a, b) => forecastRank(a) - forecastRank(b));
 
     const totals = months.map((month, i) => {
       const cents = rows.reduce((sum, row) => {
@@ -1004,6 +1019,36 @@ function isSameMonth(a: Date, b: Date): boolean {
 function buildMonthsList(from: string, count: number): string[] {
   const start = parseMonth(from);
   return Array.from({ length: count }, (_, i) => formatMonth(addMonthClamped(start, i)));
+}
+
+/** Origin (card/account) of a forecast group, resolved to a display name via the id→name maps. */
+function resolveOrigin(
+  tx: Transaction,
+  cardMap: Map<string, string>,
+  accountMap: Map<string, string>,
+): Pick<ForecastRow, 'originKind' | 'originId' | 'originName'> {
+  if (tx.creditCardId) {
+    return {
+      originKind: 'card',
+      originId: tx.creditCardId,
+      originName: cardMap.get(tx.creditCardId) ?? null,
+    };
+  }
+  if (tx.accountId) {
+    return {
+      originKind: 'account',
+      originId: tx.accountId,
+      originName: accountMap.get(tx.accountId) ?? null,
+    };
+  }
+  return { originKind: null, originId: null, originName: null };
+}
+
+/** Sort rank: card commitments first, then fixed (non-card), then everything else. */
+function forecastRank(row: ForecastRow): number {
+  if (row.originKind === 'card') return 0;
+  if (row.recurrence === 'fixed') return 1;
+  return 2;
 }
 
 function projectFixedCells(

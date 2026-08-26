@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ForecastQuery } from '@finance/contracts';
-import { Card, Skeleton } from '@finance/ui';
+import { Card, Skeleton, Switch } from '@finance/ui';
 import { useAppSelector } from '../../hooks/use-store';
 import { ForecastHorizonFilter } from './forecast-horizon-filter';
 import { ForecastReport } from './forecast-report';
@@ -16,6 +16,7 @@ function fromMonth(year: number, month: number): string {
 export function ForecastView() {
   const period = useAppSelector((s) => s.period);
   const [months, setMonths] = useState<ForecastQuery['months']>(6);
+  const [groupByCard, setGroupByCard] = useState(false);
 
   const query: ForecastQuery = useMemo(
     () => ({ from: fromMonth(period.year, period.month), months }),
@@ -31,7 +32,14 @@ export function ForecastView() {
           <h1 className="text-text text-lg font-semibold">Previsão de Despesas</h1>
           <p className="text-text-muted text-sm">Parcelamentos e despesas fixas nos próximos meses.</p>
         </div>
-        <ForecastHorizonFilter value={months} onValueChange={setMonths} />
+        <div className="flex items-center gap-4">
+          <Switch
+            label="Agrupar por cartão"
+            checked={groupByCard}
+            onChange={(e) => setGroupByCard(e.target.checked)}
+          />
+          <ForecastHorizonFilter value={months} onValueChange={setMonths} />
+        </div>
       </div>
 
       {isLoading || !forecast ? (
@@ -42,7 +50,7 @@ export function ForecastView() {
         </div>
       ) : (
         <Card className="p-2">
-          <ForecastReport forecast={forecast} />
+          <ForecastReport forecast={forecast} groupByCard={groupByCard} />
         </Card>
       )}
     </div>
