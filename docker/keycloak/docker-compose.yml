@@ -15,4 +15,4 @@ services:
     command: start-dev
     restart: always
     volumes:
-      - ./docker/keycloak/themes/calcula-ai:/opt/keycloak/themes/calcula-ai:ro
+      - ./themes/calcula-ai:/opt/keycloak/themes/calcula-ai:ro
