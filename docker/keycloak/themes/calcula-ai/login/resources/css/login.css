@@ -1,0 +1,271 @@
+/* Tema de login "Calcula aí" — paleta e visual alinhados ao app (indigo #3730c9). */
+:root {
+  --kc-primary: #3730c9;
+  --kc-primary-pressed: #2a24a8;
+  --kc-primary-soft: #e6e4fa;
+  --kc-accent: #ffb13c;
+  --kc-bg: #edeff7;
+  --kc-surface: #ffffff;
+  --kc-surface-2: #f5f6fb;
+  --kc-text: #171a2b;
+  --kc-text-muted: #6b7280;
+  --kc-text-subtle: #a3a9bc;
+  --kc-border: #e2e6f0;
+  --kc-danger: #e5484d;
+  --kc-danger-soft: #fdecec;
+  --kc-success: #2ecc8f;
+  --kc-radius: 14px;
+  --kc-radius-sm: 10px;
+  --kc-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+.kc-body {
+  margin: 0;
+  font-family: var(--kc-font);
+  color: var(--kc-text);
+  background: var(--kc-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Layout: painel de marca à esquerda, cartão à direita. */
+.kc-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+}
+
+/* ---- Painel de marca ---- */
+.kc-brand {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  color: #fff;
+  background:
+    radial-gradient(1200px 600px at 20% 10%, #4b45e0 0%, transparent 60%),
+    radial-gradient(900px 500px at 90% 90%, #2a24a8 0%, transparent 55%),
+    linear-gradient(135deg, #3730c9 0%, #221d86 100%);
+  overflow: hidden;
+}
+.kc-brand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 70%);
+}
+.kc-brand__inner { position: relative; max-width: 420px; }
+.kc-brand__logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 40px;
+}
+.kc-brand__title {
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 16px;
+}
+.kc-brand__text {
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* ---- Área do formulário ---- */
+.kc-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  gap: 18px;
+}
+.kc-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--kc-surface);
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kc-radius);
+  box-shadow: 0 24px 60px -30px rgba(23, 26, 43, 0.35);
+  padding: 34px 32px;
+}
+.kc-card__brandmobile {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 18px;
+  margin-bottom: 22px;
+  color: var(--kc-text);
+}
+.kc-card__head { margin-bottom: 22px; }
+.kc-card__head h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+/* ---- Campos ---- */
+.kc-form, .kc-content > form { display: flex; flex-direction: column; gap: 16px; }
+.kc-field { display: flex; flex-direction: column; gap: 7px; }
+.kc-field label,
+.kc-content label:not(.kc-check) {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--kc-text-muted);
+}
+
+.kc-card input[type="text"],
+.kc-card input[type="email"],
+.kc-card input[type="password"],
+.kc-card input[type="tel"],
+.kc-card input[type="number"],
+.kc-card select {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  font-size: 15px;
+  color: var(--kc-text);
+  background: var(--kc-surface-2);
+  border: 1.5px solid var(--kc-border);
+  border-radius: var(--kc-radius-sm);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.kc-card input::placeholder { color: var(--kc-text-subtle); }
+.kc-card input:focus,
+.kc-card select:focus {
+  border-color: var(--kc-primary);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(55, 48, 201, 0.14);
+}
+.kc-card input[aria-invalid="true"] {
+  border-color: var(--kc-danger);
+  box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.12);
+}
+
+/* Senha com botão de mostrar/ocultar */
+.kc-password { position: relative; display: flex; align-items: center; }
+.kc-password input { padding-right: 46px; }
+.kc-password__toggle {
+  position: absolute;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--kc-text-subtle);
+  cursor: pointer;
+  border-radius: 8px;
+}
+.kc-password__toggle:hover { color: var(--kc-text-muted); background: var(--kc-primary-soft); }
+.kc-password__toggle.is-on { color: var(--kc-primary); }
+
+/* Linha lembrar-me / esqueci a senha */
+.kc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: -2px;
+}
+.kc-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--kc-text-muted); cursor: pointer; }
+.kc-check input { width: 16px; height: 16px; accent-color: var(--kc-primary); }
+.kc-link { color: var(--kc-primary); font-size: 14px; font-weight: 600; text-decoration: none; }
+.kc-link:hover { text-decoration: underline; }
+
+/* Botão principal */
+.kc-submit,
+.kc-card button[type="submit"]:not(.kc-password__toggle) {
+  width: 100%;
+  height: 48px;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--kc-primary);
+  border: none;
+  border-radius: var(--kc-radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.05s;
+}
+.kc-submit:hover { background: var(--kc-primary-pressed); }
+.kc-submit:active { transform: translateY(1px); }
+.kc-submit:disabled { opacity: 0.7; cursor: default; }
+
+/* Alertas */
+.kc-alert {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--kc-radius-sm);
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 18px;
+  border: 1px solid transparent;
+}
+.kc-alert--error { background: var(--kc-danger-soft); color: #a5262b; border-color: #f6c9cb; }
+.kc-alert--warning { background: #fff5e6; color: #8a5a12; border-color: #ffe0b0; }
+.kc-alert--success { background: #e7f8f1; color: #157a56; border-color: #bfe9d8; }
+.kc-alert--info { background: var(--kc-primary-soft); color: var(--kc-primary-pressed); border-color: #cfcbf4; }
+.kc-error { color: var(--kc-danger); font-size: 13px; font-weight: 500; }
+
+/* Separador + provedores sociais */
+.kc-sep { display: flex; align-items: center; gap: 12px; margin: 22px 0 16px; color: var(--kc-text-subtle); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.kc-sep::before, .kc-sep::after { content: ''; height: 1px; flex: 1; background: var(--kc-border); }
+.kc-social { display: flex; flex-direction: column; gap: 10px; }
+.kc-social__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 46px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--kc-text);
+  background: #fff;
+  border: 1.5px solid var(--kc-border);
+  border-radius: var(--kc-radius-sm);
+  text-decoration: none;
+}
+.kc-social__btn:hover { background: var(--kc-surface-2); border-color: #d4d9e6; }
+
+/* Rodapé de info (link de registro etc.) */
+.kc-info, .kc-register {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--kc-border);
+  text-align: center;
+  font-size: 14px;
+  color: var(--kc-text-muted);
+}
+.kc-register span { margin-right: 6px; }
+.kc-anotherway { margin-top: 16px; text-align: center; }
+.kc-anotherway a { color: var(--kc-primary); font-size: 14px; text-decoration: none; }
+
+.kc-foot { font-size: 12px; color: var(--kc-text-subtle); margin: 0; }
+
+/* ---- Responsivo ---- */
+@media (max-width: 860px) {
+  .kc-shell { grid-template-columns: 1fr; }
+  .kc-brand { display: none; }
+  .kc-card__brandmobile { display: flex; }
+  .kc-main { padding: 28px 18px; min-height: 100vh; }
+}

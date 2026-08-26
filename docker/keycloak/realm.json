@@ -1,6 +1,7 @@
 {
   "realm": "calcula-ai",
   "enabled": true,
+  "loginTheme": "calcula-ai",
   "registrationAllowed": true,
   "clients": [
     {
