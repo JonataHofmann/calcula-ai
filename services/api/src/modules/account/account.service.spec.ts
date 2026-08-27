@@ -23,6 +23,57 @@ function setup(affected: Map<unknown, number>) {
   return { service, del };
 }
 
+const EMPTY_SNAPSHOT = {
+  version: 1 as const,
+  exportedAt: new Date().toISOString(),
+  accounts: [],
+  creditCards: [],
+  categories: [],
+  transactions: [],
+};
+
+/** Fake EntityManager tracking delete + insert calls, for import mode tests. */
+function setupImport() {
+  const del = jest.fn(async () => ({ affected: 0, raw: [] }));
+  const insert = jest.fn(async () => ({ identifiers: [], generatedMaps: [], raw: [] }));
+  const manager = { delete: del, insert } as unknown as EntityManager;
+  const dataSource = {
+    transaction: (cb: (m: EntityManager) => Promise<unknown>) => cb(manager),
+  } as unknown as DataSource;
+  return { service: new AccountService(dataSource), del, insert };
+}
+
+describe('AccountService.importData', () => {
+  it('merge mode never deletes existing data', async () => {
+    const { service, del } = setupImport();
+
+    await service.importData(USER, EMPTY_SNAPSHOT, 'merge');
+
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it('replace mode wipes every user-scoped table before importing', async () => {
+    const { service, del } = setupImport();
+
+    await service.importData(USER, EMPTY_SNAPSHOT, 'replace');
+
+    expect(del).toHaveBeenCalledWith(TransactionEntity, { userId: USER });
+    expect(del).toHaveBeenCalledWith(UserCategoryOverrideEntity, { userId: USER });
+    expect(del).toHaveBeenCalledWith(UserHiddenCategoryEntity, { userId: USER });
+    expect(del).toHaveBeenCalledWith(CategoryEntity, { ownerId: USER });
+    expect(del).toHaveBeenCalledWith(CreditCardEntity, { userId: USER });
+    expect(del).toHaveBeenCalledWith(AccountEntity, { userId: USER });
+  });
+
+  it('defaults to merge when no mode is given', async () => {
+    const { service, del } = setupImport();
+
+    await service.importData(USER, EMPTY_SNAPSHOT);
+
+    expect(del).not.toHaveBeenCalled();
+  });
+});
+
 describe('AccountService.resetData', () => {
   it('deletes every user-scoped table and returns the counts', async () => {
     const { service, del } = setup(

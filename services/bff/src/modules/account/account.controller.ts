@@ -1,12 +1,16 @@
 import {
+  Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   Logger,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
-import type { ResetResult } from '@finance/contracts';
+import type { BackupSnapshot, ImportMode, ImportResult, ResetResult } from '@finance/contracts';
+import { importModeSchema } from '@finance/contracts';
 import type { Request } from 'express';
 import { AccountService } from './account.service';
 import type { Session } from '../auth/session/session.store';
@@ -32,5 +36,24 @@ export class AccountController {
   ): Promise<ResetResult> {
     this.logger.warn('POST /account/reset');
     return this.account.reset(tokenOf(req), idempotencyKey);
+  }
+
+  @Get('export')
+  export(@Req() req: SessionRequest): Promise<BackupSnapshot> {
+    this.logger.log('GET /account/export');
+    return this.account.export(tokenOf(req));
+  }
+
+  @Post('import')
+  @HttpCode(200)
+  import(
+    @Req() req: SessionRequest,
+    @Body() snapshot: unknown,
+    @Query('mode') mode?: string,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ): Promise<ImportResult> {
+    const importMode: ImportMode = importModeSchema.catch('merge').parse(mode);
+    this.logger.warn(`POST /account/import mode=${importMode}`);
+    return this.account.import(tokenOf(req), snapshot, importMode, idempotencyKey);
   }
 }

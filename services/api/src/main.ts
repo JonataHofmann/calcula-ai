@@ -10,6 +10,7 @@ import {
   PinoNestLogger,
   requestContextMixin,
 } from '@finance/observability';
+import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { DomainExceptionFilter } from './common/filters/domain-exception.filter';
@@ -17,11 +18,14 @@ import { DomainExceptionFilter } from './common/filters/domain-exception.filter'
 const logger = createLogger({ name: 'api', mixin: requestContextMixin() });
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, bodyParser: false });
   app.useLogger(new PinoNestLogger(logger));
 
   app.use(helmet());
   app.use(createRequestLoggingMiddleware(logger));
+  // Backup import chega como snapshot JSON grande — acima do default de 100kb.
+  app.use(json({ limit: '25mb' }));
+  app.use(urlencoded({ extended: true, limit: '25mb' }));
   app.enableCors({ origin: process.env.CORS_ORIGINS?.split(',') ?? [], credentials: true });
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),

@@ -15,6 +15,7 @@ import {
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
+import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { AppModule } from './app.module';
@@ -22,12 +23,15 @@ import { AppModule } from './app.module';
 const logger = createLogger({ name: 'bff', mixin: requestContextMixin() });
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, bodyParser: false });
   app.useLogger(new PinoNestLogger(logger));
 
   app.use(helmet());
   app.use(createRequestLoggingMiddleware(logger));
   app.use(cookieParser());
+  // Backup import envia um snapshot JSON grande — bem acima do default de 100kb.
+  app.use(json({ limit: '25mb' }));
+  app.use(urlencoded({ extended: true, limit: '25mb' }));
   const origin = process.env.WEB_URL ?? process.env.CORS_ORIGINS?.split(',') ?? [];
   console.log(`CORS:`, origin);
   app.enableCors({
