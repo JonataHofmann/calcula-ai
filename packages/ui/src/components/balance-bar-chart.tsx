@@ -81,6 +81,7 @@ export function BalanceBarChart({
           <YAxis tick={axisTick} tickLine={false} axisLine={false} width={48} />
           <Tooltip
             cursor={{ fill: 'var(--color-border)', opacity: 0.25 }}
+            wrapperStyle={{ zIndex: 50 }}
             content={<TooltipContent valueFormatter={valueFormatter} />}
           />
           <Legend
