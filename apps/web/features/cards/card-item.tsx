@@ -27,15 +27,16 @@ export function CardItem({ card, index, onEdit, onDelete }: CardItemProps) {
       exit={reduce ? undefined : { opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.2 }}
       whileHover={reduce ? undefined : { y: -3 }}
-      className="group relative"
+      className="group relative w-full max-w-[20rem]"
     >
       <CreditCardVisual
         tone={tone}
         brand={brand?.name}
+        brandId={card.brandId}
         holderName={card.name}
         maskedNumber={`•••• •••• •••• ${card.lastDigits}`}
         balance={card.limit}
-        className="max-w-[20rem]"
+        className="max-w-none"
       />
 
       <div className="absolute top-3 right-3 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
@@ -66,7 +67,6 @@ export function CardItem({ card, index, onEdit, onDelete }: CardItemProps) {
           <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
           Vence dia {card.dueDay}
         </span>
-        {brand ? <span className="ml-auto font-medium">{brand.name}</span> : null}
       </div>
     </motion.div>
   );

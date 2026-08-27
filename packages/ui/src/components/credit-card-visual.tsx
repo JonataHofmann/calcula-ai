@@ -3,6 +3,8 @@ import { formatBRL } from '../lib/format.js';
 
 export interface CreditCardVisualProps {
   brand?: string;
+  /** Brand catalog id (visa, mastercard, elo…); drives the on-card brand mark. */
+  brandId?: string;
   holderName: string;
   maskedNumber: string;
   expiry?: string;
@@ -24,18 +26,58 @@ function Chip({ muted }: { muted: boolean }) {
   );
 }
 
-function NetworkMark({ muted }: { muted: boolean }) {
-  const circle = muted ? 'bg-text-muted/40' : 'bg-white/60';
+/** Wordmark labels for brands drawn as text (mastercard is drawn as its circles). */
+const BRAND_WORDMARK: Record<string, string> = {
+  visa: 'VISA',
+  elo: 'elo',
+  amex: 'AMEX',
+  hipercard: 'Hipercard',
+  diners: 'Diners',
+  discover: 'DISCOVER',
+  jcb: 'JCB',
+};
+
+/** Brand logo rendered on the card. Mastercard as its interlocking circles; the
+ *  rest as a wordmark in the card's own text color; unknown brands as a contactless mark. */
+function BrandMark({ brandId, muted }: { brandId?: string; muted: boolean }) {
+  if (brandId === 'mastercard') {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 48 30" className="h-7 w-auto">
+        <circle cx="19" cy="15" r="11" fill="#EB001B" />
+        <circle cx="29" cy="15" r="11" fill="#F79E1B" fillOpacity="0.9" />
+      </svg>
+    );
+  }
+
+  const label = brandId ? BRAND_WORDMARK[brandId] : undefined;
+  if (label) {
+    return (
+      <span aria-hidden="true" className="text-base font-black italic leading-none tracking-tight">
+        {label}
+      </span>
+    );
+  }
+
   return (
-    <span aria-hidden="true" className="flex items-center">
-      <span className={cn('h-6 w-6 rounded-full', circle)} />
-      <span className={cn('-ml-3 h-6 w-6 rounded-full', muted ? 'bg-text-muted/60' : 'bg-white/80')} />
-    </span>
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={cn('h-6 w-6', muted ? 'text-text-muted/50' : 'text-white/70')}
+    >
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        d="M8 6a10 10 0 0 1 0 12M12 4a14 14 0 0 1 0 16M16 3a17 17 0 0 1 0 18"
+      />
+    </svg>
   );
 }
 
 export function CreditCardVisual({
   brand,
+  brandId,
   holderName,
   maskedNumber,
   expiry,
@@ -90,7 +132,7 @@ export function CreditCardVisual({
 
       <div className={cn('mt-4 flex items-center justify-between gap-3 border-t px-5 py-4', footerClass)}>
         <p className="font-mono text-base tracking-wider">{maskedNumber}</p>
-        <NetworkMark muted={light} />
+        <BrandMark brandId={brandId} muted={light} />
       </div>
     </div>
   );
