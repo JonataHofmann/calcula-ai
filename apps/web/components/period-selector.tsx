@@ -158,7 +158,7 @@ export function PeriodSelector({ className }: { className?: string }) {
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: reduceMotion ? 0 : 0.15, ease: 'easeOut' }}
-            className="bg-surface border-border shadow-lift absolute top-full left-1/2 z-30 mt-2 w-80 -translate-x-1/2 rounded-card border p-3"
+            className="bg-surface border-border shadow-lift absolute top-full left-0 z-30 mt-2 w-[calc(100vw-2rem)] max-w-80 translate-x-0 rounded-card border p-3 sm:left-1/2 sm:-translate-x-1/2"
           >
             <div className="mb-2 flex items-center justify-between">
               <button

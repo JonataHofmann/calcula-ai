@@ -143,8 +143,8 @@ const RECURRENCE_VARIANT: Record<TransactionDto['recurrence'], BadgeProps['varia
   installment: 'warning',
 };
 
-const CELL = 'py-2';
-const HEAD = 'h-9';
+const CELL = 'py-2 whitespace-nowrap';
+const HEAD = 'h-9 whitespace-nowrap';
 
 function CardDirectionIcon({ type }: { type: TransactionDto['type'] }) {
   return type === 'expense' ? (

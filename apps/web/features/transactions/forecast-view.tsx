@@ -27,12 +27,12 @@ export function ForecastView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-text text-lg font-semibold">Previsão de Despesas</h1>
           <p className="text-text-muted text-sm">Parcelamentos e despesas fixas nos próximos meses.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <Switch
             label="Agrupar por cartão"
             checked={groupByCard}

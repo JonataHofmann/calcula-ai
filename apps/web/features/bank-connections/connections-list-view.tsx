@@ -76,14 +76,14 @@ function ConnectionCard({ connection }: { connection: BankConnectionDto }) {
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3">
+      <CardHeader className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <CardTitle>{connection.institutionName}</CardTitle>
           <Badge variant={STATUS_VARIANT[connection.status]}>
             {STATUS_LABEL[connection.status]}
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isActive ? (
             <Button
               variant="outline"

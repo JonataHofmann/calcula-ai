@@ -61,7 +61,7 @@ export function EffectuateModal({
       title="Efetivar transação"
       description={transaction ? transaction.description : 'Confirme a data e o valor pagos.'}
     >
-      <form onSubmit={submit} className="grid grid-cols-2 gap-x-4 gap-y-3">
+      <form onSubmit={submit} className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
         <Controller
           control={control}
           name="date"
@@ -88,9 +88,9 @@ export function EffectuateModal({
           )}
         />
 
-        {rootError ? <p className="text-danger col-span-2 text-sm">{rootError}</p> : null}
+        {rootError ? <p className="text-danger text-sm sm:col-span-2">{rootError}</p> : null}
 
-        <div className="col-span-2 mt-2 flex justify-end gap-2">
+        <div className="mt-2 flex justify-end gap-2 sm:col-span-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>

@@ -221,7 +221,7 @@ export function InvoiceReviewModal({
                     <TableCell>
                       {new Date(line.date).toLocaleDateString('pt-BR')}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[12rem]">
                       <span className="flex items-center gap-1.5">
                         {line.uncertain && (
                           <AlertTriangle
@@ -263,7 +263,7 @@ export function InvoiceReviewModal({
                         {income ? 'Receita' : 'Despesa'}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[11rem]">
                       <EntitySelect
                         value={state.categoryId}
                         onChange={(v) => setCategory(line.lineId, v)}

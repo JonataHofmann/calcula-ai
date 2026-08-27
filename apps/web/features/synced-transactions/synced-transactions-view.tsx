@@ -49,7 +49,7 @@ export function SyncedTransactionsView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-text text-xl font-semibold">Transações importadas</h1>
         <Select
           aria-label="Filtrar por status"

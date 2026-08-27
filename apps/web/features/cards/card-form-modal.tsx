@@ -77,7 +77,7 @@ export function CardFormModal({
           {...register('name')}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="4 últimos dígitos"
             inputMode="numeric"
@@ -102,7 +102,7 @@ export function CardFormModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Dia de fechamento"
             type="number"

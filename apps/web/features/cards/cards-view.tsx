@@ -47,7 +47,7 @@ export function CardsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-text text-lg font-semibold">Cartões de crédito</h1>
           <p className="text-text-muted text-sm">Seus cartões e limites.</p>
