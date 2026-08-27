@@ -3,6 +3,7 @@
 import { createElement, useMemo, useState } from 'react';
 import type { ColorToken, ListTransactionsQuery } from '@finance/contracts';
 import { BalanceBarChart, Card, ChartContainer, formatBRL, TransactionList, cn, getIcon } from '@finance/ui';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Receipt } from 'lucide-react';
 import { MonthRangePicker } from '../../components/month-range-picker';
 import { PeriodSelector } from '../../components/period-selector';
@@ -23,6 +24,7 @@ const CARD_PALETTE: ColorToken[] = ['primary', 'accent', 'indigo', 'teal', 'pink
 
 export function DashboardView() {
   const period = useAppSelector((s) => s.period);
+  const reduceMotion = useReducedMotion();
 
   const query: ListTransactionsQuery = useMemo(() => {
     const { dueFrom, dueTo } = periodWindow(period);
@@ -60,22 +62,55 @@ export function DashboardView() {
     [transactions],
   );
 
+  // Categoria selecionada para drill nas subcategorias (null = visão por categoria-raiz).
+  const [drillCategoryId, setDrillCategoryId] = useState<string | null>(null);
+
+  // qualquer categoria (raiz ou sub) → id da raiz; e conjunto de raízes que têm subcategorias.
+  const { rootOfCategory, drillableRoots } = useMemo(() => {
+    const rootOf = new Map<string, string>();
+    const drillable = new Set<string>();
+    for (const root of categories?.expense ?? []) {
+      rootOf.set(root.id, root.id);
+      if (root.children.length > 0) drillable.add(root.id);
+      for (const child of root.children) rootOf.set(child.id, root.id);
+    }
+    return { rootOfCategory: rootOf, drillableRoots: drillable };
+  }, [categories]);
+
+  const rowFromCategory = (id: string, cents: number, fallback: string): BreakdownRow => {
+    const meta = categoryMeta.get(id);
+    return {
+      id,
+      label: meta?.name ?? fallback,
+      cents,
+      color: meta?.color ?? 'slate',
+      icon: createElement(getIcon(meta?.icon ?? 'tag'), { className: 'h-4 w-4' }),
+    };
+  };
+
+  // Visão de topo: despesas agregadas por categoria-raiz.
   const byCategory = useMemo<BreakdownRow[]>(() => {
     const totals = new Map<string, number>();
     for (const t of expenses) {
+      const rootId = rootOfCategory.get(t.categoryId) ?? t.categoryId;
+      totals.set(rootId, (totals.get(rootId) ?? 0) + toCents(t.amount));
+    }
+    return [...totals.entries()].map(([id, cents]) => rowFromCategory(id, cents, 'Sem categoria'));
+  }, [expenses, categoryMeta, rootOfCategory]);
+
+  // Drill: dentro da raiz selecionada, quebra por subcategoria (categoryId direto na raiz = "Geral").
+  const bySubcategory = useMemo<BreakdownRow[]>(() => {
+    if (!drillCategoryId) return [];
+    const totals = new Map<string, number>();
+    for (const t of expenses) {
+      if ((rootOfCategory.get(t.categoryId) ?? t.categoryId) !== drillCategoryId) continue;
       totals.set(t.categoryId, (totals.get(t.categoryId) ?? 0) + toCents(t.amount));
     }
     return [...totals.entries()].map(([id, cents]) => {
-      const meta = categoryMeta.get(id);
-      return {
-        id,
-        label: meta?.name ?? 'Sem categoria',
-        cents,
-        color: meta?.color ?? 'slate',
-        icon: createElement(getIcon(meta?.icon ?? 'tag'), { className: 'h-4 w-4' }),
-      };
+      if (id === drillCategoryId) return { ...rowFromCategory(id, cents, 'Geral'), label: 'Geral' };
+      return rowFromCategory(id, cents, 'Subcategoria');
     });
-  }, [expenses, categoryMeta]);
+  }, [expenses, categoryMeta, rootOfCategory, drillCategoryId]);
 
   const byAccount = useMemo<BreakdownRow[]>(() => {
     const totals = new Map<string, number>();
@@ -219,7 +254,31 @@ export function DashboardView() {
           </ChartContainer>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <BreakdownCard title="Despesas por categoria" rows={byCategory} />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={drillCategoryId ?? '__root__'}
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: drillCategoryId ? 24 : -24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: drillCategoryId ? -24 : 24 }}
+                transition={{ duration: reduceMotion ? 0 : 0.22, ease: 'easeOut' }}
+              >
+                {drillCategoryId ? (
+                  <BreakdownCard
+                    title={categoryMeta.get(drillCategoryId)?.name ?? 'Categoria'}
+                    rows={bySubcategory}
+                    onBack={() => setDrillCategoryId(null)}
+                  />
+                ) : (
+                  <BreakdownCard
+                    title="Despesas por categoria"
+                    rows={byCategory}
+                    onRowClick={(id) => {
+                      if (drillableRoots.has(id)) setDrillCategoryId(id);
+                    }}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
             <BreakdownCard title="Despesas por conta e cartão de crédito" rows={byOrigin} />
           </div>
 

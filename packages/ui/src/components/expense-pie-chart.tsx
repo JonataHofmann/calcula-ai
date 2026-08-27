@@ -7,6 +7,8 @@ export interface ExpenseSlice {
   label: string;
   value: number;
   color: string;
+  /** Optional identity carried through to onSliceClick. */
+  id?: string;
 }
 
 export interface ExpensePieChartProps {
@@ -18,6 +20,8 @@ export interface ExpensePieChartProps {
   showTotal?: boolean;
   /** Small caption above the center total. */
   totalLabel?: string;
+  /** When set, slices become clickable and report their `id`. */
+  onSliceClick?: (id: string) => void;
   className?: string;
 }
 
@@ -63,6 +67,7 @@ export function ExpensePieChart({
   valueFormatter,
   showTotal = false,
   totalLabel,
+  onSliceClick,
   className,
 }: ExpensePieChartProps) {
   const total = data.reduce((sum, slice) => sum + slice.value, 0);
@@ -86,6 +91,15 @@ export function ExpensePieChart({
             stroke="var(--color-surface)"
             strokeWidth={3}
             isAnimationActive={false}
+            onClick={
+              onSliceClick
+                ? (entry: { id?: string; payload?: { id?: string } }) => {
+                    const id = entry?.id ?? entry?.payload?.id;
+                    if (id) onSliceClick(id);
+                  }
+                : undefined
+            }
+            style={onSliceClick ? { cursor: 'pointer' } : undefined}
           >
             {data.map((slice) => (
               <Cell key={slice.label} fill={slice.color} />
