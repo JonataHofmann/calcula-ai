@@ -59,13 +59,13 @@ export function CardsView() {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,20rem))] gap-4">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="aspect-[16/10] w-full max-w-[20rem] rounded-2xl" />
           ))}
         </div>
       ) : cards && cards.length > 0 ? (
-        <motion.div layout className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        <motion.div layout className="grid grid-cols-[repeat(auto-fill,minmax(16rem,20rem))] gap-4">
           <AnimatePresence mode="popLayout">
             {cards.map((card, i) => (
               <CardItem

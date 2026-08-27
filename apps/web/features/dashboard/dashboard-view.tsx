@@ -101,9 +101,13 @@ export function DashboardView() {
         label: card ? `${card.name} ·· ${card.lastDigits}` : 'Cartão',
         cents,
         color: CARD_PALETTE[index % CARD_PALETTE.length] ?? 'primary',
+        icon: createElement(getIcon('credit-card'), { className: 'h-4 w-4' }),
       };
     });
   }, [expenses, cards]);
+
+  // Conta + cartão numa única visão de "origem" da despesa.
+  const byOrigin = useMemo<BreakdownRow[]>(() => [...byAccount, ...byCard], [byAccount, byCard]);
 
   const yearlyBalance = useMemo(() => {
     const buckets = MONTH_LABELS.map((label) => ({ label, income: 0, expense: 0, balance: 0 }));
@@ -175,14 +179,15 @@ export function DashboardView() {
             <BalanceBarChart
               data={yearlyBalance}
               height={280}
+              positiveBalanceColor="var(--color-info)"
+              negativeBalanceColor="var(--color-warning)"
               valueFormatter={(value) => formatBRL(value.toFixed(2)).replace(',00', '')}
             />
           </ChartContainer>
 
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-2">
             <BreakdownCard title="Despesas por categoria" rows={byCategory} />
-            <BreakdownCard title="Despesas por conta" rows={byAccount} />
-            <BreakdownCard title="Despesas por cartão de crédito" rows={byCard} />
+            <BreakdownCard title="Despesas por conta e cartão de crédito" rows={byOrigin} />
           </div>
 
           <Card className="p-5">

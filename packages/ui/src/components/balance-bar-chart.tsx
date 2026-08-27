@@ -75,12 +75,30 @@ export function BalanceBarChart({
   return (
     <div className={cn('w-full', className)} style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} barGap={6} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-          <CartesianGrid vertical={false} stroke="var(--color-border)" strokeDasharray="0" />
+        <BarChart data={data} barGap={4} barCategoryGap="22%" margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+          <defs>
+            <linearGradient id="kc-bar-income" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={incomeColor} stopOpacity={0.95} />
+              <stop offset="100%" stopColor={incomeColor} stopOpacity={0.55} />
+            </linearGradient>
+            <linearGradient id="kc-bar-expense" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={expenseColor} stopOpacity={0.95} />
+              <stop offset="100%" stopColor={expenseColor} stopOpacity={0.55} />
+            </linearGradient>
+            <linearGradient id="kc-bar-balance-pos" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={positiveBalanceColor} stopOpacity={0.95} />
+              <stop offset="100%" stopColor={positiveBalanceColor} stopOpacity={0.55} />
+            </linearGradient>
+            <linearGradient id="kc-bar-balance-neg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={negativeBalanceColor} stopOpacity={0.95} />
+              <stop offset="100%" stopColor={negativeBalanceColor} stopOpacity={0.55} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke="var(--color-border)" strokeDasharray="3 4" strokeOpacity={0.7} />
           <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={false} tickMargin={12} />
           <YAxis tick={axisTick} tickLine={false} axisLine={false} width={48} />
           <Tooltip
-            cursor={{ fill: 'var(--color-border)', opacity: 0.25 }}
+            cursor={{ fill: 'var(--color-border)', opacity: 0.2, radius: 6 }}
             wrapperStyle={{ zIndex: 50 }}
             content={<TooltipContent valueFormatter={valueFormatter} />}
           />
@@ -90,13 +108,13 @@ export function BalanceBarChart({
             iconType="circle"
             wrapperStyle={{ fontSize: 12, color: 'var(--color-text-muted)' }}
           />
-          <Bar dataKey="income" name="Receitas" fill={incomeColor} radius={[6, 6, 6, 6]} maxBarSize={14} />
-          <Bar dataKey="expense" name="Despesas" fill={expenseColor} radius={[6, 6, 6, 6]} maxBarSize={14} />
-          <Bar dataKey="balance" name="Saldo" radius={[6, 6, 6, 6]} maxBarSize={14}>
+          <Bar dataKey="income" name="Receitas" fill="url(#kc-bar-income)" radius={[5, 5, 0, 0]} maxBarSize={22} />
+          <Bar dataKey="expense" name="Despesas" fill="url(#kc-bar-expense)" radius={[5, 5, 0, 0]} maxBarSize={22} />
+          <Bar dataKey="balance" name="Saldo" radius={[5, 5, 0, 0]} maxBarSize={22}>
             {data.map((entry, index) => (
               <Cell
                 key={`balance-${index}`}
-                fill={entry.balance >= 0 ? positiveBalanceColor : negativeBalanceColor}
+                fill={entry.balance >= 0 ? 'url(#kc-bar-balance-pos)' : 'url(#kc-bar-balance-neg)'}
               />
             ))}
           </Bar>
