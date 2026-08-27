@@ -2,6 +2,7 @@
 
 import { Avatar, IconButton, Skeleton } from '@finance/ui';
 import { Menu, Settings } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 import { PeriodSelector } from './period-selector';
 import { ThemeToggle } from './theme-toggle';
@@ -12,6 +13,7 @@ import { useSession } from '../features/auth/use-session';
 export function Header() {
   const { user, isLoading } = useSession();
   const dispatch = useAppDispatch();
+  const router = useRouter();
 
   return (
     <header className="bg-background/80 border-border sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 backdrop-blur md:px-6">
@@ -32,7 +34,11 @@ export function Header() {
 
       <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2">
         <ThemeToggle />
-        <IconButton aria-label="Configurações" className="hidden sm:inline-flex">
+        <IconButton
+          aria-label="Configurações"
+          onClick={() => router.push('/configuracoes')}
+          className="hidden sm:inline-flex"
+        >
           <Settings />
         </IconButton>
         {/* <IconButton aria-label="Notificações" dot className="hidden sm:inline-flex">
