@@ -110,7 +110,13 @@ export function DashboardView() {
   const byOrigin = useMemo<BreakdownRow[]>(() => [...byAccount, ...byCard], [byAccount, byCard]);
 
   const yearlyBalance = useMemo(() => {
-    const buckets = MONTH_LABELS.map((label) => ({ label, income: 0, expense: 0, balance: 0 }));
+    const buckets = MONTH_LABELS.map((label) => ({
+      label,
+      income: 0,
+      expense: 0,
+      balance: 0,
+      changePct: null as number | null,
+    }));
     for (const t of yearTransactions ?? []) {
       const bucket = buckets[new Date(t.dueDate).getUTCMonth()];
       if (!bucket) continue;
@@ -119,6 +125,12 @@ export function DashboardView() {
       else bucket.expense += value;
     }
     for (const bucket of buckets) bucket.balance = bucket.income - bucket.expense;
+    // Variação % do balanço vs. mês anterior (só quando o mês anterior teve movimento).
+    for (let i = 1; i < buckets.length; i++) {
+      const prev = buckets[i - 1]!.balance;
+      const curr = buckets[i]!.balance;
+      if (prev !== 0) buckets[i]!.changePct = ((curr - prev) / Math.abs(prev)) * 100;
+    }
     return buckets;
   }, [yearTransactions]);
 
