@@ -1,15 +1,16 @@
 'use client';
 
-import { createElement, useMemo } from 'react';
+import { createElement, useMemo, useState } from 'react';
 import type { ColorToken, ListTransactionsQuery } from '@finance/contracts';
 import { BalanceBarChart, Card, ChartContainer, formatBRL, TransactionList, cn, getIcon } from '@finance/ui';
 import { Receipt } from 'lucide-react';
+import { MonthRangePicker } from '../../components/month-range-picker';
 import { PeriodSelector } from '../../components/period-selector';
 import { SummaryCards } from '../../components/summary-cards';
 import { useAppSelector } from '../../hooks/use-store';
 import { periodLabel, periodWindow } from '../../store/period-slice';
 import { centsToMoney, toCents } from '../../util/money';
-import { MONTH_LABELS, yearWindow } from '../../util/date';
+import { MONTH_LABELS, monthBuckets, monthRangeWindow } from '../../util/date';
 import { flattenCategories, type CategoryMeta } from '../../util/category';
 import { useAccounts } from '../accounts/use-accounts';
 import { useCards } from '../cards/use-cards';
@@ -28,10 +29,16 @@ export function DashboardView() {
     return { dueFrom, dueTo, sort: 'dueDate', order: 'desc' };
   }, [period]);
 
+  // Intervalo do balanço anual (independente do período global). Default: jan→dez do ano atual.
+  const [range, setRange] = useState(() => ({
+    from: `${period.year}-01`,
+    to: `${period.year}-12`,
+  }));
+
   const yearQuery: ListTransactionsQuery = useMemo(() => {
-    const { dueFrom, dueTo } = yearWindow(period.year);
+    const { dueFrom, dueTo } = monthRangeWindow(range.from, range.to);
     return { dueFrom, dueTo, sort: 'dueDate', order: 'asc' };
-  }, [period.year]);
+  }, [range.from, range.to]);
 
   const { data: transactions, isLoading } = useTransactions(query);
   const { data: yearTransactions } = useTransactions(yearQuery);
@@ -110,15 +117,22 @@ export function DashboardView() {
   const byOrigin = useMemo<BreakdownRow[]>(() => [...byAccount, ...byCard], [byAccount, byCard]);
 
   const yearlyBalance = useMemo(() => {
-    const buckets = MONTH_LABELS.map((label) => ({
-      label,
+    const span = monthBuckets(range.from, range.to);
+    const multiYear = new Set(span.map((b) => b.year)).size > 1;
+    const buckets = span.map((b) => ({
+      label: multiYear
+        ? `${MONTH_LABELS[b.month]}/${String(b.year).slice(2)}`
+        : MONTH_LABELS[b.month]!,
       income: 0,
       expense: 0,
       balance: 0,
       changePct: null as number | null,
     }));
+    // Índice ano*12+mês → posição no array, pra alocar cada transação no bucket certo.
+    const index = new Map(span.map((b, i) => [b.year * 12 + b.month, i]));
     for (const t of yearTransactions ?? []) {
-      const bucket = buckets[new Date(t.dueDate).getUTCMonth()];
+      const d = new Date(t.dueDate);
+      const bucket = buckets[index.get(d.getUTCFullYear() * 12 + d.getUTCMonth()) ?? -1];
       if (!bucket) continue;
       const value = toCents(t.amount) / 100;
       if (t.type === 'income') bucket.income += value;
@@ -132,7 +146,7 @@ export function DashboardView() {
       if (prev !== 0) buckets[i]!.changePct = ((curr - prev) / Math.abs(prev)) * 100;
     }
     return buckets;
-  }, [yearTransactions]);
+  }, [yearTransactions, range.from, range.to]);
 
   const yearBalanceCents = useMemo(
     () =>
@@ -176,16 +190,23 @@ export function DashboardView() {
           <SummaryCards transactions={transactions ?? []} />
 
           <ChartContainer
-            title={`Balanço do ano de ${period.year}`}
+            title="Balanço do período"
             actions={
-              <span
-                className={cn(
-                  'text-sm font-semibold',
-                  yearBalanceCents >= 0 ? 'text-success' : 'text-danger',
-                )}
-              >
-                Balanço do ano: {formatBRL(centsToMoney(yearBalanceCents))}
-              </span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <MonthRangePicker
+                  from={range.from}
+                  to={range.to}
+                  onChange={setRange}
+                />
+                <span
+                  className={cn(
+                    'text-sm font-semibold',
+                    yearBalanceCents >= 0 ? 'text-success' : 'text-danger',
+                  )}
+                >
+                  {formatBRL(centsToMoney(yearBalanceCents))}
+                </span>
+              </div>
             }
           >
             <BalanceBarChart

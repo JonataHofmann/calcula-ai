@@ -41,6 +41,29 @@ export function yearWindow(year: number): DateWindow {
   return { dueFrom: start.toISOString(), dueTo: end.toISOString() };
 }
 
+/** Query window spanning a month range (inclusive), from 'YYYY-MM' strings. */
+export function monthRangeWindow(fromYM: string, toYM: string): DateWindow {
+  const [fy, fm] = fromYM.split('-').map(Number) as [number, number];
+  const [ty, tm] = toYM.split('-').map(Number) as [number, number];
+  const start = new Date(fy, fm - 1, 1);
+  const end = new Date(ty, tm, 1); // 1º dia do mês seguinte ao "até" → limite exclusivo
+  return { dueFrom: start.toISOString(), dueTo: end.toISOString() };
+}
+
+/** Ordered month buckets across an inclusive 'YYYY-MM' range. */
+export function monthBuckets(fromYM: string, toYM: string): { year: number; month: number }[] {
+  const [fy, fm] = fromYM.split('-').map(Number) as [number, number];
+  const [ty, tm] = toYM.split('-').map(Number) as [number, number];
+  const out: { year: number; month: number }[] = [];
+  let d = new Date(fy, fm - 1, 1);
+  const stop = new Date(ty, tm - 1, 1);
+  while (d <= stop) {
+    out.push({ year: d.getFullYear(), month: d.getMonth() });
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  }
+  return out;
+}
+
 /** Query window ({ dueFrom, dueTo }) for a calendar month, local midnights as UTC instants. */
 export function monthWindow(reference: Date, offset = 0): DateWindow {
   const start = new Date(reference.getFullYear(), reference.getMonth() + offset, 1);
