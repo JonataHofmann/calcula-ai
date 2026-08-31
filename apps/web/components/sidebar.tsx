@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@finance/ui';
-import { CircleDollarSign, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
@@ -10,16 +10,24 @@ import { useAppDispatch, useAppSelector } from '../hooks/use-store';
 import { logout } from '../services/auth-api';
 import { closeSidebarMobile } from '../store/ui-slice';
 
-/** Brand glyph tile — used on the indigo rail and the mobile drawer. */
+/** Brand logo tile (indigo, white bold "C") — matches the Keycloak login mark and app/icon.svg. */
 function BrandGlyph({ className }: { className?: string }) {
   return (
-    <span
-      className={cn(
-        'bg-surface text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-icon',
-        className,
-      )}
-    >
-      <CircleDollarSign className="h-5.5 w-5.5" aria-hidden="true" />
+    <span className={cn('shrink-0 overflow-hidden rounded-icon', className)}>
+      <svg viewBox="0 0 32 32" className="h-10 w-10" aria-hidden="true">
+        <rect width="32" height="32" fill="#3730c9" />
+        <text
+          x="16"
+          y="22"
+          fontSize="18"
+          fontFamily="Inter, Arial, sans-serif"
+          fontWeight="800"
+          fill="#ffffff"
+          textAnchor="middle"
+        >
+          C
+        </text>
+      </svg>
     </span>
   );
 }
@@ -145,7 +153,7 @@ export function Sidebar() {
         )}
       >
         <div className="flex h-16 items-center gap-2.5 px-5">
-          <BrandGlyph className="bg-primary text-primary-foreground" />
+          <BrandGlyph />
           <span className="text-text font-display text-lg font-semibold tracking-tight">
             Calcula aí
           </span>
