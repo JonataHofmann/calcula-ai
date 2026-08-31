@@ -254,6 +254,32 @@ describe('TransactionsService.list', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.userId).toBe(USER_A);
   });
+
+  it('does not duplicate a fixed occurrence when overlapping windows materialize it concurrently', async () => {
+    const { service, txRepo } = setup();
+    const [created] = await service.create(USER_A, {
+      recurrence: 'fixed',
+      type: 'expense',
+      description: 'Aluguel',
+      dueDate: '2026-01-05T00:00:00.000Z',
+      amount: '1500.00',
+      categoryId: CAT_EXPENSE,
+      accountId: ACC,
+    } as CreateTransactionInput);
+
+    const febQuery: ListTransactionsQuery = {
+      dueFrom: '2026-02-01T00:00:00.000Z',
+      dueTo: '2026-03-01T00:00:00.000Z',
+      sort: 'dueDate',
+      order: 'asc',
+    };
+    // Two list calls hitting the same next month in parallel (dashboard + transactions view).
+    await Promise.all([service.list(USER_A, febQuery), service.list(USER_A, febQuery)]);
+
+    const rows = await group(txRepo, created.groupId as string);
+    const feb = rows.filter((r) => r.dueDate.toISOString() === '2026-02-05T00:00:00.000Z');
+    expect(feb).toHaveLength(1);
+  });
 });
 
 describe('TransactionsService.listOverdue', () => {

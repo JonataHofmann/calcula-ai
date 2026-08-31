@@ -239,11 +239,10 @@ export class TransactionsService {
     });
 
     const next = await this.materializeNext(userId, transaction);
-    if (next) {
-      await this.saveMany([transaction, next]);
-    } else {
-      await this.saveOne(transaction);
-    }
+    await this.saveOne(transaction);
+    // Insert the next occurrence ignoring conflicts: a concurrent list-window
+    // materialization may have created the same (group_id, due_date) already.
+    if (next) await this.persistManyIgnoreConflicts([next]);
     this.logger.log(`Effectuated transaction ${id} for user ${userId}${next ? ` (materialized ${next.id})` : ''}`);
     return { transaction, next };
   }
@@ -729,7 +728,7 @@ export class TransactionsService {
       }
     }
 
-    if (toCreate.length > 0) await this.persistMany(toCreate);
+    if (toCreate.length > 0) await this.persistManyIgnoreConflicts(toCreate);
   }
 
   /** A new pending fixed occurrence for `dueDate`, copying the group's latest row (reflects edits). */
@@ -792,6 +791,24 @@ export class TransactionsService {
     await this.txRepo.manager.transaction(async (manager) => {
       await manager.insert(TransactionEntity, transactions.map(toEntity));
     });
+  }
+
+  /**
+   * Insert ignoring `(group_id, due_date)` conflicts. Fixed-occurrence materialization runs
+   * from several overlapping list windows in parallel (dashboard + transactions views), so two
+   * concurrent calls can each read a month as missing and both insert it. The unique index
+   * `uq_transactions_group_due` plus ON CONFLICT DO NOTHING makes the second insert a no-op
+   * instead of a duplicate row.
+   */
+  private async persistManyIgnoreConflicts(transactions: Transaction[]): Promise<void> {
+    if (transactions.length === 0) return;
+    await this.txRepo
+      .createQueryBuilder()
+      .insert()
+      .into(TransactionEntity)
+      .values(transactions.map(toEntity))
+      .orIgnore()
+      .execute();
   }
 
   private async saveOne(transaction: Transaction): Promise<void> {

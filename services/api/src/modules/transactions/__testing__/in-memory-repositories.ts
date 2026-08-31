@@ -229,7 +229,49 @@ export function makeFakeTransactionRepo(seed: TransactionEntity[] = []): FakeTra
       removeMatching(criteria);
     },
     createQueryBuilder(_alias?: string) {
-      return makeQueryBuilder([...store.values()]);
+      const read = makeQueryBuilder([...store.values()]);
+      // Mirror `.insert().into().values().orIgnore().execute()` — used by the fixed-occurrence
+      // materialization — honouring the `uq_transactions_group_due` unique partial index so
+      // concurrent inserts of the same (group_id, due_date) are skipped, not duplicated.
+      return Object.assign(read, {
+        insert() {
+          let pending: TransactionEntity[] = [];
+          let ignoreConflicts = false;
+          const insertBuilder = {
+            into(_entity: unknown) {
+              return insertBuilder;
+            },
+            values(entities: TransactionEntity[]) {
+              pending = entities;
+              return insertBuilder;
+            },
+            orIgnore() {
+              ignoreConflicts = true;
+              return insertBuilder;
+            },
+            async execute() {
+              const seen = new Set(
+                [...store.values()]
+                  .filter((r) => r.groupId != null)
+                  .map((r) => `${r.groupId}|${r.dueDate.getTime()}`),
+              );
+              for (const e of pending) {
+                if (e.groupId != null) {
+                  const key = `${e.groupId}|${e.dueDate.getTime()}`;
+                  if (seen.has(key)) {
+                    if (ignoreConflicts) continue;
+                    throw new Error('duplicate key value violates unique constraint');
+                  }
+                  seen.add(key);
+                }
+                putMany(e);
+              }
+              return { identifiers: [] };
+            },
+          };
+          return insertBuilder;
+        },
+      });
     },
   };
 

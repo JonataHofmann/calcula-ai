@@ -13,6 +13,13 @@ import {
 @Index('idx_transactions_user_due', ['userId', 'dueDate'])
 @Index('idx_transactions_user_status_due', ['userId', 'status', 'dueDate'])
 @Index('idx_transactions_group', ['groupId'])
+// Impede duas linhas do mesmo grupo no mesmo vencimento — a materialização de
+// ocorrências fixas roda em paralelo por várias janelas de listagem e, sem esta
+// garantia, duas chamadas concorrentes inseriam o mesmo mês em duplicidade.
+@Index('uq_transactions_group_due', ['groupId', 'dueDate'], {
+  unique: true,
+  where: '"group_id" IS NOT NULL',
+})
 // Espelha as CHECK constraints das migrations para que os testes de integração
 // (synchronize:true) reproduzam as mesmas invariantes do banco migrado.
 @Check('chk_transactions_amount_positive', `"amount" > 0`)
