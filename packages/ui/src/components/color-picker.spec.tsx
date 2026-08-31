@@ -15,11 +15,11 @@ describe('ColorPicker', () => {
     const onChange = vi.fn();
     render(<ColorPicker onChange={onChange} />);
     fireEvent.click(screen.getByRole('radio', { name: 'Verde' }));
-    expect(onChange).toHaveBeenCalledWith('success');
+    expect(onChange).toHaveBeenCalledWith('green-vivid');
   });
 
   it('marks the selected color', () => {
-    render(<ColorPicker value="danger" onChange={() => {}} />);
+    render(<ColorPicker value="red" onChange={() => {}} />);
     expect(screen.getByRole('radio', { name: 'Vermelho' })).toHaveAttribute(
       'aria-checked',
       'true',
