@@ -79,6 +79,10 @@ const createBase = {
 const createSingle = z.object({
   recurrence: z.literal('single'),
   amount: positiveMoney,
+  /** Create the row already effectuated (paid). Only valid for `single`. */
+  paid: z.boolean().optional(),
+  /** Effective date when `paid`. Absent → server assumes the due date. */
+  effectiveDate: z.string().datetime().optional(),
   ...createBase,
 });
 

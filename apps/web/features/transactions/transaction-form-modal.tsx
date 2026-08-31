@@ -13,7 +13,6 @@ import {
   type IconKey,
   type TransactionDto,
 } from '@finance/contracts';
-import { CalendarRange, MessageSquare, Tags } from 'lucide-react';
 import {
   Button,
   CurrencyInput,
@@ -22,6 +21,7 @@ import {
   Input,
   Modal,
   Select,
+  Switch,
   type EntityOption,
   type SelectOption,
 } from '@finance/ui';
@@ -43,6 +43,8 @@ const formSchema = z
     accountId: z.string().optional().default(''),
     creditCardId: z.string().optional().default(''),
     notes: z.string().optional().default(''),
+    paid: z.boolean().optional().default(false),
+    effectiveDate: z.string().optional().default(''),
   })
   .superRefine((v, ctx) => {
     if (v.recurrence === 'installment') {
@@ -143,6 +145,10 @@ interface FormValues {
   accountId: string;
   creditCardId: string;
   notes: string;
+  /** Create already effectuated (single only). */
+  paid: boolean;
+  /** Effective date when `paid`; empty → server uses the due date. */
+  effectiveDate: string;
 }
 
 /** Flattens a category tree branch into indented options carrying icon + color. */
@@ -171,6 +177,8 @@ function defaults(initial?: TransactionDto): FormValues {
       accountId: '',
       creditCardId: '',
       notes: '',
+      paid: false,
+      effectiveDate: '',
     };
   }
   return {
@@ -187,6 +195,8 @@ function defaults(initial?: TransactionDto): FormValues {
     accountId: initial.accountId ?? '',
     creditCardId: initial.creditCardId ?? '',
     notes: initial.notes ?? '',
+    paid: false,
+    effectiveDate: '',
   };
 }
 
@@ -218,7 +228,14 @@ function toInput(v: FormValues): CreateTransactionInput {
       endDate: v.endDate ? v.endDate : null,
     } as CreateTransactionInput;
   }
-  return { ...base, recurrence: 'single', amount: v.amount } as CreateTransactionInput;
+  return {
+    ...base,
+    recurrence: 'single',
+    amount: v.amount,
+    ...(v.paid
+      ? { paid: true, ...(v.effectiveDate ? { effectiveDate: v.effectiveDate } : {}) }
+      : {}),
+  } as CreateTransactionInput;
 }
 
 const TYPE_OPTIONS: SelectOption[] = [
@@ -236,21 +253,6 @@ const ORIGIN_OPTIONS: SelectOption[] = [
   { value: 'account', label: 'Conta' },
   { value: 'card', label: 'Cartão de crédito' },
 ];
-
-function SectionHeading({
-  icon: Icon,
-  children,
-}: {
-  icon: typeof CalendarRange;
-  children: string;
-}) {
-  return (
-    <h3 className="text-text-muted mb-3 flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase">
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      {children}
-    </h3>
-  );
-}
 
 export function TransactionFormModal({
   open,
@@ -276,7 +278,11 @@ export function TransactionFormModal({
   const type = watch('type');
   const recurrence = watch('recurrence');
   const originKind = watch('originKind');
+  const paid = watch('paid');
   const [rootError, setRootError] = useState<string | null>(null);
+
+  // "Já efetivada" only makes sense for a brand-new single (avulsa) row.
+  const canMarkPaid = !initial && recurrence === 'single';
 
   const categoryOptions = useMemo(() => {
     if (!categories) return [];
@@ -317,7 +323,7 @@ export function TransactionFormModal({
       onClose={onClose}
       title={initial ? 'Editar transação' : 'Nova transação'}
       description="Preencha os dados da transação."
-      className="max-w-2xl"
+      className="max-w-3xl"
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
@@ -329,202 +335,226 @@ export function TransactionFormModal({
         </>
       }
     >
-      <form id="transaction-form" onSubmit={submit} className="flex flex-col gap-6">
-        <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-          <Controller
-            control={control}
-            name="type"
-            render={({ field }) => (
-              <Select
-                label="Tipo"
-                options={TYPE_OPTIONS}
-                {...field}
-                error={errors.type?.message}
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="recurrence"
-            render={({ field }) => (
-              <Select
-                label="Recorrência"
-                options={RECURRENCE_OPTIONS}
-                {...field}
-                error={errors.recurrence?.message}
-              />
-            )}
-          />
-
-          <div className="col-span-2">
-            <Input
-              label="Descrição"
-              placeholder="Ex.: Aluguel"
-              error={errors.description?.message}
-              {...register('description')}
+      <form
+        id="transaction-form"
+        onSubmit={submit}
+        className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2"
+      >
+        <Controller
+          control={control}
+          name="type"
+          render={({ field }) => (
+            <Select label="Tipo" options={TYPE_OPTIONS} {...field} error={errors.type?.message} />
+          )}
+        />
+        <Controller
+          control={control}
+          name="recurrence"
+          render={({ field }) => (
+            <Select
+              label="Recorrência"
+              options={RECURRENCE_OPTIONS}
+              {...field}
+              error={errors.recurrence?.message}
             />
-          </div>
+          )}
+        />
+
+        <div className="sm:col-span-2">
+          <Input
+            label="Descrição"
+            placeholder="Ex.: Aluguel"
+            error={errors.description?.message}
+            {...register('description')}
+          />
         </div>
 
-        <section className="border-border border-t pt-5">
-          <SectionHeading icon={CalendarRange}>Valores e prazo</SectionHeading>
-          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-            <div className={recurrence === 'single' ? 'sm:col-span-2' : undefined}>
+        {/* Vencimento + campo variante da linha (Valor | Término | Parcelas). */}
+        <Controller
+          control={control}
+          name="dueDate"
+          render={({ field }) => (
+            <DatePicker
+              label="Vencimento"
+              error={errors.dueDate?.message}
+              value={isoToDate(field.value)}
+              onChange={(v) => field.onChange(dateToIso(v))}
+            />
+          )}
+        />
+        {recurrence === 'installment' ? (
+          <Input
+            type="number"
+            min={1}
+            label="Parcelas"
+            error={errors.installmentCount?.message}
+            {...register('installmentCount')}
+          />
+        ) : recurrence === 'fixed' ? (
+          <Controller
+            control={control}
+            name="endDate"
+            render={({ field }) => (
+              <DatePicker
+                label="Término (opcional)"
+                error={errors.endDate?.message}
+                value={isoToDate(field.value)}
+                onChange={(v) => field.onChange(dateToIso(v))}
+              />
+            )}
+          />
+        ) : (
+          <Controller
+            control={control}
+            name="amount"
+            render={({ field }) => (
+              <CurrencyInput
+                label="Valor"
+                error={errors.amount?.message}
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        )}
+
+        {recurrence === 'installment' ? (
+          <div className="bg-surface-2 rounded-card grid grid-cols-1 gap-x-4 gap-y-1 p-3 sm:col-span-2 sm:grid-cols-2">
+            <Controller
+              control={control}
+              name="amount"
+              render={({ field }) => (
+                <CurrencyInput
+                  label="Valor por parcela"
+                  error={errors.amount?.message}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="totalAmount"
+              render={({ field }) => (
+                <CurrencyInput
+                  label="Valor total"
+                  error={errors.totalAmount?.message}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <p className="text-text-muted text-xs sm:col-span-2">
+              Informe o valor por parcela ou o valor total — o outro é calculado.
+            </p>
+          </div>
+        ) : null}
+
+        {recurrence === 'fixed' ? (
+          <div className="sm:col-span-2">
+            <Controller
+              control={control}
+              name="amount"
+              render={({ field }) => (
+                <CurrencyInput
+                  label="Valor"
+                  error={errors.amount?.message}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </div>
+        ) : null}
+
+        {/* Classificação + origem. */}
+        <div className="sm:col-span-2">
+          <Controller
+            control={control}
+            name="categoryId"
+            render={({ field }) => (
+              <EntitySelect
+                label="Categoria"
+                placeholder="Selecione"
+                options={categoryOptions}
+                value={field.value}
+                onChange={field.onChange}
+                error={errors.categoryId?.message}
+              />
+            )}
+          />
+        </div>
+        <Controller
+          control={control}
+          name="originKind"
+          render={({ field }) => <Select label="Origem" options={ORIGIN_OPTIONS} {...field} />}
+        />
+        {originKind === 'account' ? (
+          <Controller
+            control={control}
+            name="accountId"
+            render={({ field }) => (
+              <EntitySelect
+                label="Conta"
+                placeholder="Selecione"
+                options={accountOptions}
+                value={field.value}
+                onChange={field.onChange}
+                error={originError}
+              />
+            )}
+          />
+        ) : (
+          <Controller
+            control={control}
+            name="creditCardId"
+            render={({ field }) => (
+              <EntitySelect
+                label="Cartão de crédito"
+                placeholder="Selecione"
+                options={cardOptions}
+                value={field.value}
+                onChange={field.onChange}
+                error={originError}
+              />
+            )}
+          />
+        )}
+
+        {/* Já efetivada (só avulsa nova). */}
+        {canMarkPaid ? (
+          <div className="bg-surface-2 rounded-card flex flex-col gap-3 p-3 sm:col-span-2">
+            <Switch label="Já efetivada (paga)" {...register('paid')} />
+            {paid ? (
               <Controller
                 control={control}
-                name="dueDate"
+                name="effectiveDate"
                 render={({ field }) => (
                   <DatePicker
-                    label="Vencimento"
-                    error={errors.dueDate?.message}
-                    value={isoToDate(field.value)}
-                    onChange={(v) => field.onChange(dateToIso(v))}
-                  />
-                )}
-              />
-            </div>
-            {recurrence === 'installment' ? (
-              <Input
-                type="number"
-                min={1}
-                label="Parcelas"
-                error={errors.installmentCount?.message}
-                {...register('installmentCount')}
-              />
-            ) : recurrence === 'fixed' ? (
-              <Controller
-                control={control}
-                name="endDate"
-                render={({ field }) => (
-                  <DatePicker
-                    label="Término (opcional)"
-                    error={errors.endDate?.message}
+                    label="Data de efetivação (opcional)"
                     value={isoToDate(field.value)}
                     onChange={(v) => field.onChange(dateToIso(v))}
                   />
                 )}
               />
             ) : null}
-
-            {recurrence === 'installment' ? (
-              <div className="bg-surface-2 rounded-card grid grid-cols-1 gap-x-4 gap-y-1 p-3 sm:col-span-2 sm:grid-cols-2">
-                <Controller
-                  control={control}
-                  name="amount"
-                  render={({ field }) => (
-                    <CurrencyInput
-                      label="Valor por parcela"
-                      error={errors.amount?.message}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="totalAmount"
-                  render={({ field }) => (
-                    <CurrencyInput
-                      label="Valor total"
-                      error={errors.totalAmount?.message}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  )}
-                />
-                <p className="text-text-muted text-xs sm:col-span-2">
-                  Informe o valor por parcela ou o valor total — o outro é calculado.
-                </p>
-              </div>
-            ) : (
-              <Controller
-                control={control}
-                name="amount"
-                render={({ field }) => (
-                  <CurrencyInput
-                    label="Valor"
-                    error={errors.amount?.message}
-                    value={field.value}
-                    onChange={field.onChange}
-                  />
-                )}
-              />
-            )}
+            {paid ? (
+              <p className="text-text-muted text-xs">
+                Sem data informada, assumimos o vencimento.
+              </p>
+            ) : null}
           </div>
-        </section>
+        ) : null}
 
-        <section className="border-border border-t pt-5">
-          <SectionHeading icon={Tags}>Classificação e origem</SectionHeading>
-          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-            <div className={recurrence === 'installment' ? 'sm:col-span-2' : undefined}>
-              <Controller
-                control={control}
-                name="categoryId"
-                render={({ field }) => (
-                  <EntitySelect
-                    label="Categoria"
-                    placeholder="Selecione"
-                    options={categoryOptions}
-                    value={field.value}
-                    onChange={field.onChange}
-                    error={errors.categoryId?.message}
-                  />
-                )}
-              />
-            </div>
-
-            <Controller
-              control={control}
-              name="originKind"
-              render={({ field }) => (
-                <Select label="Origem" options={ORIGIN_OPTIONS} {...field} />
-              )}
-            />
-
-            {originKind === 'account' ? (
-              <Controller
-                control={control}
-                name="accountId"
-                render={({ field }) => (
-                  <EntitySelect
-                    label="Conta"
-                    placeholder="Selecione"
-                    options={accountOptions}
-                    value={field.value}
-                    onChange={field.onChange}
-                    error={originError}
-                  />
-                )}
-              />
-            ) : (
-              <Controller
-                control={control}
-                name="creditCardId"
-                render={({ field }) => (
-                  <EntitySelect
-                    label="Cartão de crédito"
-                    placeholder="Selecione"
-                    options={cardOptions}
-                    value={field.value}
-                    onChange={field.onChange}
-                    error={originError}
-                  />
-                )}
-              />
-            )}
-          </div>
-        </section>
-
-        <section className="border-border border-t pt-5">
-          <SectionHeading icon={MessageSquare}>Observações</SectionHeading>
+        <div className="sm:col-span-2">
           <Input
             label="Observações (opcional)"
             error={errors.notes?.message}
             {...register('notes')}
           />
-        </section>
+        </div>
 
-        {rootError ? <p className="text-danger text-sm">{rootError}</p> : null}
+        {rootError ? <p className="text-danger text-sm sm:col-span-2">{rootError}</p> : null}
       </form>
     </Modal>
   );

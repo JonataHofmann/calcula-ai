@@ -114,6 +114,28 @@ describe('TransactionsService.create (single)', () => {
       } as CreateTransactionInput),
     ).rejects.toBeInstanceOf(ReferenceNotFoundError);
   });
+
+  it('creates an already-effectuated row at the given effective date', async () => {
+    const { service } = setup();
+    const [t] = await service.create(USER_A, {
+      ...singleExpense,
+      paid: true,
+      effectiveDate: '2026-01-08T00:00:00.000Z',
+    } as CreateTransactionInput);
+    expect(t.status).toBe('paid');
+    expect(t.effectiveDate?.toISOString()).toBe('2026-01-08T00:00:00.000Z');
+    expect(t.effectiveAmount).toBe('100.00');
+  });
+
+  it('defaults the effective date to the due date when paid without one', async () => {
+    const { service } = setup();
+    const [t] = await service.create(USER_A, {
+      ...singleExpense,
+      paid: true,
+    } as CreateTransactionInput);
+    expect(t.status).toBe('paid');
+    expect(t.effectiveDate?.toISOString()).toBe(singleExpense.dueDate);
+  });
 });
 
 describe('TransactionsService.create (fixed)', () => {

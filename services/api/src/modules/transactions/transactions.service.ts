@@ -151,6 +151,12 @@ export class TransactionsService {
       amount: input.amount,
       dueDate,
     });
+    // Optionally create it already effectuated; missing effectiveDate → the due date.
+    if (input.paid) {
+      transaction.effectuate({
+        date: input.effectiveDate ? new Date(input.effectiveDate) : dueDate,
+      });
+    }
     await this.persistOne(transaction);
     this.logger.log(`Created transaction ${transaction.id} for user ${userId}`);
     return [transaction];
