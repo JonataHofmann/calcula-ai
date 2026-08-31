@@ -27,6 +27,10 @@ export interface EffectuateResult {
   next: TransactionDto | null;
 }
 
+export interface UndoEffectuateResult {
+  transaction: TransactionDto;
+}
+
 /** Proxies transaction endpoints to the API-MS. All money/scope rules live in the API-MS (regra 6). */
 @Injectable()
 export class TransactionsService {
@@ -84,6 +88,18 @@ export class TransactionsService {
     return this.api.post<EffectuateResult>(`/transactions/${id}/effectuate`, {
       token,
       body,
+      idempotencyKey,
+    });
+  }
+
+  undoEffectuate(
+    token: string,
+    id: string,
+    idempotencyKey?: string,
+  ): Promise<UndoEffectuateResult> {
+    this.logger.log(`Proxying POST /transactions/${id}/effectuate/undo`);
+    return this.api.post<UndoEffectuateResult>(`/transactions/${id}/effectuate/undo`, {
+      token,
       idempotencyKey,
     });
   }

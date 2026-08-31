@@ -25,6 +25,7 @@ import {
   TransactionsService,
   type CreateResult,
   type EffectuateResult,
+  type UndoEffectuateResult,
 } from './transactions.service';
 import type { Session } from '../auth/session/session.store';
 
@@ -105,6 +106,16 @@ export class TransactionsController {
   ): Promise<EffectuateResult> {
     this.logger.log(`POST /transactions/${id}/effectuate`);
     return this.transactions.effectuate(tokenOf(req), id, body, idempotencyKey);
+  }
+
+  @Post(':id/effectuate/undo')
+  undoEffectuate(
+    @Req() req: SessionRequest,
+    @Param('id') id: string,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ): Promise<UndoEffectuateResult> {
+    this.logger.log(`POST /transactions/${id}/effectuate/undo`);
+    return this.transactions.undoEffectuate(tokenOf(req), id, idempotencyKey);
   }
 
   @Delete(':id')
