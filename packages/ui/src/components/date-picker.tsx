@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/cn.js';
@@ -64,6 +65,11 @@ export function DatePicker({
   const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+
+  /** Fixed-position coords so the calendar escapes any `overflow` ancestor (e.g. a modal). */
+  const [coords, setCoords] = useState<{ left: number; top?: number; bottom?: number }>();
 
   const selected = useMemo(() => {
     if (!value) return null;
@@ -87,11 +93,38 @@ export function DatePicker({
     setView({ y: base.y, m: base.m });
   }, [open, selected]);
 
+  // Anchor the portalled calendar to the trigger; recompute on open, scroll and resize.
+  useLayoutEffect(() => {
+    if (!open) return;
+    function place() {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const CAL_H = 330;
+      const margin = 8;
+      const spaceBelow = window.innerHeight - rect.bottom - margin;
+      const openUp = spaceBelow < CAL_H && rect.top - margin > spaceBelow;
+      const left = Math.max(margin, Math.min(rect.left, window.innerWidth - 288 - margin));
+      setCoords(
+        openUp
+          ? { left, bottom: window.innerHeight - rect.top + 4 }
+          : { left, top: rect.bottom + 4 },
+      );
+    }
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open]);
+
   // Close on outside click / Escape.
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!rootRef.current?.contains(t) && !popRef.current?.contains(t)) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false);
@@ -127,6 +160,7 @@ export function DatePicker({
       ) : null}
       <div className="relative">
         <button
+          ref={triggerRef}
           type="button"
           id={triggerId}
           aria-label={label}
@@ -146,17 +180,25 @@ export function DatePicker({
           </span>
         </button>
 
-        <AnimatePresence>
-          {open ? (
-            <motion.div
-              role="dialog"
-              aria-label={label ?? 'Calendário'}
-              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
-              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
-              transition={{ duration: reduceMotion ? 0 : 0.15, ease: 'easeOut' }}
-              className="bg-surface border-border shadow-lift absolute z-20 mt-1 w-72 rounded-card border p-3"
-            >
+        {open && typeof document !== 'undefined' && coords
+          ? createPortal(
+              <AnimatePresence>
+                <motion.div
+                  ref={popRef}
+                  role="dialog"
+                  aria-label={label ?? 'Calendário'}
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.15, ease: 'easeOut' }}
+                  style={{
+                    position: 'fixed',
+                    left: coords.left,
+                    top: coords.top,
+                    bottom: coords.bottom,
+                  }}
+                  className="bg-surface border-border shadow-lift z-50 w-72 rounded-card border p-3"
+                >
               <div className="mb-2 flex items-center justify-between">
                 <button
                   type="button"
@@ -219,9 +261,11 @@ export function DatePicker({
                   );
                 })}
               </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+                </motion.div>
+              </AnimatePresence>,
+              document.body,
+            )
+          : null}
       </div>
       {error ? <p className="text-danger text-sm">{error}</p> : null}
     </div>
