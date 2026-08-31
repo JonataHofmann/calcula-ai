@@ -91,10 +91,29 @@ describe('CategoriesService.addSubcategory', () => {
 
     expect(sub.source).toBe('custom');
     expect(sub.type).toBe('expense');
+    // Color is inherited from the parent (sys-food = 'danger'), never the input.
+    expect(sub.color).toBe('danger');
 
     const tree = await service.list(USER);
     const food = tree.expense.find((n) => n.id === 'sys-food');
     expect(food?.children.some((c) => c.id === sub.id)).toBe(true);
+    expect(food?.children.find((c) => c.id === sub.id)?.color).toBe('danger');
+  });
+
+  it('re-colors an existing subcategory when the parent color changes', async () => {
+    const { service } = setup();
+    const sub = await service.addSubcategory(USER, 'sys-food', {
+      name: 'Padaria',
+      icon: 'utensils',
+      color: 'primary',
+    });
+    // Override the parent's color; the child must follow it in the tree.
+    await service.update(USER, 'sys-food', { color: 'warning' });
+
+    const tree = await service.list(USER);
+    const food = tree.expense.find((n) => n.id === 'sys-food');
+    expect(food?.color).toBe('warning');
+    expect(food?.children.find((c) => c.id === sub.id)?.color).toBe('warning');
   });
 
   it('throws when the parent is not accessible', async () => {

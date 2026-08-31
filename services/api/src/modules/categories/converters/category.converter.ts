@@ -13,14 +13,20 @@ export class CategoryConverter {
    */
   static toNode(
     entity: CategoryEntity,
-    opts: { source: CategorySource; override?: CategoryOverride; children?: CategoryNodeDto[] },
+    opts: {
+      source: CategorySource;
+      override?: CategoryOverride;
+      children?: CategoryNodeDto[];
+      /** Forced color (subcategories inherit the root's color). Wins over entity/override. */
+      color?: string;
+    },
   ): CategoryNodeDto {
-    const { source, override, children = [] } = opts;
+    const { source, override, children = [], color } = opts;
     return {
       id: entity.id,
       name: override?.name ?? entity.name,
       icon: override?.icon ?? entity.icon,
-      color: override?.color ?? entity.color,
+      color: color ?? override?.color ?? entity.color,
       type: entity.type,
       source,
       children,

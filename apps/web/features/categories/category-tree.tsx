@@ -13,7 +13,7 @@ import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 
 export interface CategoryTreeCallbacks {
   onAddSub: (node: CategoryNodeDto) => void;
-  onEdit: (node: CategoryNodeDto) => void;
+  onEdit: (node: CategoryNodeDto, isSub: boolean) => void;
   onDelete: (node: CategoryNodeDto) => void;
   onRevert: (node: CategoryNodeDto) => void;
 }
@@ -83,7 +83,7 @@ function CategoryNode({ node, depth, ...cb }: CategoryNodeProps) {
               <RotateCcw className="h-4 w-4" aria-hidden="true" />
             </IconButton>
           ) : null}
-          <IconButton label={`Editar ${node.name}`} onClick={() => cb.onEdit(node)}>
+          <IconButton label={`Editar ${node.name}`} onClick={() => cb.onEdit(node, depth > 0)}>
             <Pencil className="h-4 w-4" aria-hidden="true" />
           </IconButton>
           <IconButton

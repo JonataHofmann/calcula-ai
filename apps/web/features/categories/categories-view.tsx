@@ -24,6 +24,8 @@ interface FormState {
   initial?: CategoryFormValues;
   parent?: CategoryNodeDto;
   editingId?: string;
+  /** Color is inherited (subcategory create, or editing a subcategory). */
+  lockColor?: boolean;
 }
 
 export function CategoriesView() {
@@ -41,11 +43,12 @@ export function CategoriesView() {
     setForm({ mode: 'create' });
   }
 
-  function openEdit(node: CategoryNodeDto) {
+  function openEdit(node: CategoryNodeDto, isSub: boolean) {
     setForm({
       mode: 'edit',
       editingId: node.id,
       initial: { name: node.name, type: node.type, icon: node.icon, color: node.color },
+      lockColor: isSub,
     });
   }
 
@@ -54,6 +57,7 @@ export function CategoriesView() {
       mode: 'subcategory',
       parent: node,
       initial: { name: '', type: node.type, icon: 'tag', color: node.color },
+      lockColor: true,
     });
   }
 
@@ -159,6 +163,7 @@ export function CategoriesView() {
           mode={form.mode}
           initial={form.initial}
           parentName={form.parent?.name}
+          lockColor={form.lockColor}
           onClose={() => setForm(null)}
           onSubmit={handleSubmit}
           submitting={

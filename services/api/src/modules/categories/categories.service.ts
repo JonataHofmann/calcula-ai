@@ -122,7 +122,7 @@ export class CategoriesService {
       throw new CategoryNotFoundError(parentId);
     }
     const name = this.assertName(input.name);
-    this.assertCatalog(input.icon, input.color);
+    if (!isIconKey(input.icon)) throw new InvalidCategoryError(`Unknown icon: ${input.icon}`);
 
     const now = new Date();
     const entity = this.categoryRepo.create({
@@ -132,7 +132,8 @@ export class CategoriesService {
       name,
       type: parent.type,
       icon: input.icon,
-      color: input.color,
+      // Subcategory color is always inherited from the parent, never taken from input.
+      color: parent.color,
       isSystem: false,
       createdAt: now,
       updatedAt: now,
@@ -165,7 +166,8 @@ export class CategoriesService {
         if (!isIconKey(input.icon)) throw new InvalidCategoryError(`Unknown icon: ${input.icon}`);
         category.icon = input.icon;
       }
-      if (input.color !== undefined) {
+      // Subcategories inherit the parent's color; only roots may set their own.
+      if (input.color !== undefined && category.parentId === null) {
         if (!isColorToken(input.color)) {
           throw new InvalidCategoryError(`Unknown color: ${input.color}`);
         }
@@ -312,13 +314,22 @@ export class CategoriesService {
     return !(cat.isSystem && ctx.hidden.has(cat.id));
   }
 
-  private buildNode(cat: CategoryEntity, ctx: BuildContext): CategoryNodeDto {
+  /**
+   * `inheritedColor` is the root's effective color, threaded down so subcategories
+   * always render the parent's color regardless of their own stored value (FR: cor herdada).
+   */
+  private buildNode(
+    cat: CategoryEntity,
+    ctx: BuildContext,
+    inheritedColor?: string,
+  ): CategoryNodeDto {
     const override = cat.isSystem ? ctx.overrides.get(cat.id) : undefined;
     const source = cat.isSystem ? (override ? 'default-overridden' : 'default') : 'custom';
+    const color = inheritedColor ?? override?.color ?? cat.color;
     const children = (ctx.childrenOf.get(cat.id) ?? [])
       .filter((c) => this.isVisible(c, ctx))
-      .map((c) => this.buildNode(c, ctx));
-    return CategoryConverter.toNode(cat, { source, override, children });
+      .map((c) => this.buildNode(c, ctx, color));
+    return CategoryConverter.toNode(cat, { source, override, children, color });
   }
 
   // --- invariants ---

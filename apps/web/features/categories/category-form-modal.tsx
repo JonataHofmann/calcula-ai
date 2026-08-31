@@ -40,6 +40,8 @@ export interface CategoryFormModalProps {
   initial?: CategoryFormValues;
   /** Name of the parent, shown as context when adding a subcategory. */
   parentName?: string;
+  /** Subcategories inherit the parent's color — hide the picker and keep the inherited value. */
+  lockColor?: boolean;
   submitting?: boolean;
 }
 
@@ -62,6 +64,7 @@ export function CategoryFormModal({
   onSubmit,
   initial,
   parentName,
+  lockColor,
   submitting,
 }: CategoryFormModalProps) {
   const withType = mode === 'create';
@@ -153,18 +156,22 @@ export function CategoryFormModal({
           )}
         />
 
-        <Controller
-          control={control}
-          name="color"
-          render={({ field }) => (
-            <ColorPicker
-              label="Cor"
-              value={field.value}
-              onChange={field.onChange}
-              error={errors.color?.message}
-            />
-          )}
-        />
+        {lockColor ? (
+          <p className="text-text-muted text-xs">A cor é herdada da categoria pai.</p>
+        ) : (
+          <Controller
+            control={control}
+            name="color"
+            render={({ field }) => (
+              <ColorPicker
+                label="Cor"
+                value={field.value}
+                onChange={field.onChange}
+                error={errors.color?.message}
+              />
+            )}
+          />
+        )}
 
         <div className="mt-2 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>

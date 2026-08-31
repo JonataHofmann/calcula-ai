@@ -51,7 +51,7 @@ describe('CategoryTree', () => {
     expect(cb.onAddSub).toHaveBeenCalledWith(n);
 
     fireEvent.click(screen.getByRole('button', { name: 'Editar Pets' }));
-    expect(cb.onEdit).toHaveBeenCalledWith(n);
+    expect(cb.onEdit).toHaveBeenCalledWith(n, false);
 
     fireEvent.click(screen.getByRole('button', { name: 'Excluir Pets' }));
     expect(cb.onDelete).toHaveBeenCalledWith(n);
