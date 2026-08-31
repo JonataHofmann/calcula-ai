@@ -36,3 +36,25 @@ export function buildCategoryMap(tree?: CategoryTreeDto): Map<string, CategoryNo
   }
   return map;
 }
+
+/** Indexes id → full ancestor path [root, …, node], so a subcategory can render its breadcrumb. */
+export function indexCategoryPaths(
+  nodes: CategoryNodeDto[],
+  map: Map<string, CategoryNodeDto[]>,
+  trail: CategoryNodeDto[] = [],
+): void {
+  for (const node of nodes) {
+    const path = [...trail, node];
+    map.set(node.id, path);
+    if (node.children.length > 0) indexCategoryPaths(node.children, map, path);
+  }
+}
+
+export function buildCategoryPathMap(tree?: CategoryTreeDto): Map<string, CategoryNodeDto[]> {
+  const map = new Map<string, CategoryNodeDto[]>();
+  if (tree) {
+    indexCategoryPaths(tree.expense, map);
+    indexCategoryPaths(tree.income, map);
+  }
+  return map;
+}

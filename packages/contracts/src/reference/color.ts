@@ -20,6 +20,14 @@ export const colorTokenSchema = z.enum([
   'sky',
   'fuchsia',
   'slate',
+  'rose',
+  'amber',
+  'yellow',
+  'green',
+  'cyan',
+  'violet',
+  'purple',
+  'stone',
 ]);
 
 export type ColorToken = z.infer<typeof colorTokenSchema>;
@@ -45,6 +53,14 @@ export const COLORS: readonly ColorOption[] = [
   { token: 'sky', label: 'Azul-céu' },
   { token: 'fuchsia', label: 'Fúcsia' },
   { token: 'slate', label: 'Cinza' },
+  { token: 'rose', label: 'Rosé' },
+  { token: 'amber', label: 'Âmbar' },
+  { token: 'yellow', label: 'Ouro' },
+  { token: 'green', label: 'Verde-mata' },
+  { token: 'cyan', label: 'Ciano-claro' },
+  { token: 'violet', label: 'Violeta' },
+  { token: 'purple', label: 'Púrpura' },
+  { token: 'stone', label: 'Pedra' },
 ] as const;
 
 export const COLOR_TOKENS: readonly ColorToken[] = COLORS.map((c) => c.token);

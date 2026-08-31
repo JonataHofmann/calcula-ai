@@ -20,6 +20,14 @@ export const COLOR_TOKEN_BG: Record<ColorToken, string> = {
   sky: 'bg-sky-500',
   fuchsia: 'bg-fuchsia-500',
   slate: 'bg-slate-500',
+  rose: 'bg-rose-500',
+  amber: 'bg-amber-500',
+  yellow: 'bg-yellow-500',
+  green: 'bg-green-600',
+  cyan: 'bg-cyan-500',
+  violet: 'bg-violet-500',
+  purple: 'bg-purple-500',
+  stone: 'bg-stone-500',
 };
 
 export const COLOR_TOKEN_SOFT_BG: Record<ColorToken, string> = {
@@ -38,6 +46,14 @@ export const COLOR_TOKEN_SOFT_BG: Record<ColorToken, string> = {
   sky: 'bg-sky-100',
   fuchsia: 'bg-fuchsia-100',
   slate: 'bg-slate-100',
+  rose: 'bg-rose-100',
+  amber: 'bg-amber-100',
+  yellow: 'bg-yellow-100',
+  green: 'bg-green-100',
+  cyan: 'bg-cyan-100',
+  violet: 'bg-violet-100',
+  purple: 'bg-purple-100',
+  stone: 'bg-stone-100',
 };
 
 export const COLOR_TOKEN_TEXT: Record<ColorToken, string> = {
@@ -56,6 +72,14 @@ export const COLOR_TOKEN_TEXT: Record<ColorToken, string> = {
   sky: 'text-sky-600',
   fuchsia: 'text-fuchsia-600',
   slate: 'text-slate-600',
+  rose: 'text-rose-600',
+  amber: 'text-amber-600',
+  yellow: 'text-yellow-700',
+  green: 'text-green-700',
+  cyan: 'text-cyan-600',
+  violet: 'text-violet-600',
+  purple: 'text-purple-600',
+  stone: 'text-stone-600',
 };
 
 /**
@@ -78,4 +102,12 @@ export const COLOR_TOKEN_HEX: Record<ColorToken, string> = {
   sky: '#0ea5e9',
   fuchsia: '#d946ef',
   slate: '#64748b',
+  rose: '#f43f5e',
+  amber: '#f59e0b',
+  yellow: '#eab308',
+  green: '#16a34a',
+  cyan: '#06b6d4',
+  violet: '#8b5cf6',
+  purple: '#a855f7',
+  stone: '#78716c',
 };

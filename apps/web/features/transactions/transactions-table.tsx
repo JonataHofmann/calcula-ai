@@ -22,6 +22,7 @@ import {
   ArrowUp,
   ArrowUpDown,
   CheckCircle2,
+  ChevronRight,
   CreditCard,
   Landmark,
   Link2,
@@ -32,7 +33,7 @@ import {
   TrendingUp,
   Trash2,
 } from 'lucide-react';
-import { buildCategoryMap } from '../../util/category';
+import { buildCategoryPathMap } from '../../util/category';
 import { day } from '../../util/date';
 import { centsToMoney, money, toCents } from '../../util/money';
 
@@ -179,19 +180,30 @@ function OriginTag({ label, kind }: { label: string; kind: OriginKind }) {
   );
 }
 
-function CategoryTag({ category }: { category?: CategoryNodeDto }) {
-  if (!category) return <span className="text-text-muted text-xs">—</span>;
-  const Icon = getIcon(category.icon);
+function CategoryTag({ path }: { path?: CategoryNodeDto[] }) {
+  if (!path || path.length === 0) return <span className="text-text-muted text-xs">—</span>;
+  const leaf = path[path.length - 1]!;
+  const Icon = getIcon(leaf.icon);
   return (
     <span
       className={cn(
         'inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
-        COLOR_TOKEN_SOFT_BG[category.color],
-        COLOR_TOKEN_TEXT[category.color],
+        COLOR_TOKEN_SOFT_BG[leaf.color],
+        COLOR_TOKEN_TEXT[leaf.color],
       )}
+      title={path.map((n) => n.name).join(' > ')}
     >
       <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      <span className="truncate">{category.name}</span>
+      <span className="flex min-w-0 items-center gap-0.5">
+        {path.map((node, i) => (
+          <span key={node.id} className="flex min-w-0 items-center gap-0.5">
+            {i > 0 ? (
+              <ChevronRight className="h-3 w-3 shrink-0 opacity-60" aria-hidden="true" />
+            ) : null}
+            <span className={cn('truncate', i < path.length - 1 && 'opacity-70')}>{node.name}</span>
+          </span>
+        ))}
+      </span>
     </span>
   );
 }
@@ -212,7 +224,7 @@ export function TransactionsTable({
   order,
   onSort,
 }: TransactionsTableProps) {
-  const categoryMap = buildCategoryMap(categories);
+  const categoryPathMap = buildCategoryPathMap(categories);
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
   const cardMap = new Map(cards.map((c) => [c.id, c.name]));
 
@@ -331,7 +343,7 @@ export function TransactionsTable({
                 ) : null}
               </TableCell>
               <TableCell className={CELL}>
-                <CategoryTag category={categoryMap.get(t.categoryId)} />
+                <CategoryTag path={categoryPathMap.get(t.categoryId)} />
               </TableCell>
               <TableCell className={cn(CELL, 'text-text-muted')}>{day(t.dueDate)}</TableCell>
               <TableCell className={cn(CELL, t.type === 'income' ? 'text-success' : 'text-text')}>
