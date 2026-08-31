@@ -322,7 +322,6 @@ export function TransactionFormModal({
       open={open}
       onClose={onClose}
       title={initial ? 'Editar transação' : 'Nova transação'}
-      description="Preencha os dados da transação."
       className="max-w-3xl"
       footer={
         <>
@@ -338,7 +337,7 @@ export function TransactionFormModal({
       <form
         id="transaction-form"
         onSubmit={submit}
-        className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2"
+        className="grid grid-cols-1 gap-x-4 gap-y-2.5 sm:grid-cols-2"
       >
         <Controller
           control={control}
@@ -523,29 +522,30 @@ export function TransactionFormModal({
 
         {/* Já efetivada (só avulsa nova). */}
         {canMarkPaid ? (
-          <div className="bg-surface-2 rounded-card flex flex-col gap-3 p-3 sm:col-span-2">
+          <div className="bg-surface-2 rounded-card flex flex-col gap-2.5 p-3 sm:col-span-2">
             <Switch label="Já efetivada (paga)" {...register('paid')} />
             {paid ? (
-              <Controller
-                control={control}
-                name="effectiveDate"
-                render={({ field }) => (
-                  <DatePicker
-                    label="Data de efetivação (opcional)"
-                    value={isoToDate(field.value)}
-                    onChange={(v) => field.onChange(dateToIso(v))}
-                  />
-                )}
-              />
-            ) : null}
-            {paid ? (
-              <p className="text-text-muted text-xs">
-                Sem data informada, assumimos o vencimento.
-              </p>
+              <div className="sm:w-1/2 sm:pr-2">
+                <Controller
+                  control={control}
+                  name="effectiveDate"
+                  render={({ field }) => (
+                    <DatePicker
+                      label="Data de efetivação (opcional)"
+                      value={isoToDate(field.value)}
+                      onChange={(v) => field.onChange(dateToIso(v))}
+                    />
+                  )}
+                />
+                <p className="text-text-muted mt-1 text-xs">
+                  Sem data informada, assumimos o vencimento.
+                </p>
+              </div>
             ) : null}
           </div>
         ) : null}
 
+        {/* Observações. */}
         <div className="sm:col-span-2">
           <Input
             label="Observações (opcional)"

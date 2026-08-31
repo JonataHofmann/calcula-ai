@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, ChevronDown } from 'lucide-react';
 import type { ColorToken, IconKey } from '@finance/contracts';
@@ -78,13 +79,47 @@ export function EntitySelect({
   const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  /** Fixed-position coords so the list escapes any `overflow` ancestor (e.g. a modal). */
+  const [coords, setCoords] = useState<{ left: number; width: number; top?: number; bottom?: number; maxHeight: number }>();
 
   const selected = useMemo(() => options.find((o) => o.value === value), [options, value]);
+
+  // Anchor the portalled list to the trigger; recompute on open, scroll and resize.
+  useLayoutEffect(() => {
+    if (!open) return;
+    function place() {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const margin = 8;
+      const spaceBelow = window.innerHeight - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const openUp = spaceBelow < 240 && spaceAbove > spaceBelow;
+      setCoords({
+        left: rect.left,
+        width: rect.width,
+        maxHeight: Math.min(256, Math.max(openUp ? spaceAbove : spaceBelow, 96)),
+        ...(openUp
+          ? { bottom: window.innerHeight - rect.top + 4 }
+          : { top: rect.bottom + 4 }),
+      });
+    }
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!rootRef.current?.contains(t) && !listRef.current?.contains(t)) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false);
@@ -106,6 +141,7 @@ export function EntitySelect({
       ) : null}
       <div className="relative">
         <button
+          ref={triggerRef}
           type="button"
           id={triggerId}
           role="combobox"
@@ -137,18 +173,28 @@ export function EntitySelect({
           <ChevronDown className="text-text-muted h-4 w-4 shrink-0" aria-hidden="true" />
         </button>
 
-        <AnimatePresence>
-          {open ? (
-            <motion.ul
-              id={listId}
-              role="listbox"
-              aria-label={label}
-              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
-              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
-              transition={{ duration: reduceMotion ? 0 : 0.15, ease: 'easeOut' }}
-              className="bg-surface border-border shadow-lift absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-card border p-1"
-            >
+        {open && typeof document !== 'undefined' && coords
+          ? createPortal(
+              <AnimatePresence>
+                <motion.ul
+                  ref={listRef}
+                  id={listId}
+                  role="listbox"
+                  aria-label={label}
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.15, ease: 'easeOut' }}
+                  style={{
+                    position: 'fixed',
+                    left: coords.left,
+                    width: coords.width,
+                    top: coords.top,
+                    bottom: coords.bottom,
+                    maxHeight: coords.maxHeight,
+                  }}
+                  className="bg-surface border-border shadow-lift z-50 overflow-y-auto rounded-card border p-1"
+                >
               {options.length === 0 ? (
                 <li className="text-text-muted px-3 py-2 text-sm">Nenhuma opção</li>
               ) : (
@@ -186,9 +232,11 @@ export function EntitySelect({
                   );
                 })
               )}
-            </motion.ul>
-          ) : null}
-        </AnimatePresence>
+                </motion.ul>
+              </AnimatePresence>,
+              document.body,
+            )
+          : null}
       </div>
       {error ? <p className="text-danger text-sm">{error}</p> : null}
     </div>
