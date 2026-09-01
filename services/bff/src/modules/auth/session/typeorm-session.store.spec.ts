@@ -102,6 +102,22 @@ describe('TypeormSessionStore', () => {
     expect(found?.tokens.accessToken).toBe('new-access');
   });
 
+  it('slides the session expiry forward when a new expiresAt is given', async () => {
+    const repo = makeFakeRepository();
+    const store = new TypeormSessionStore(repo, SECRET);
+    const created = await store.create({
+      keycloakUserId: 'kc-1',
+      tokens,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const slid = new Date(Date.now() + 30 * 60 * 1000);
+    await store.updateTokens(created.id, { ...tokens, accessToken: 'new-access' }, slid);
+
+    const found = await store.findById(created.id);
+    expect(found?.tokens.accessToken).toBe('new-access');
+    expect(found?.expiresAt.getTime()).toBe(slid.getTime());
+  });
+
   it('throttles lastActivityAt updates under 60s', async () => {
     const repo = makeFakeRepository();
     const store = new TypeormSessionStore(repo, SECRET);

@@ -53,8 +53,10 @@ export class TypeormSessionStore implements SessionStore {
     return this.toSession(entity, tokens);
   }
 
-  async updateTokens(id: string, tokens: SessionTokens): Promise<void> {
-    await this.repository.update({ id }, { encryptedTokens: encryptTokens(tokens, this.key) });
+  async updateTokens(id: string, tokens: SessionTokens, expiresAt?: Date): Promise<void> {
+    const patch: Partial<SessionEntity> = { encryptedTokens: encryptTokens(tokens, this.key) };
+    if (expiresAt) patch.expiresAt = expiresAt;
+    await this.repository.update({ id }, patch);
   }
 
   async touch(id: string, lastActivityAt: Date): Promise<void> {

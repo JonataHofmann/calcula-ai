@@ -25,6 +25,12 @@ export interface CallbackResult {
   refreshExpiresAt: Date;
 }
 
+export interface RefreshResult {
+  tokens: SessionTokens;
+  /** New absolute session expiry — slides the sliding window forward on each refresh. */
+  refreshExpiresAt: Date;
+}
+
 export class ProviderUnavailableError extends Error {
   constructor() {
     super('OIDC provider unavailable');
@@ -151,10 +157,13 @@ export class AuthService {
     return this.toCallbackResult(response, loginState.returnTo);
   }
 
-  async refresh(refreshToken: string): Promise<SessionTokens> {
+  async refresh(refreshToken: string): Promise<RefreshResult> {
     const config = await this.getConfig();
     const response = await oidc.refreshTokenGrant(config, refreshToken);
-    return this.toSessionTokens(response, refreshToken);
+    return {
+      tokens: this.toSessionTokens(response, refreshToken),
+      refreshExpiresAt: this.computeRefreshExpiresAt(response),
+    };
   }
 
   async buildLogoutUrl(idToken: string): Promise<string | null> {
@@ -175,17 +184,22 @@ export class AuthService {
     returnTo: string,
   ): CallbackResult {
     const claims = (response.claims() ?? {}) as Record<string, unknown>;
+    return {
+      tokens: this.toSessionTokens(response),
+      claims,
+      returnTo,
+      refreshExpiresAt: this.computeRefreshExpiresAt(response),
+    };
+  }
+
+  /** Absolute session expiry from the token response's `refresh_expires_in` (Keycloak SSO idle). */
+  private computeRefreshExpiresAt(response: oidc.TokenEndpointResponse): Date {
     const refreshExpiresIn = (response as Record<string, unknown>)['refresh_expires_in'];
     const refreshLifetimeMs =
       typeof refreshExpiresIn === 'number' && refreshExpiresIn > 0
         ? refreshExpiresIn * 1000
         : DEFAULT_REFRESH_LIFETIME_MS;
-    return {
-      tokens: this.toSessionTokens(response),
-      claims,
-      returnTo,
-      refreshExpiresAt: new Date(Date.now() + refreshLifetimeMs),
-    };
+    return new Date(Date.now() + refreshLifetimeMs);
   }
 
   private toSessionTokens(

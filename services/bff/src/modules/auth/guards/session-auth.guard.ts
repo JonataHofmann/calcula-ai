@@ -76,8 +76,9 @@ export class SessionAuthGuard implements CanActivate {
     if (session.tokens.accessTokenExpiresAt - now < REFRESH_WINDOW_MS) {
       try {
         const refreshed = await this.authService.refresh(session.tokens.refreshToken);
-        await this.sessionStore.updateTokens(session.id, refreshed);
-        session.tokens = refreshed;
+        await this.sessionStore.updateTokens(session.id, refreshed.tokens, refreshed.refreshExpiresAt);
+        session.tokens = refreshed.tokens;
+        session.expiresAt = refreshed.refreshExpiresAt;
       } catch {
         await this.sessionStore.delete(session.id);
         clearSessionCookie(response);

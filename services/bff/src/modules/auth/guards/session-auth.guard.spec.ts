@@ -122,13 +122,17 @@ describe('SessionAuthGuard', () => {
       tokens: makeTokens({ accessTokenExpiresAt: Date.now() + 10_000 }),
     });
     const store = makeFakeStore(session);
-    const refreshed = makeTokens({ accessToken: 'new-access' });
-    const authService = { refresh: jest.fn().mockResolvedValue(refreshed) };
+    const refreshedTokens = makeTokens({ accessToken: 'new-access' });
+    const refreshExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    const authService = {
+      refresh: jest.fn().mockResolvedValue({ tokens: refreshedTokens, refreshExpiresAt }),
+    };
     const guard = makeGuard(store, authService);
     const { context, req } = makeContext({ finance_session: signSessionId('session-1', SECRET) });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(store.updateTokens).toHaveBeenCalledWith('session-1', refreshed);
+    expect(store.updateTokens).toHaveBeenCalledWith('session-1', refreshedTokens, refreshExpiresAt);
+    expect(session.expiresAt).toBe(refreshExpiresAt);
     expect(req['user']).toEqual({ id: 'kc-1', keycloakUserId: 'kc-1', roles: [] });
   });
 

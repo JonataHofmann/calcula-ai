@@ -25,7 +25,8 @@ export const SESSION_STORE = Symbol('SESSION_STORE');
 export interface SessionStore {
   create(input: CreateSessionInput): Promise<Session>;
   findById(id: string): Promise<Session | null>;
-  updateTokens(id: string, tokens: SessionTokens): Promise<void>;
+  /** Persists refreshed tokens; when `expiresAt` is given, slides the session window forward. */
+  updateTokens(id: string, tokens: SessionTokens, expiresAt?: Date): Promise<void>;
   touch(id: string, lastActivityAt: Date): Promise<void>;
   delete(id: string): Promise<void>;
 }
