@@ -88,35 +88,21 @@ export function TransactionsView() {
     return { dueFrom, dueTo, sort: 'dueDate', order: 'desc' };
   }, [period]);
 
-  // Credit-card transactions due before the current period — folded into the invoice groups when grouping
-  // is on so a card's invoice reflects prior-month expenses AND incomes (estorno/reembolso/pagamento),
-  // not just the selected month.
-  const priorCardQuery: ListTransactionsQuery = useMemo(() => {
-    const { dueFrom } = periodWindow(period);
-    const priorTo = new Date(new Date(dueFrom).getTime() - 1).toISOString();
-    return { dueFrom: new Date(0).toISOString(), dueTo: priorTo, sort, order, ...filters };
-  }, [period, sort, order, filters]);
-
   // Pendentes vencidos ANTES do período visualizado (não relativo a "hoje"): no mês do
   // vencimento a transação aparece só na listagem; em meses posteriores, se não efetivada,
   // cai na lista de pendentes anteriores; no mês anterior ao vencimento não aparece.
   const overdueBefore = useMemo(() => periodWindow(period).dueFrom, [period]);
   const { data: transactions, isLoading } = useTransactions(query);
   const { data: periodTransactions } = useTransactions(periodQuery);
-  const { data: priorCardTransactions } = useTransactions(priorCardQuery, groupCreditCardExpenses);
   const { data: overdue } = useOverdue(overdueBefore, showOverdue);
   const { data: accounts } = useAccounts();
   const { data: cards } = useCards();
   const { data: categories } = useCategories();
 
-  // When grouping, merge prior-month card expenses into the table so they land in the invoice groups.
-  const tableTransactions = useMemo(() => {
-    const current = transactions ?? [];
-    if (!groupCreditCardExpenses || !priorCardTransactions?.length) return current;
-    const seen = new Set(current.map((t) => t.id));
-    const priorCards = priorCardTransactions.filter((t) => t.creditCardId && !seen.has(t.id));
-    return [...current, ...priorCards];
-  }, [transactions, priorCardTransactions, groupCreditCardExpenses]);
+  // A fatura agrupada usa só as transações do período visualizado — cada lançamento de cartão já
+  // carrega o dueDate da fatura a que pertence, então a janela do mês isola a fatura correta.
+  // Faturas anteriores não pagas aparecem individualmente na lista de pendentes (overdue).
+  const tableTransactions = transactions ?? [];
 
   const create = useCreateTransaction();
   const update = useUpdateTransaction();
