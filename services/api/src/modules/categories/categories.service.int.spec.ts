@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { CategoriesService } from './categories.service';
 import { CategoryEntity } from './entities/category.entity';
+import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { UserHiddenCategoryEntity } from './entities/user-hidden-category.entity';
 import { UserCategoryOverrideEntity } from './entities/user-category-override.entity';
 import { CategoryNotFoundError } from './categories.types';
@@ -20,7 +21,12 @@ const USER_A = '11111111-1111-1111-1111-111111111111';
 const USER_B = '22222222-2222-2222-2222-222222222222';
 const SYSTEM_ID = '00000000-0000-4000-a000-000000000001';
 
-const ENTITIES = [CategoryEntity, UserHiddenCategoryEntity, UserCategoryOverrideEntity];
+const ENTITIES = [
+  CategoryEntity,
+  TransactionEntity,
+  UserHiddenCategoryEntity,
+  UserCategoryOverrideEntity,
+];
 
 maybe('CategoriesService (integration)', () => {
   let dataSource: DataSource;
@@ -39,6 +45,7 @@ maybe('CategoriesService (integration)', () => {
       dataSource.getRepository(CategoryEntity),
       dataSource.getRepository(UserHiddenCategoryEntity),
       dataSource.getRepository(UserCategoryOverrideEntity),
+      dataSource.getRepository(TransactionEntity),
     );
   });
 
@@ -47,10 +54,33 @@ maybe('CategoriesService (integration)', () => {
   });
 
   beforeEach(async () => {
+    await dataSource.getRepository(TransactionEntity).clear();
     await dataSource.getRepository(UserHiddenCategoryEntity).clear();
     await dataSource.getRepository(UserCategoryOverrideEntity).clear();
     await dataSource.getRepository(CategoryEntity).clear();
   });
+
+  /** Seed a transaction under a category, on an account (origin CHECK needs exactly one). */
+  async function seedTx(userId: string, categoryId: string): Promise<void> {
+    const repo = dataSource.getRepository(TransactionEntity);
+    const now = new Date();
+    await repo.insert(
+      repo.create({
+        id: randomUUID(),
+        description: 'lançamento',
+        dueDate: now,
+        purchaseDate: null,
+        amount: '10.00',
+        recurrence: 'single',
+        type: 'expense',
+        status: 'pending',
+        categoryId,
+        accountId: randomUUID(),
+        creditCardId: null,
+        userId,
+      }),
+    );
+  }
 
   /** Seed a shared system default straight through the repo (the service only ever creates custom rows). */
   async function seedSystem(): Promise<void> {
@@ -104,6 +134,50 @@ maybe('CategoriesService (integration)', () => {
     await service.delete(USER_A, root.id);
     const tree = await service.list(USER_A);
     expect(tree.expense).toHaveLength(0);
+  });
+
+  it('counts and cascades transactions across the whole subtree', async () => {
+    const root = await service.create(USER_A, {
+      name: 'Mercado',
+      type: 'expense',
+      icon: 'utensils',
+      color: 'primary',
+    });
+    const sub = await service.addSubcategory(USER_A, root.id, {
+      name: 'Feira',
+      icon: 'utensils',
+      color: 'primary',
+    });
+    const other = await service.create(USER_A, {
+      name: 'Transporte',
+      type: 'expense',
+      icon: 'utensils',
+      color: 'primary',
+    });
+    await seedTx(USER_A, root.id);
+    await seedTx(USER_A, sub.id); // descendant — must be included
+    await seedTx(USER_A, other.id); // unrelated — must be untouched
+    await seedTx(USER_B, root.id); // other user — never counted
+
+    expect(await service.countTransactions(USER_A, root.id)).toBe(2);
+
+    const txRepo = dataSource.getRepository(TransactionEntity);
+    await service.delete(USER_A, root.id, true);
+    expect(await txRepo.count({ where: { userId: USER_A } })).toBe(1); // only `other` remains
+    expect(await txRepo.count({ where: { categoryId: other.id } })).toBe(1);
+  });
+
+  it('keeps subtree transactions when the flag is not set', async () => {
+    const root = await service.create(USER_A, {
+      name: 'Mercado',
+      type: 'expense',
+      icon: 'utensils',
+      color: 'primary',
+    });
+    await seedTx(USER_A, root.id);
+    const txRepo = dataSource.getRepository(TransactionEntity);
+    await service.delete(USER_A, root.id);
+    expect(await txRepo.count({ where: { categoryId: root.id } })).toBe(1);
   });
 
   it("does not delete another user's tree", async () => {

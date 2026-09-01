@@ -1,6 +1,7 @@
 import type { Repository } from 'typeorm';
 import { AccountsService } from './accounts.service';
 import { AccountEntity } from './entities/account.entity';
+import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { AccountNotFoundError, InvalidAccountError } from './accounts.types';
 
 /**
@@ -38,6 +39,31 @@ function makeFakeRepo(): Repository<AccountEntity> {
   return fake as unknown as Repository<AccountEntity>;
 }
 
+/** In-memory fake of the transaction repo subset the service uses (count/delete by account + user). */
+function makeFakeTxRepo(seed: TransactionEntity[] = []): Repository<TransactionEntity> {
+  let store = [...seed];
+  const fake = {
+    async count(opts: { where: { accountId: string; userId: string } }): Promise<number> {
+      return store.filter(
+        (t) => t.accountId === opts.where.accountId && t.userId === opts.where.userId,
+      ).length;
+    },
+    async delete(criteria: { accountId: string; userId: string }): Promise<{ affected: number }> {
+      const before = store.length;
+      store = store.filter(
+        (t) => !(t.accountId === criteria.accountId && t.userId === criteria.userId),
+      );
+      return { affected: before - store.length };
+    },
+    __store: () => store,
+  };
+  return fake as unknown as Repository<TransactionEntity>;
+}
+
+function store(txRepo: Repository<TransactionEntity>): TransactionEntity[] {
+  return (txRepo as unknown as { __store: () => TransactionEntity[] }).__store();
+}
+
 const USER_A = 'user-a';
 const USER_B = 'user-b';
 
@@ -52,7 +78,7 @@ describe('AccountsService', () => {
   let service: AccountsService;
 
   beforeEach(() => {
-    service = new AccountsService(makeFakeRepo());
+    service = new AccountsService(makeFakeRepo(), makeFakeTxRepo());
   });
 
   it('creates an account owned by the caller and returns a DTO without userId', async () => {
@@ -108,5 +134,32 @@ describe('AccountsService', () => {
     const created = await service.create(USER_A, validInput);
     await expect(service.delete(USER_B, created.id)).rejects.toBeInstanceOf(AccountNotFoundError);
     expect(await service.list(USER_A)).toHaveLength(1);
+  });
+
+  it('counts only the account transactions of the calling user', async () => {
+    const accRepo = makeFakeRepo();
+    const svc0 = new AccountsService(accRepo, makeFakeTxRepo());
+    const acc = await svc0.create(USER_A, validInput);
+    const mine = { accountId: acc.id, userId: USER_A } as TransactionEntity;
+    const other = { accountId: acc.id, userId: USER_B } as TransactionEntity;
+    const svc = new AccountsService(accRepo, makeFakeTxRepo([mine, mine, other]));
+    expect(await svc.countTransactions(USER_A, acc.id)).toBe(2);
+  });
+
+  it('keeps the account transactions by default but cascades when the flag is set', async () => {
+    const accRepo = makeFakeRepo();
+    const svc0 = new AccountsService(accRepo, makeFakeTxRepo());
+    const acc = await svc0.create(USER_A, validInput);
+    const tx = { accountId: acc.id, userId: USER_A } as TransactionEntity;
+
+    const keptTx = makeFakeTxRepo([tx, tx]);
+    await new AccountsService(accRepo, keptTx).delete(USER_A, acc.id);
+    expect(store(keptTx)).toHaveLength(2);
+
+    const acc2 = await svc0.create(USER_A, validInput);
+    const tx2 = { accountId: acc2.id, userId: USER_A } as TransactionEntity;
+    const goneTx = makeFakeTxRepo([tx2, tx2]);
+    await new AccountsService(accRepo, goneTx).delete(USER_A, acc2.id, true);
+    expect(store(goneTx)).toHaveLength(0);
   });
 });

@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import type { CategoryNodeDto } from '@finance/contracts';
-import { Badge, Button, Card, CardHeader, Modal, Skeleton, type BadgeProps } from '@finance/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Checkbox,
+  Modal,
+  Skeleton,
+  type BadgeProps,
+} from '@finance/ui';
 import { FolderTree, Plus, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
 import { CategoryTree, type CategoryTreeCallbacks } from './category-tree';
 import {
@@ -13,6 +22,7 @@ import {
 import {
   useAddSubcategory,
   useCategories,
+  useCategoryTransactionCount,
   useCreateCategory,
   useDeleteCategory,
   useRevertOverride,
@@ -38,6 +48,19 @@ export function CategoriesView() {
 
   const [form, setForm] = useState<FormState | null>(null);
   const [deleting, setDeleting] = useState<CategoryNodeDto | undefined>(undefined);
+  const [deleteTx, setDeleteTx] = useState(false);
+  const txCount = useCategoryTransactionCount(deleting?.id);
+  const linkedCount = txCount.data?.count ?? 0;
+
+  function openDelete(node: CategoryNodeDto) {
+    setDeleteTx(false);
+    setDeleting(node);
+  }
+
+  function closeDelete() {
+    setDeleting(undefined);
+    setDeleteTx(false);
+  }
 
   function openCreate() {
     setForm({ mode: 'create' });
@@ -86,14 +109,14 @@ export function CategoriesView() {
 
   async function confirmDelete() {
     if (!deleting) return;
-    await deleteCategory.mutateAsync(deleting.id);
-    setDeleting(undefined);
+    await deleteCategory.mutateAsync({ id: deleting.id, deleteTransactions: deleteTx });
+    closeDelete();
   }
 
   const callbacks = {
     onAddSub: openAddSub,
     onEdit: openEdit,
-    onDelete: setDeleting,
+    onDelete: openDelete,
     onRevert: (node: CategoryNodeDto) => revertOverride.mutate(node.id),
   };
 
@@ -176,7 +199,7 @@ export function CategoriesView() {
 
       <Modal
         open={Boolean(deleting)}
-        onClose={() => setDeleting(undefined)}
+        onClose={closeDelete}
         title={deletingDefault ? 'Ocultar categoria' : 'Excluir categoria'}
         description={
           deleting
@@ -187,7 +210,7 @@ export function CategoriesView() {
         }
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setDeleting(undefined)}>
+            <Button variant="secondary" onClick={closeDelete}>
               Cancelar
             </Button>
             <Button
@@ -205,6 +228,18 @@ export function CategoriesView() {
             ? 'A categoria padrão continua disponível para outros usuários.'
             : 'Subcategorias associadas também serão excluídas. Esta ação não pode ser desfeita.'}
         </p>
+        {linkedCount > 0 && (
+          <label className="mt-3 flex items-start gap-2 text-sm">
+            <Checkbox
+              checked={deleteTx}
+              onChange={(e) => setDeleteTx(e.target.checked)}
+              disabled={txCount.isLoading}
+            />
+            <span className="text-text-muted">
+              Excluir também as {linkedCount} transações vinculadas (inclui subcategorias).
+            </span>
+          </label>
+        )}
       </Modal>
     </div>
   );

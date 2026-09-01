@@ -6,7 +6,14 @@ import type {
   CreditCardDto,
   UpdateCreditCardInput,
 } from '@finance/contracts';
-import { createCard, deleteCard, listCards, updateCard } from './cards-api';
+import {
+  createCard,
+  deleteCard,
+  getCardTransactionCount,
+  listCards,
+  updateCard,
+} from './cards-api';
+import { TRANSACTIONS_QUERY_KEY } from '../transactions/use-transactions';
 
 const KEY = ['cards'] as const;
 
@@ -31,11 +38,25 @@ export function useUpdateCard() {
   });
 }
 
+/** Linked-transaction count for the delete dialog. Disabled until an id is provided. */
+export function useCardTransactionCount(id: string | undefined) {
+  return useQuery({
+    queryKey: [...KEY, id, 'transaction-count'] as const,
+    queryFn: () => getCardTransactionCount(id as string),
+    enabled: Boolean(id),
+  });
+}
+
 export function useDeleteCard() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => deleteCard(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    mutationFn: ({ id, deleteTransactions }: { id: string; deleteTransactions?: boolean }) =>
+      deleteCard(id, deleteTransactions),
+    onSuccess: (_data, { deleteTransactions }) => {
+      qc.invalidateQueries({ queryKey: KEY });
+      // Cascaded transactions also change the transaction lists/invoices.
+      if (deleteTransactions) qc.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY });
+    },
   });
 }
 

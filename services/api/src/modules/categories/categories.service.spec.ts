@@ -1,27 +1,37 @@
+import type { Repository } from 'typeorm';
 import { CategoriesService } from './categories.service';
 import { CategoryConflictError, CategoryNotFoundError } from './categories.types';
 import {
   makeFakeCategoryRepo,
   makeFakeHiddenRepo,
   makeFakeOverrideRepo,
+  makeFakeTransactionRepo,
   customCategory,
   systemCategory,
 } from './__testing__/in-memory-repositories';
+import type { TransactionEntity } from '../transactions/entities/transaction.entity';
 
 const USER = 'user-1';
 
-function setup(seed = [
-  systemCategory({ id: 'sys-food', name: 'Alimentação', type: 'expense', icon: 'utensils', color: 'danger' }),
-  systemCategory({ id: 'sys-food-mkt', name: 'Mercado', type: 'expense', parentId: 'sys-food' }),
-  systemCategory({ id: 'sys-salary', name: 'Salário', type: 'income' }),
-  customCategory({ id: 'cus-pets', ownerId: USER, name: 'Pets', type: 'expense' }),
-]) {
+function setup(
+  seed = [
+    systemCategory({ id: 'sys-food', name: 'Alimentação', type: 'expense', icon: 'utensils', color: 'danger' }),
+    systemCategory({ id: 'sys-food-mkt', name: 'Mercado', type: 'expense', parentId: 'sys-food' }),
+    systemCategory({ id: 'sys-salary', name: 'Salário', type: 'income' }),
+    customCategory({ id: 'cus-pets', ownerId: USER, name: 'Pets', type: 'expense' }),
+  ],
+  txSeed: TransactionEntity[] = [],
+) {
   const categoryRepo = makeFakeCategoryRepo(seed);
   const hiddenRepo = makeFakeHiddenRepo();
   const overrideRepo = makeFakeOverrideRepo();
-  const service = new CategoriesService(categoryRepo, hiddenRepo, overrideRepo);
-  return { service, categoryRepo, hiddenRepo, overrideRepo };
+  const txRepo = makeFakeTransactionRepo(txSeed);
+  const service = new CategoriesService(categoryRepo, hiddenRepo, overrideRepo, txRepo);
+  return { service, categoryRepo, hiddenRepo, overrideRepo, txRepo };
 }
+
+const txStore = (txRepo: Repository<TransactionEntity>): TransactionEntity[] =>
+  (txRepo as unknown as { __store: () => TransactionEntity[] }).__store();
 
 describe('CategoriesService.list', () => {
   it('groups defaults and custom categories by type with correct sources', async () => {
@@ -220,6 +230,33 @@ describe('CategoriesService.delete', () => {
       customCategory({ id: 'other', ownerId: 'user-2', name: 'Alheia', type: 'expense' }),
     );
     await expect(service.delete(USER, 'other')).rejects.toBeInstanceOf(CategoryNotFoundError);
+  });
+
+  it('counts transactions across the subtree, scoped to the user', async () => {
+    const tx = (id: string, categoryId: string, userId: string) =>
+      ({ id, categoryId, userId }) as TransactionEntity;
+    const { service } = setup(undefined, [
+      tx('t1', 'sys-food', USER),
+      tx('t2', 'sys-food-mkt', USER), // descendant of sys-food
+      tx('t3', 'sys-food', 'user-2'), // other user
+      tx('t4', 'sys-salary', USER), // unrelated subtree
+    ]);
+    expect(await service.countTransactions(USER, 'sys-food')).toBe(2);
+  });
+
+  it('keeps subtree transactions by default but cascades them when the flag is set', async () => {
+    const tx = (id: string, categoryId: string) =>
+      ({ id, categoryId, userId: USER }) as TransactionEntity;
+    const seedTx = [tx('t1', 'sys-food'), tx('t2', 'sys-food-mkt'), tx('t3', 'sys-salary')];
+
+    const kept = setup(undefined, seedTx);
+    await kept.service.delete(USER, 'sys-food');
+    expect(txStore(kept.txRepo)).toHaveLength(3);
+
+    const gone = setup(undefined, seedTx);
+    await gone.service.delete(USER, 'sys-food', true);
+    // both sys-food rows removed, unrelated sys-salary row kept
+    expect(txStore(gone.txRepo).map((t) => t.id)).toEqual(['t3']);
   });
 });
 

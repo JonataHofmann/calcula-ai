@@ -8,6 +8,7 @@ import {
   type UpdateCreditCardInput,
 } from '@finance/contracts';
 import { CreditCardEntity } from './entities/credit-card.entity';
+import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { CardResponseDto } from './dto/card-response.dto';
 import { CardConverter } from './converters/card.converter';
 import { CreditCardNotFoundError, InvalidCreditCardError } from './cards.types';
@@ -24,6 +25,8 @@ export class CardsService {
   constructor(
     @InjectRepository(CreditCardEntity)
     private readonly repo: Repository<CreditCardEntity>,
+    @InjectRepository(TransactionEntity)
+    private readonly txRepo: Repository<TransactionEntity>,
   ) {}
 
   async list(userId: string): Promise<CardResponseDto[]> {
@@ -83,12 +86,22 @@ export class CardsService {
     return CardConverter.toResponse(entity);
   }
 
-  async delete(userId: string, id: string): Promise<void> {
+  /** Number of transactions linked to this card (for the delete confirmation). */
+  async countTransactions(userId: string, id: string): Promise<number> {
+    return this.txRepo.count({ where: { creditCardId: id, userId } });
+  }
+
+  async delete(userId: string, id: string, deleteTransactions = false): Promise<void> {
     this.logger.log(`Deleting card ${id} for user ${userId}`);
     const entity = await this.repo.findOne({ where: { id, userId } });
     if (!entity) {
       this.logger.warn(`Card ${id} not found for user ${userId}`);
       throw new CreditCardNotFoundError(id);
+    }
+    // Optionally cascade the card's transactions; otherwise they are kept (unlinked).
+    if (deleteTransactions) {
+      const { affected } = await this.txRepo.delete({ creditCardId: id, userId });
+      this.logger.log(`Deleted ${affected ?? 0} transaction(s) of card ${id} for user ${userId}`);
     }
     await this.repo.delete({ id, userId });
     this.logger.log(`Deleted card ${id} for user ${userId}`);

@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { AccountsService } from './accounts.service';
 import { AccountEntity } from './entities/account.entity';
+import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { AccountNotFoundError } from './accounts.types';
 
 /**
@@ -25,12 +27,15 @@ maybe('AccountsService (integration)', () => {
     dataSource = new DataSource({
       type: 'postgres',
       url,
-      entities: [AccountEntity],
+      entities: [AccountEntity, TransactionEntity],
       synchronize: true,
       dropSchema: true,
     });
     await dataSource.initialize();
-    service = new AccountsService(dataSource.getRepository(AccountEntity));
+    service = new AccountsService(
+      dataSource.getRepository(AccountEntity),
+      dataSource.getRepository(TransactionEntity),
+    );
   });
 
   afterAll(async () => {
@@ -38,8 +43,33 @@ maybe('AccountsService (integration)', () => {
   });
 
   beforeEach(async () => {
+    await dataSource.getRepository(TransactionEntity).clear();
     await dataSource.getRepository(AccountEntity).clear();
   });
+
+  const CATEGORY = '33333333-3333-3333-3333-333333333333';
+
+  /** Minimal account-line transaction row for cascade tests. */
+  async function seedTx(userId: string, accountId: string): Promise<void> {
+    const repo = dataSource.getRepository(TransactionEntity);
+    const now = new Date();
+    await repo.insert(
+      repo.create({
+        id: randomUUID(),
+        description: 'lançamento',
+        dueDate: now,
+        purchaseDate: null,
+        amount: '10.00',
+        recurrence: 'single',
+        type: 'expense',
+        status: 'pending',
+        categoryId: CATEGORY,
+        accountId,
+        creditCardId: null,
+        userId,
+      }),
+    );
+  }
 
   it('round-trips an account preserving catalog references', async () => {
     const created = await service.create(USER_A, validInput);
@@ -70,5 +100,28 @@ maybe('AccountsService (integration)', () => {
     expect((await service.list(USER_A)).length).toBe(1);
     await service.delete(USER_A, created.id);
     expect((await service.list(USER_A)).length).toBe(0);
+  });
+
+  it('counts linked transactions scoped to the owner', async () => {
+    const acc = await service.create(USER_A, validInput);
+    await seedTx(USER_A, acc.id);
+    await seedTx(USER_A, acc.id);
+    await seedTx(USER_B, acc.id);
+    expect(await service.countTransactions(USER_A, acc.id)).toBe(2);
+  });
+
+  it('keeps transactions by default and cascades them when requested', async () => {
+    const txRepo = dataSource.getRepository(TransactionEntity);
+
+    const keep = await service.create(USER_A, validInput);
+    await seedTx(USER_A, keep.id);
+    await service.delete(USER_A, keep.id);
+    expect(await txRepo.count({ where: { accountId: keep.id } })).toBe(1);
+
+    const cascade = await service.create(USER_A, validInput);
+    await seedTx(USER_A, cascade.id);
+    await seedTx(USER_A, cascade.id);
+    await service.delete(USER_A, cascade.id, true);
+    expect(await txRepo.count({ where: { accountId: cascade.id } })).toBe(0);
   });
 });

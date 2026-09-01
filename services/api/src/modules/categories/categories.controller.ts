@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   type AuthenticatedUser,
@@ -20,10 +21,17 @@ import {
   type CreateSubcategoryInput,
   updateCategoryInput,
   type UpdateCategoryInput,
+  type TransactionCountResult,
 } from '@finance/contracts';
+import { z } from 'zod';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CategoriesService } from './categories.service';
+
+/** `?deleteTransactions=true` → also delete the subtree's transactions. Absent/false → keep them. */
+const deleteTransactionsPipe = new ZodValidationPipe(
+  z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+);
 
 /** HTTP boundary for categories: routing/validation only, all logic in {@link CategoriesService}. */
 @Controller('categories')
@@ -31,6 +39,14 @@ export class CategoriesController {
   private readonly logger = new Logger(CategoriesController.name);
 
   constructor(private readonly categories: CategoriesService) {}
+
+  @Get(':id/transaction-count')
+  async transactionCount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TransactionCountResult> {
+    return { count: await this.categories.countTransactions(user.id, id) };
+  }
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser): Promise<CategoryTreeDto> {
@@ -72,9 +88,10 @@ export class CategoriesController {
   async remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('deleteTransactions', deleteTransactionsPipe) deleteTransactions: boolean,
   ): Promise<void> {
-    this.logger.log(`DELETE /categories/${id} user=${user.id}`);
-    await this.categories.delete(user.id, id);
+    this.logger.log(`DELETE /categories/${id} user=${user.id} deleteTransactions=${deleteTransactions}`);
+    await this.categories.delete(user.id, id, deleteTransactions);
   }
 
   @Post(':id/restore')

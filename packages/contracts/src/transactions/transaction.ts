@@ -241,3 +241,10 @@ export const overdueQuery = z.object({
 });
 
 export type OverdueQuery = z.infer<typeof overdueQuery>;
+
+/** Number of transactions linked to an entity (card/account/category) — shown before a cascading delete. */
+export const transactionCountResultSchema = z.object({
+  count: z.number().int().nonnegative(),
+});
+
+export type TransactionCountResult = z.infer<typeof transactionCountResultSchema>;

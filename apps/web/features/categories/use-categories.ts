@@ -11,11 +11,13 @@ import {
   addSubcategory,
   createCategory,
   deleteCategory,
+  getCategoryTransactionCount,
   listCategories,
   restoreCategory,
   revertOverride,
   updateCategory,
 } from './categories-api';
+import { TRANSACTIONS_QUERY_KEY } from '../transactions/use-transactions';
 
 const KEY = ['categories'] as const;
 
@@ -49,11 +51,24 @@ export function useUpdateCategory() {
   });
 }
 
+/** Linked-transaction count (whole subtree) for the delete dialog. Disabled until an id is provided. */
+export function useCategoryTransactionCount(id: string | undefined) {
+  return useQuery({
+    queryKey: [...KEY, id, 'transaction-count'] as const,
+    queryFn: () => getCategoryTransactionCount(id as string),
+    enabled: Boolean(id),
+  });
+}
+
 export function useDeleteCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => deleteCategory(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    mutationFn: ({ id, deleteTransactions }: { id: string; deleteTransactions?: boolean }) =>
+      deleteCategory(id, deleteTransactions),
+    onSuccess: (_data, { deleteTransactions }) => {
+      qc.invalidateQueries({ queryKey: KEY });
+      if (deleteTransactions) qc.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY });
+    },
   });
 }
 

@@ -1,6 +1,7 @@
 import type { Repository } from 'typeorm';
 import { CardsService } from './cards.service';
 import { CreditCardEntity } from './entities/credit-card.entity';
+import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { CreditCardNotFoundError, InvalidCreditCardError } from './cards.types';
 
 /**
@@ -38,6 +39,27 @@ function makeFakeRepo(): Repository<CreditCardEntity> {
   return fake as unknown as Repository<CreditCardEntity>;
 }
 
+/** In-memory fake of the transaction repo subset the service uses (count/delete by card + user). */
+function makeFakeTxRepo(seed: TransactionEntity[] = []): Repository<TransactionEntity> {
+  let store = [...seed];
+  const fake = {
+    async count(opts: { where: { creditCardId: string; userId: string } }): Promise<number> {
+      return store.filter(
+        (t) => t.creditCardId === opts.where.creditCardId && t.userId === opts.where.userId,
+      ).length;
+    },
+    async delete(criteria: { creditCardId: string; userId: string }): Promise<{ affected: number }> {
+      const before = store.length;
+      store = store.filter(
+        (t) => !(t.creditCardId === criteria.creditCardId && t.userId === criteria.userId),
+      );
+      return { affected: before - store.length };
+    },
+    __store: () => store,
+  };
+  return fake as unknown as Repository<TransactionEntity>;
+}
+
 const USER_A = 'user-a';
 const USER_B = 'user-b';
 
@@ -54,7 +76,7 @@ describe('CardsService', () => {
   let service: CardsService;
 
   beforeEach(() => {
-    service = new CardsService(makeFakeRepo());
+    service = new CardsService(makeFakeRepo(), makeFakeTxRepo());
   });
 
   it('creates a card owned by the caller and returns a DTO without userId', async () => {
@@ -110,4 +132,35 @@ describe('CardsService', () => {
     );
     expect(await service.list(USER_A)).toHaveLength(1);
   });
+
+  it('counts only the card transactions of the calling user', async () => {
+    const cardRepo = makeFakeRepo();
+    const svc0 = new CardsService(cardRepo, makeFakeTxRepo());
+    const card = await svc0.create(USER_A, validInput);
+    const mine = { creditCardId: card.id, userId: USER_A } as TransactionEntity;
+    const other = { creditCardId: card.id, userId: USER_B } as TransactionEntity;
+    const svc = new CardsService(cardRepo, makeFakeTxRepo([mine, mine, other]));
+    expect(await svc.countTransactions(USER_A, card.id)).toBe(2);
+  });
+
+  it('keeps the card transactions by default but cascades when the flag is set', async () => {
+    const cardRepo = makeFakeRepo();
+    const svc0 = new CardsService(cardRepo, makeFakeTxRepo());
+    const card = await svc0.create(USER_A, validInput);
+    const tx = { creditCardId: card.id, userId: USER_A } as TransactionEntity;
+
+    const keptTx = makeFakeTxRepo([tx, tx]);
+    await new CardsService(cardRepo, keptTx).delete(USER_A, card.id);
+    expect(store(keptTx)).toHaveLength(2);
+
+    const card2 = await svc0.create(USER_A, validInput);
+    const tx2 = { creditCardId: card2.id, userId: USER_A } as TransactionEntity;
+    const goneTx = makeFakeTxRepo([tx2, tx2]);
+    await new CardsService(cardRepo, goneTx).delete(USER_A, card2.id, true);
+    expect(store(goneTx)).toHaveLength(0);
+  });
 });
+
+function store(txRepo: Repository<TransactionEntity>): TransactionEntity[] {
+  return (txRepo as unknown as { __store: () => TransactionEntity[] }).__store();
+}

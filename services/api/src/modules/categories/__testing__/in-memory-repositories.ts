@@ -1,6 +1,7 @@
 import { FindOperator, type Repository } from 'typeorm';
 import type { CategoryType } from '@finance/contracts';
 import { CategoryEntity } from '../entities/category.entity';
+import { TransactionEntity } from '../../transactions/entities/transaction.entity';
 import { UserHiddenCategoryEntity } from '../entities/user-hidden-category.entity';
 import { UserCategoryOverrideEntity } from '../entities/user-category-override.entity';
 
@@ -102,6 +103,30 @@ export function makeFakeOverrideRepo(): Repository<UserCategoryOverrideEntity> {
       void store.delete(k(c.userId, c.categoryId)),
   };
   return fake as unknown as Repository<UserCategoryOverrideEntity>;
+}
+
+/**
+ * In-memory fake of the transaction repo subset the {@link CategoriesService} uses:
+ * count/delete scoped by user, with `categoryId` passed as a bare id or `In([...])`.
+ */
+export function makeFakeTransactionRepo(
+  seed: TransactionEntity[] = [],
+): Repository<TransactionEntity> {
+  let store = [...seed];
+  const fake = {
+    count: async (o: { where: { categoryId: unknown; userId: string } }) => {
+      const matches = idMatcher(o.where.categoryId);
+      return store.filter((t) => matches(t.categoryId) && t.userId === o.where.userId).length;
+    },
+    delete: async (c: { categoryId: unknown; userId: string }) => {
+      const matches = idMatcher(c.categoryId);
+      const before = store.length;
+      store = store.filter((t) => !(matches(t.categoryId) && t.userId === c.userId));
+      return { affected: before - store.length };
+    },
+    __store: () => store,
+  };
+  return fake as unknown as Repository<TransactionEntity>;
 }
 
 let seq = 0;

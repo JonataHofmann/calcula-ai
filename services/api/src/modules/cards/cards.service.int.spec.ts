@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { CardsService } from './cards.service';
 import { CreditCardEntity } from './entities/credit-card.entity';
+import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { CreditCardNotFoundError } from './cards.types';
 
 /**
@@ -32,12 +34,15 @@ maybe('CardsService (integration)', () => {
     dataSource = new DataSource({
       type: 'postgres',
       url,
-      entities: [CreditCardEntity],
+      entities: [CreditCardEntity, TransactionEntity],
       synchronize: true,
       dropSchema: true,
     });
     await dataSource.initialize();
-    service = new CardsService(dataSource.getRepository(CreditCardEntity));
+    service = new CardsService(
+      dataSource.getRepository(CreditCardEntity),
+      dataSource.getRepository(TransactionEntity),
+    );
   });
 
   afterAll(async () => {
@@ -45,8 +50,33 @@ maybe('CardsService (integration)', () => {
   });
 
   beforeEach(async () => {
+    await dataSource.getRepository(TransactionEntity).clear();
     await dataSource.getRepository(CreditCardEntity).clear();
   });
+
+  const CATEGORY = '33333333-3333-3333-3333-333333333333';
+
+  /** Minimal card-line transaction row for cascade tests. */
+  async function seedTx(userId: string, creditCardId: string): Promise<void> {
+    const repo = dataSource.getRepository(TransactionEntity);
+    const now = new Date();
+    await repo.insert(
+      repo.create({
+        id: randomUUID(),
+        description: 'compra',
+        dueDate: now,
+        purchaseDate: now,
+        amount: '10.00',
+        recurrence: 'single',
+        type: 'expense',
+        status: 'pending',
+        categoryId: CATEGORY,
+        accountId: null,
+        creditCardId,
+        userId,
+      }),
+    );
+  }
 
   it('round-trips a card preserving the decimal limit as a string', async () => {
     const created = await service.create(USER_A, validInput);
@@ -78,5 +108,28 @@ maybe('CardsService (integration)', () => {
     expect((await service.list(USER_A)).length).toBe(1);
     await service.delete(USER_A, created.id);
     expect((await service.list(USER_A)).length).toBe(0);
+  });
+
+  it('counts linked transactions scoped to the owner', async () => {
+    const card = await service.create(USER_A, validInput);
+    await seedTx(USER_A, card.id);
+    await seedTx(USER_A, card.id);
+    await seedTx(USER_B, card.id);
+    expect(await service.countTransactions(USER_A, card.id)).toBe(2);
+  });
+
+  it('keeps transactions by default and cascades them when requested', async () => {
+    const txRepo = dataSource.getRepository(TransactionEntity);
+
+    const keep = await service.create(USER_A, validInput);
+    await seedTx(USER_A, keep.id);
+    await service.delete(USER_A, keep.id);
+    expect(await txRepo.count({ where: { creditCardId: keep.id } })).toBe(1);
+
+    const cascade = await service.create(USER_A, validInput);
+    await seedTx(USER_A, cascade.id);
+    await seedTx(USER_A, cascade.id);
+    await service.delete(USER_A, cascade.id, true);
+    expect(await txRepo.count({ where: { creditCardId: cascade.id } })).toBe(0);
   });
 });

@@ -13,6 +13,7 @@ import {
   type UpdateCategoryInput,
 } from '@finance/contracts';
 import { CategoryEntity } from './entities/category.entity';
+import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { UserHiddenCategoryEntity } from './entities/user-hidden-category.entity';
 import { UserCategoryOverrideEntity } from './entities/user-category-override.entity';
 import { CategoryConverter } from './converters/category.converter';
@@ -47,6 +48,8 @@ export class CategoriesService {
     private readonly hiddenRepo: Repository<UserHiddenCategoryEntity>,
     @InjectRepository(UserCategoryOverrideEntity)
     private readonly overrideRepo: Repository<UserCategoryOverrideEntity>,
+    @InjectRepository(TransactionEntity)
+    private readonly txRepo: Repository<TransactionEntity>,
   ) {}
 
   /** Effective tree: system defaults (not hidden, overrides applied) ∪ the user's custom categories. */
@@ -204,13 +207,27 @@ export class CategoriesService {
     return CategoryConverter.toNode(category, { source: 'default-overridden', override: merged });
   }
 
+  /** Number of transactions linked to this category's subtree (for the delete confirmation). */
+  async countTransactions(userId: string, id: string): Promise<number> {
+    const category = await this.findAccessible(id, userId);
+    if (!category) throw new CategoryNotFoundError(id);
+    const subtreeIds = await this.collectSubtreeIds(id, userId);
+    return this.txRepo.count({ where: { categoryId: In(subtreeIds), userId } });
+  }
+
   /** A custom category is deleted with its owned descendants; a system default is hidden for this user. */
-  async delete(userId: string, id: string): Promise<void> {
+  async delete(userId: string, id: string, deleteTransactions = false): Promise<void> {
     this.logger.log(`Deleting category ${id} for user ${userId}`);
     const category = await this.findAccessible(id, userId);
     if (!category) {
       this.logger.warn(`Category ${id} not found for user ${userId}`);
       throw new CategoryNotFoundError(id);
+    }
+    // Optionally cascade the whole subtree's transactions before removing the categories.
+    if (deleteTransactions) {
+      const subtreeIds = await this.collectSubtreeIds(id, userId);
+      const { affected } = await this.txRepo.delete({ categoryId: In(subtreeIds), userId });
+      this.logger.log(`Deleted ${affected ?? 0} transaction(s) of category subtree ${id} for user ${userId}`);
     }
     if (category.isSystem) {
       await this.hide(userId, id);
@@ -265,12 +282,15 @@ export class CategoriesService {
     return row.ownerId === userId || row.ownerId === null ? row : null;
   }
 
-  private async deleteWithDescendants(id: string, userId: string): Promise<void> {
-    const owned = await this.categoryRepo.find({ where: { ownerId: userId } });
-    if (!owned.some((row) => row.id === id)) return;
-
+  /**
+   * The subtree rooted at `id` (id + all descendants) across every category accessible
+   * to the user — system defaults ∪ owned rows — so transaction cascades cover custom
+   * subcategories hung under a default parent too.
+   */
+  private async collectSubtreeIds(id: string, userId: string): Promise<string[]> {
+    const accessible = [...(await this.findSystem()), ...(await this.findAllByOwner(userId))];
     const childrenOf = new Map<string, string[]>();
-    for (const row of owned) {
+    for (const row of accessible) {
       if (!row.parentId) continue;
       const list = childrenOf.get(row.parentId) ?? [];
       list.push(row.id);
@@ -283,6 +303,13 @@ export class CategoriesService {
       ids.push(current);
       stack.push(...(childrenOf.get(current) ?? []));
     }
+    return ids;
+  }
+
+  private async deleteWithDescendants(id: string, userId: string): Promise<void> {
+    const owned = await this.categoryRepo.find({ where: { ownerId: userId } });
+    if (!owned.some((row) => row.id === id)) return;
+    const ids = await this.collectSubtreeIds(id, userId);
     await this.categoryRepo.delete({ id: In(ids), ownerId: userId });
   }
 

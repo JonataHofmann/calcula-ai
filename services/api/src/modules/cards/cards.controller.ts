@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -17,7 +18,9 @@ import {
   updateCreditCardInput,
   type UpdateCreditCardInput,
   type AuthenticatedUser,
+  type TransactionCountResult,
 } from '@finance/contracts';
+import { z } from 'zod';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ServiceAccountGuard } from '../../common/guards/service-account.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -28,11 +31,24 @@ import {
   type CreateSyncedCardInput,
 } from './dto/create-synced-card.schema';
 
+/** `?deleteTransactions=true` → also delete the entity's transactions. Absent/false → keep them. */
+const deleteTransactionsPipe = new ZodValidationPipe(
+  z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+);
+
 @Controller('cards')
 export class CardsController {
   private readonly logger = new Logger(CardsController.name);
 
   constructor(private readonly cards: CardsService) {}
+
+  @Get(':id/transaction-count')
+  async transactionCount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TransactionCountResult> {
+    return { count: await this.cards.countTransactions(user.id, id) };
+  }
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser): Promise<CardResponseDto[]> {
@@ -75,8 +91,9 @@ export class CardsController {
   async remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('deleteTransactions', deleteTransactionsPipe) deleteTransactions: boolean,
   ): Promise<void> {
-    this.logger.log(`DELETE /cards/${id} user=${user.id}`);
-    await this.cards.delete(user.id, id);
+    this.logger.log(`DELETE /cards/${id} user=${user.id} deleteTransactions=${deleteTransactions}`);
+    await this.cards.delete(user.id, id, deleteTransactions);
   }
 }

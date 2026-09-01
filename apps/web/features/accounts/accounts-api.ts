@@ -1,9 +1,11 @@
 import type {
   AccountDto,
   CreateAccountInput,
+  TransactionCountResult,
   UpdateAccountInput,
 } from '@finance/contracts';
 import { apiFetch, newIdempotencyKey } from '../../services/api-client';
+import { withQuery } from '../../util/http';
 
 export function listAccounts(): Promise<AccountDto[]> {
   return apiFetch<AccountDto[]>('/accounts');
@@ -25,9 +27,17 @@ export function updateAccount(id: string, input: UpdateAccountInput): Promise<Ac
   });
 }
 
-export function deleteAccount(id: string): Promise<void> {
-  return apiFetch<void>(`/accounts/${id}`, {
-    method: 'DELETE',
-    headers: { 'Idempotency-Key': newIdempotencyKey() },
-  });
+/** Number of transactions linked to this account (shown before a cascading delete). */
+export function getAccountTransactionCount(id: string): Promise<TransactionCountResult> {
+  return apiFetch<TransactionCountResult>(`/accounts/${id}/transaction-count`);
+}
+
+export function deleteAccount(id: string, deleteTransactions = false): Promise<void> {
+  return apiFetch<void>(
+    withQuery(`/accounts/${id}`, { deleteTransactions: deleteTransactions ? 'true' : undefined }),
+    {
+      method: 'DELETE',
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+    },
+  );
 }

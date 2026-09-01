@@ -1,9 +1,11 @@
 import type {
   CreateCreditCardInput,
   CreditCardDto,
+  TransactionCountResult,
   UpdateCreditCardInput,
 } from '@finance/contracts';
 import { apiFetch, newIdempotencyKey } from '../../services/api-client';
+import { withQuery } from '../../util/http';
 
 export function listCards(): Promise<CreditCardDto[]> {
   return apiFetch<CreditCardDto[]>('/cards');
@@ -28,9 +30,17 @@ export function updateCard(
   });
 }
 
-export function deleteCard(id: string): Promise<void> {
-  return apiFetch<void>(`/cards/${id}`, {
-    method: 'DELETE',
-    headers: { 'Idempotency-Key': newIdempotencyKey() },
-  });
+/** Number of transactions linked to this card (shown before a cascading delete). */
+export function getCardTransactionCount(id: string): Promise<TransactionCountResult> {
+  return apiFetch<TransactionCountResult>(`/cards/${id}/transaction-count`);
+}
+
+export function deleteCard(id: string, deleteTransactions = false): Promise<void> {
+  return apiFetch<void>(
+    withQuery(`/cards/${id}`, { deleteTransactions: deleteTransactions ? 'true' : undefined }),
+    {
+      method: 'DELETE',
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+    },
+  );
 }

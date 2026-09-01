@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import type { AccountDto, CreateAccountInput } from '@finance/contracts';
-import { Button, Card, Modal, Skeleton } from '@finance/ui';
+import { Button, Card, Checkbox, Modal, Skeleton } from '@finance/ui';
 import { AnimatePresence, motion } from 'motion/react';
 import { Plus, Wallet } from 'lucide-react';
 import { AccountCard } from './account-card';
 import { AccountFormModal } from './account-form-modal';
 import {
+  useAccountTransactionCount,
   useAccounts,
   useCreateAccount,
   useDeleteAccount,
@@ -23,6 +24,19 @@ export function AccountsView() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AccountDto | undefined>(undefined);
   const [deleting, setDeleting] = useState<AccountDto | undefined>(undefined);
+  const [deleteTx, setDeleteTx] = useState(false);
+  const txCount = useAccountTransactionCount(deleting?.id);
+  const linkedCount = txCount.data?.count ?? 0;
+
+  function openDelete(account: AccountDto) {
+    setDeleteTx(false);
+    setDeleting(account);
+  }
+
+  function closeDelete() {
+    setDeleting(undefined);
+    setDeleteTx(false);
+  }
 
   function openCreate() {
     setEditing(undefined);
@@ -46,8 +60,8 @@ export function AccountsView() {
 
   async function confirmDelete() {
     if (!deleting) return;
-    await deleteAccount.mutateAsync(deleting.id);
-    setDeleting(undefined);
+    await deleteAccount.mutateAsync({ id: deleting.id, deleteTransactions: deleteTx });
+    closeDelete();
   }
 
   return (
@@ -77,7 +91,7 @@ export function AccountsView() {
                 key={account.id}
                 account={account}
                 onEdit={openEdit}
-                onDelete={setDeleting}
+                onDelete={openDelete}
               />
             ))}
           </AnimatePresence>
@@ -113,14 +127,14 @@ export function AccountsView() {
 
       <Modal
         open={Boolean(deleting)}
-        onClose={() => setDeleting(undefined)}
+        onClose={closeDelete}
         title="Excluir conta"
         description={
           deleting ? `Tem certeza que deseja excluir "${deleting.name}"?` : undefined
         }
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setDeleting(undefined)}>
+            <Button variant="secondary" onClick={closeDelete}>
               Cancelar
             </Button>
             <Button
@@ -134,6 +148,18 @@ export function AccountsView() {
         }
       >
         <p className="text-text-muted text-sm">Esta ação não pode ser desfeita.</p>
+        {linkedCount > 0 && (
+          <label className="mt-3 flex items-start gap-2 text-sm">
+            <Checkbox
+              checked={deleteTx}
+              onChange={(e) => setDeleteTx(e.target.checked)}
+              disabled={txCount.isLoading}
+            />
+            <span className="text-text-muted">
+              Excluir também as {linkedCount} transações vinculadas a esta conta.
+            </span>
+          </label>
+        )}
       </Modal>
     </div>
   );

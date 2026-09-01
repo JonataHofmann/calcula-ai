@@ -10,6 +10,7 @@ import {
   type UpdateAccountInput,
 } from '@finance/contracts';
 import { AccountEntity } from './entities/account.entity';
+import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { AccountResponseDto } from './dto/account-response.dto';
 import { AccountConverter } from './converters/account.converter';
 import { AccountNotFoundError, InvalidAccountError } from './accounts.types';
@@ -26,6 +27,8 @@ export class AccountsService {
   constructor(
     @InjectRepository(AccountEntity)
     private readonly repo: Repository<AccountEntity>,
+    @InjectRepository(TransactionEntity)
+    private readonly txRepo: Repository<TransactionEntity>,
   ) {}
 
   async list(userId: string): Promise<AccountResponseDto[]> {
@@ -84,12 +87,22 @@ export class AccountsService {
     return AccountConverter.toResponse(entity);
   }
 
-  async delete(userId: string, id: string): Promise<void> {
+  /** Number of transactions linked to this account (for the delete confirmation). */
+  async countTransactions(userId: string, id: string): Promise<number> {
+    return this.txRepo.count({ where: { accountId: id, userId } });
+  }
+
+  async delete(userId: string, id: string, deleteTransactions = false): Promise<void> {
     this.logger.log(`Deleting account ${id} for user ${userId}`);
     const entity = await this.repo.findOne({ where: { id, userId } });
     if (!entity) {
       this.logger.warn(`Account ${id} not found for user ${userId}`);
       throw new AccountNotFoundError(id);
+    }
+    // Optionally cascade the account's transactions; otherwise they are kept (unlinked).
+    if (deleteTransactions) {
+      const { affected } = await this.txRepo.delete({ accountId: id, userId });
+      this.logger.log(`Deleted ${affected ?? 0} transaction(s) of account ${id} for user ${userId}`);
     }
     await this.repo.delete({ id, userId });
     this.logger.log(`Deleted account ${id} for user ${userId}`);
