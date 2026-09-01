@@ -1,4 +1,5 @@
 import type { Recurrence, SortOrder, TransactionSort, TransactionType } from '@finance/contracts';
+import type { Transaction } from './transaction.model';
 
 /**
  * Module-local domain errors and types (R3). Errors are framework-agnostic and
@@ -50,6 +51,18 @@ export class NotPaidError extends Error {
     super(`Transaction not paid: ${id}`);
     this.name = 'NotPaidConflictError';
   }
+}
+
+/**
+ * A row in the monthly cash-basis listing. `logical` rows are virtual (a paid
+ * transaction surfaced in the month it was effectuated, though due elsewhere);
+ * `settledElsewhere` real rows stay visible in their due month but are excluded
+ * from that month's balance (Option A — no double counting).
+ */
+export interface ListedTransaction {
+  transaction: Transaction;
+  logical: boolean;
+  settledElsewhere: boolean;
 }
 
 /** Repository-level filters folded into the service (Dates already resolved from the ISO query — R4). */

@@ -25,4 +25,6 @@ export class TransactionResponseDto implements TransactionDto {
   creditCardId!: TransactionDto['creditCardId'];
   source!: TransactionDto['source'];
   externalId!: TransactionDto['externalId'];
+  logical?: TransactionDto['logical'];
+  settledElsewhere?: TransactionDto['settledElsewhere'];
 }

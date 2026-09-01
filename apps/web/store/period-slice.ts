@@ -89,18 +89,23 @@ const periodSlice = createSlice({
   },
 });
 
-/** Query window ({ dueFrom, dueTo }) for the active period — local midnights as UTC instants. */
+/**
+ * Query window ({ dueFrom, dueTo }) for the active period. Datas são instantes UTC (dia = `T00:00Z`,
+ * casando com `dateToIso`); o fim é o último ms do período (limite inclusivo, casa com o
+ * `due_date <= dueTo` da API). Construir em meia-noite LOCAL empurrava o dia 1 pro mês anterior
+ * em fusos negativos (BRT → `03:00Z`).
+ */
 export function periodWindow(period: PeriodState): { dueFrom: string; dueTo: string } {
   if (period.mode === 'range' && period.from && period.to) {
     const [y1, m1, d1] = parseIso(period.from);
     const [y2, m2, d2] = parseIso(period.to);
-    const start = new Date(y1, m1 - 1, d1);
-    const end = new Date(y2, m2 - 1, d2 + 1); // exclusive: day after `to`
-    return { dueFrom: start.toISOString(), dueTo: end.toISOString() };
+    const start = Date.UTC(y1, m1 - 1, d1);
+    const end = Date.UTC(y2, m2 - 1, d2 + 1) - 1; // último ms do dia `to` (inclusivo)
+    return { dueFrom: new Date(start).toISOString(), dueTo: new Date(end).toISOString() };
   }
-  const start = new Date(period.year, period.month, 1);
-  const end = new Date(period.year, period.month + 1, 1);
-  return { dueFrom: start.toISOString(), dueTo: end.toISOString() };
+  const start = Date.UTC(period.year, period.month, 1);
+  const end = Date.UTC(period.year, period.month + 1, 1) - 1; // último ms do mês
+  return { dueFrom: new Date(start).toISOString(), dueTo: new Date(end).toISOString() };
 }
 
 /** 'YYYY-MM-DD' → 'dd/mm/yyyy'. */

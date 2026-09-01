@@ -52,6 +52,15 @@ export const transactionSchema = z.object({
   creditCardId: z.string().uuid().nullable(),
   source: transactionSourceSchema,
   externalId: z.string().uuid().nullable(),
+  /**
+   * Cash-basis listing flags (only set by the monthly `list` endpoint):
+   * `logical` = virtual read-only row shown in the month the transaction was
+   * effectuated (its due date falls in another month); `settledElsewhere` = a
+   * real row shown in its due month but paid in another month, so it is kept
+   * visible yet excluded from this month's balance (regra: sem contagem dupla).
+   */
+  logical: z.boolean().optional(),
+  settledElsewhere: z.boolean().optional(),
 });
 
 export type TransactionDto = z.infer<typeof transactionSchema>;

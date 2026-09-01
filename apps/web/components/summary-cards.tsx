@@ -43,6 +43,9 @@ export function SummaryCards({ transactions, className }: SummaryCardsProps) {
     let pendentes = 0;
     let cartao = 0;
     for (const t of transactions) {
+      // Regime de caixa (Option A): uma transação paga em outro mês fica visível no mês
+      // do vencimento, mas não conta no balanço dele — só na linha lógica do mês da efetivação.
+      if (t.settledElsewhere) continue;
       const cents = toCents(t.amount);
       if (t.type === 'expense') {
         despesas += cents;

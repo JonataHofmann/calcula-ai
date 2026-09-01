@@ -23,6 +23,7 @@ import {
   ArrowUpDown,
   CheckCircle2,
   ChevronRight,
+  Coins,
   CreditCard,
   Landmark,
   Link2,
@@ -34,7 +35,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { buildCategoryPathMap } from '../../util/category';
-import { day } from '../../util/date';
+import { day, monthYear } from '../../util/date';
 import { centsToMoney, money, toCents } from '../../util/money';
 
 export interface InvoiceGroup {
@@ -75,6 +76,11 @@ function buildInvoiceGroups(
   const byCard = new Map<string, TransactionDto[]>();
 
   for (const t of transactions) {
+    // Linhas lógicas (regime de caixa) nunca entram numa fatura — são só reflexo do caixa.
+    if (t.logical) {
+      ungrouped.push(t);
+      continue;
+    }
     if (t.creditCardId) {
       const list = byCard.get(t.creditCardId) ?? [];
       list.push(t);
@@ -115,6 +121,7 @@ const COLUMNS: Column[] = [
   { key: 'description', label: 'Descrição', sort: 'description' },
   { key: 'category', label: 'Categoria' },
   { key: 'dueDate', label: 'Vencimento', sort: 'dueDate' },
+  { key: 'effectiveDate', label: 'Efetivação' },
   { key: 'amount', label: 'Valor', sort: 'amount' },
   { key: 'origin', label: 'Conta/Cartão' },
   { key: 'type', label: 'Tipo', sort: 'type' },
@@ -286,6 +293,9 @@ export function TransactionsTable({
                   <span className="text-text-muted text-xs">—</span>
                 </TableCell>
                 <TableCell className={cn(CELL, 'text-text-muted')}>{day(invoice.dueDate)}</TableCell>
+                <TableCell className={CELL}>
+                  <span className="text-text-muted text-xs">—</span>
+                </TableCell>
                 <TableCell className={cn(CELL, 'text-text')}>{money(invoice.total)}</TableCell>
                 <TableCell className={CELL}>
                   <OriginTag label={invoice.cardName} kind="card" />
@@ -327,10 +337,17 @@ export function TransactionsTable({
                 </TableCell>
               </TableRow>
             ))}
-            {ungrouped.map((t) => (
-            <TableRow key={t.id}>
-              <TableCell className={cn(CELL, 'text-text font-medium')}>
-                {t.source === 'synced' ? (
+            {ungrouped.map((t) => {
+            const isLogical = Boolean(t.logical);
+            const settled = Boolean(t.settledElsewhere);
+            return (
+            <TableRow key={isLogical ? `${t.id}-cash` : t.id} className={cn(isLogical && 'bg-surface-2/40')}>
+              <TableCell className={cn(CELL, 'font-medium', isLogical ? 'text-text-muted' : 'text-text')}>
+                {isLogical ? (
+                  <span className="mr-1 inline-flex align-middle" title="Efetivada neste mês (regime de caixa)">
+                    <Coins className="text-text-muted h-3 w-3" aria-hidden="true" />
+                  </span>
+                ) : t.source === 'synced' ? (
                   <span className="mr-1 inline-flex align-middle" title="Sincronizado automaticamente">
                     <Link2 className="text-text-muted h-3 w-3" aria-hidden="true" />
                   </span>
@@ -341,11 +358,23 @@ export function TransactionsTable({
                     ({t.installmentNumber}/{t.installmentCount})
                   </span>
                 ) : null}
+                {isLogical ? (
+                  <span className="text-text-muted ml-1.5 rounded-full bg-surface px-1.5 py-0.5 text-xs">
+                    venc. {monthYear(t.dueDate)}
+                  </span>
+                ) : null}
               </TableCell>
               <TableCell className={CELL}>
                 <CategoryTag path={categoryPathMap.get(t.categoryId)} />
               </TableCell>
               <TableCell className={cn(CELL, 'text-text-muted')}>{day(t.dueDate)}</TableCell>
+              <TableCell className={cn(CELL, t.effectiveDate ? 'text-text' : 'text-text-muted')}>
+                {t.effectiveDate ? (
+                  day(t.effectiveDate)
+                ) : (
+                  <span className="text-xs">—</span>
+                )}
+              </TableCell>
               <TableCell className={cn(CELL, t.type === 'income' ? 'text-success' : 'text-text')}>
                 {t.creditCardId ? <CardDirectionIcon type={t.type} /> : null}
                 {money(t.amount)}
@@ -365,52 +394,69 @@ export function TransactionsTable({
                 </Badge>
               </TableCell>
               <TableCell className={CELL}>
-                <Badge variant={t.status === 'paid' ? 'success' : 'default'}>
-                  {t.status === 'paid' ? 'Paga' : 'Pendente'}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant={t.status === 'paid' ? 'success' : 'default'}>
+                    {t.status === 'paid' ? 'Paga' : 'Pendente'}
+                  </Badge>
+                  {settled && t.effectiveDate ? (
+                    <span
+                      className="text-text-muted text-xs"
+                      title="Contabilizada no balanço do mês da efetivação"
+                    >
+                      fora do balanço
+                    </span>
+                  ) : null}
+                </div>
               </TableCell>
               <TableCell className={CELL}>
                 <div className="flex items-center justify-end gap-1">
-                  {onEffectuate && t.status === 'pending' && !t.creditCardId ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEffectuate(t)}
-                      aria-label={`Efetivar ${t.description}`}
-                    >
-                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  ) : null}
-                  {onUndoEffectuate && t.status === 'paid' ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onUndoEffectuate(t)}
-                      aria-label={`Desfazer efetivação de ${t.description}`}
-                    >
-                      <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(t)}
-                    aria-label={`Editar ${t.description}`}
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDelete(t)}
-                    aria-label={`Excluir ${t.description}`}
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  </Button>
+                  {isLogical ? (
+                    <span className="text-text-muted text-xs">—</span>
+                  ) : (
+                    <>
+                      {onEffectuate && t.status === 'pending' && !t.creditCardId ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEffectuate(t)}
+                          aria-label={`Efetivar ${t.description}`}
+                        >
+                          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      ) : null}
+                      {onUndoEffectuate && t.status === 'paid' ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onUndoEffectuate(t)}
+                          aria-label={`Desfazer efetivação de ${t.description}`}
+                        >
+                          <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(t)}
+                        aria-label={`Editar ${t.description}`}
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(t)}
+                        aria-label={`Excluir ${t.description}`}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
-            ))}
+            );
+            })}
           </>
         )}
       </TableBody>

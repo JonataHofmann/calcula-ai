@@ -228,6 +228,69 @@ maybe('TransactionsService (integration)', () => {
     });
   });
 
+  describe('cash basis (regime de caixa) — Option A', () => {
+    const febQuery = (): ListTransactionsQuery => ({
+      dueFrom: new Date(Date.UTC(2026, 1, 1)).toISOString(),
+      dueTo: new Date(Date.UTC(2026, 1, 28, 23, 59, 59)).toISOString(),
+      sort: 'dueDate',
+      order: 'asc',
+    });
+
+    async function seedSingle(description: string, amount: string, day: number) {
+      const created = await service.create(USER_A, {
+        recurrence: 'single',
+        type: 'expense',
+        description,
+        dueDate: new Date(Date.UTC(2026, 0, day)).toISOString(),
+        amount,
+        categoryId: CAT_EXPENSE,
+        accountId: ACC,
+      } as CreateTransactionInput);
+      return created[0]!.id;
+    }
+
+    it('paid in another month: visible & out of balance in the due month, logical row in the effectivation month', async () => {
+      const id = await seedSingle('Aluguel', '1200.00', 10);
+      await service.effectuate(USER_A, id, {
+        date: new Date(Date.UTC(2026, 1, 5)).toISOString(),
+      });
+
+      const jan = await service.listCashBasis(USER_A, base());
+      expect(jan).toHaveLength(1);
+      expect(jan[0]?.transaction.id).toBe(id);
+      expect(jan[0]?.logical).toBe(false);
+      expect(jan[0]?.settledElsewhere).toBe(true);
+
+      const feb = await service.listCashBasis(USER_A, febQuery());
+      expect(feb).toHaveLength(1);
+      expect(feb[0]?.transaction.id).toBe(id);
+      expect(feb[0]?.logical).toBe(true);
+      expect(feb[0]?.settledElsewhere).toBe(false);
+    });
+
+    it('paid in the same month it is due: counted normally, no logical row elsewhere', async () => {
+      const id = await seedSingle('Luz', '200.00', 10);
+      await service.effectuate(USER_A, id, {
+        date: new Date(Date.UTC(2026, 0, 15)).toISOString(),
+      });
+
+      const jan = await service.listCashBasis(USER_A, base());
+      expect(jan).toHaveLength(1);
+      expect(jan[0]?.logical).toBe(false);
+      expect(jan[0]?.settledElsewhere).toBe(false);
+
+      expect(await service.listCashBasis(USER_A, febQuery())).toHaveLength(0);
+    });
+
+    it('a pending row is always counted in its due month', async () => {
+      await seedSingle('Internet', '100.00', 10);
+      const jan = await service.listCashBasis(USER_A, base());
+      expect(jan).toHaveLength(1);
+      expect(jan[0]?.logical).toBe(false);
+      expect(jan[0]?.settledElsewhere).toBe(false);
+    });
+  });
+
   describe('invoice import commit', () => {
     function commitLine(
       over: Partial<CommitInvoiceInput['lines'][number]> = {},

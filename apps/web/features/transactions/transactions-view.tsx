@@ -17,7 +17,6 @@ import { PeriodSelector } from '../../components/period-selector';
 import { SummaryCards } from '../../components/summary-cards';
 import { useAppDispatch, useAppSelector } from '../../hooks/use-store';
 import { periodWindow } from '../../store/period-slice';
-import { startOfMonth } from '../../util/date';
 import { useAccounts } from '../accounts/use-accounts';
 import { useCards } from '../cards/use-cards';
 import { useCategories } from '../categories/use-categories';
@@ -76,7 +75,6 @@ export function TransactionsView() {
   const [scopeAction, setScopeAction] = useState<'edit' | 'delete' | null>(null);
   const [scopeTarget, setScopeTarget] = useState<TransactionDto | undefined>(undefined);
   const [pendingUpdate, setPendingUpdate] = useState<UpdateTransactionInput | null>(null);
-  const reference = useMemo(() => new Date(), []);
   const reduceMotion = useReducedMotion();
 
   const query: ListTransactionsQuery = useMemo(() => {
@@ -99,7 +97,10 @@ export function TransactionsView() {
     return { dueFrom: new Date(0).toISOString(), dueTo: priorTo, sort, order, ...filters };
   }, [period, sort, order, filters]);
 
-  const overdueBefore = useMemo(() => startOfMonth(reference), [reference]);
+  // Pendentes vencidos ANTES do período visualizado (não relativo a "hoje"): no mês do
+  // vencimento a transação aparece só na listagem; em meses posteriores, se não efetivada,
+  // cai na lista de pendentes anteriores; no mês anterior ao vencimento não aparece.
+  const overdueBefore = useMemo(() => periodWindow(period).dueFrom, [period]);
   const { data: transactions, isLoading } = useTransactions(query);
   const { data: periodTransactions } = useTransactions(periodQuery);
   const { data: priorCardTransactions } = useTransactions(priorCardQuery, groupCreditCardExpenses);

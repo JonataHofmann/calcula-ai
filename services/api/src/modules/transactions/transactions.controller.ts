@@ -110,8 +110,12 @@ export class TransactionsController {
     @Query(new ZodValidationPipe(listTransactionsQuery)) query: ListTransactionsQuery,
   ): Promise<TransactionResponseDto[]> {
     this.logger.log(`GET /transactions user=${user.id}`);
-    const transactions = await this.transactions.list(user.id, query);
-    return transactions.map(TransactionConverter.toResponse);
+    const listed = await this.transactions.listCashBasis(user.id, query);
+    return listed.map((l) => ({
+      ...TransactionConverter.toResponse(l.transaction),
+      logical: l.logical,
+      settledElsewhere: l.settledElsewhere,
+    }));
   }
 
   @Get('overdue')

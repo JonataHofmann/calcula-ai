@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, LessThan, Repository } from 'typeorm';
+import { IsNull, LessThan, Repository, type SelectQueryBuilder } from 'typeorm';
 import type {
   CategorySuggestionResult,
   CommitInvoiceInput,
@@ -14,6 +14,7 @@ import type {
   GroupScope,
   ListTransactionsQuery,
   OverdueQuery,
+  SortOrder,
   TransactionSort,
   TransactionType,
   UpdateTransactionInput,
@@ -32,6 +33,7 @@ import {
   SyncedImportConflictError,
   TransactionNotFoundError,
   type FindTransactionsFilter,
+  type ListedTransaction,
 } from './transactions.types';
 import type {
   ImportSyncedTransactionInput,
@@ -47,6 +49,71 @@ const SORT_COLUMN: Record<TransactionSort, string> = {
   type: 't.type',
   recurrence: 't.recurrence',
 };
+
+/** Optional listing filters shared by the due-date and cash (effective-date) queries. */
+function applyOptionalFilters(
+  qb: SelectQueryBuilder<TransactionEntity>,
+  filter: FindTransactionsFilter,
+): void {
+  if (filter.search) {
+    qb.andWhere(
+      '(t.description ILIKE :search OR t.notes ILIKE :search OR t.amount::text ILIKE :search)',
+      { search: `%${filter.search}%` },
+    );
+  }
+  if (filter.amount) {
+    qb.andWhere('t.amount::text ILIKE :amount', { amount: `%${filter.amount}%` });
+  }
+  if (filter.recurrence) qb.andWhere('t.recurrence = :recurrence', { recurrence: filter.recurrence });
+  if (filter.type) qb.andWhere('t.type = :type', { type: filter.type });
+  if (filter.categoryId) qb.andWhere('t.category_id = :categoryId', { categoryId: filter.categoryId });
+  if (filter.accountId) qb.andWhere('t.account_id = :accountId', { accountId: filter.accountId });
+  if (filter.creditCardId)
+    qb.andWhere('t.credit_card_id = :creditCardId', { creditCardId: filter.creditCardId });
+}
+
+/** The date a listed row belongs to this month by: cash date for logical rows, else the due date. */
+function listedDate(l: ListedTransaction): number {
+  const d = l.logical ? (l.transaction.effectiveDate ?? l.transaction.dueDate) : l.transaction.dueDate;
+  return d.getTime();
+}
+
+/** Sorts the merged real + logical listing in JS (SQL can't order across the two queries). */
+function sortListed(
+  rows: ListedTransaction[],
+  sort: TransactionSort,
+  order: SortOrder,
+): ListedTransaction[] {
+  const dir = order === 'desc' ? -1 : 1;
+  return rows.sort((a, b) => {
+    const ta = a.transaction;
+    const tb = b.transaction;
+    let cmp: number;
+    switch (sort) {
+      case 'amount':
+        cmp = Number(ta.amount) - Number(tb.amount);
+        break;
+      case 'description':
+        cmp = ta.description.localeCompare(tb.description);
+        break;
+      case 'status':
+        cmp = ta.status.localeCompare(tb.status);
+        break;
+      case 'type':
+        cmp = ta.type.localeCompare(tb.type);
+        break;
+      case 'recurrence':
+        cmp = ta.recurrence.localeCompare(tb.recurrence);
+        break;
+      case 'dueDate':
+      default:
+        cmp = listedDate(a) - listedDate(b);
+        break;
+    }
+    if (cmp !== 0) return cmp * dir;
+    return ta.id.localeCompare(tb.id) * dir;
+  });
+}
 
 interface ReferenceInput {
   type: TransactionType;
@@ -287,9 +354,45 @@ export class TransactionsService {
     // the user navigates to them, so the monthly list shows the occurrence like any other
     // real (effectuable/editable) row. Forecast keeps its own pure projection (find()).
     await this.ensureFixedOccurrences(userId, dueFrom, dueTo);
-    return this.find(userId, {
-      dueFrom,
-      dueTo,
+    return this.find(userId, this.listFilter(query));
+  }
+
+  /**
+   * Cash-basis monthly listing (Option A). A paid transaction counts in the month it was
+   * effectuated, not the month it was due: real rows due in the window are returned (a paid
+   * one whose effectiveDate falls elsewhere stays visible but flagged `settledElsewhere`,
+   * excluded from the balance) plus logical rows for paid transactions effectuated in the
+   * window but due outside it (counted here — no double counting).
+   */
+  async listCashBasis(userId: string, query: ListTransactionsQuery): Promise<ListedTransaction[]> {
+    this.logger.log(`Listing (cash basis) transactions for user ${userId}`);
+    const filter = this.listFilter(query);
+    await this.ensureFixedOccurrences(userId, filter.dueFrom, filter.dueTo);
+
+    const real = await this.find(userId, filter);
+    const cash = await this.findCashInWindow(userId, filter);
+
+    const inWindow = (d: Date | null): boolean =>
+      d != null &&
+      d.getTime() >= filter.dueFrom.getTime() &&
+      d.getTime() <= filter.dueTo.getTime();
+
+    const listed: ListedTransaction[] = real.map((t) => ({
+      transaction: t,
+      logical: false,
+      settledElsewhere: t.status === 'paid' && !inWindow(t.effectiveDate),
+    }));
+    for (const t of cash) {
+      listed.push({ transaction: t, logical: true, settledElsewhere: false });
+    }
+
+    return sortListed(listed, filter.sort, filter.order);
+  }
+
+  private listFilter(query: ListTransactionsQuery): FindTransactionsFilter {
+    return {
+      dueFrom: new Date(query.dueFrom),
+      dueTo: new Date(query.dueTo),
       search: query.search,
       amount: query.amount,
       recurrence: query.recurrence,
@@ -299,7 +402,7 @@ export class TransactionsService {
       creditCardId: query.creditCardId,
       sort: query.sort,
       order: query.order,
-    });
+    };
   }
 
   /** Pending occurrences due before the current month start (user timezone -> `before`). */
@@ -858,24 +961,37 @@ export class TransactionsService {
       .andWhere('t.due_date >= :dueFrom', { dueFrom: filter.dueFrom })
       .andWhere('t.due_date <= :dueTo', { dueTo: filter.dueTo });
 
-    if (filter.search) {
-      qb.andWhere(
-        '(t.description ILIKE :search OR t.notes ILIKE :search OR t.amount::text ILIKE :search)',
-        { search: `%${filter.search}%` },
-      );
-    }
-    if (filter.amount) {
-      qb.andWhere('t.amount::text ILIKE :amount', { amount: `%${filter.amount}%` });
-    }
-    if (filter.recurrence) qb.andWhere('t.recurrence = :recurrence', { recurrence: filter.recurrence });
-    if (filter.type) qb.andWhere('t.type = :type', { type: filter.type });
-    if (filter.categoryId) qb.andWhere('t.category_id = :categoryId', { categoryId: filter.categoryId });
-    if (filter.accountId) qb.andWhere('t.account_id = :accountId', { accountId: filter.accountId });
-    if (filter.creditCardId)
-      qb.andWhere('t.credit_card_id = :creditCardId', { creditCardId: filter.creditCardId });
+    applyOptionalFilters(qb, filter);
 
     qb.orderBy(SORT_COLUMN[filter.sort], filter.order === 'desc' ? 'DESC' : 'ASC');
     qb.addOrderBy('t.id', 'ASC');
+
+    const rows = await qb.getMany();
+    return rows.map(toDomain);
+  }
+
+  /**
+   * Paid transactions effectuated inside the window but due outside it — the source
+   * of cash-basis logical rows (they move this month's balance even though they were
+   * due in another month). Same optional filters as `find` so listing filters apply.
+   */
+  private async findCashInWindow(
+    userId: string,
+    filter: FindTransactionsFilter,
+  ): Promise<Transaction[]> {
+    const qb = this.txRepo
+      .createQueryBuilder('t')
+      .where('t.user_id = :userId', { userId })
+      .andWhere('t.status = :paid', { paid: 'paid' })
+      .andWhere('t.effective_date IS NOT NULL')
+      .andWhere('t.effective_date >= :dueFrom', { dueFrom: filter.dueFrom })
+      .andWhere('t.effective_date <= :dueTo', { dueTo: filter.dueTo })
+      .andWhere('(t.due_date < :dueFrom OR t.due_date > :dueTo)', {
+        dueFrom: filter.dueFrom,
+        dueTo: filter.dueTo,
+      });
+
+    applyOptionalFilters(qb, filter);
 
     const rows = await qb.getMany();
     return rows.map(toDomain);
