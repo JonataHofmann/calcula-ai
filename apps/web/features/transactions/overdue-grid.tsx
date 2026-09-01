@@ -2,7 +2,7 @@
 
 import type { CategoryTreeDto, TransactionDto } from '@finance/contracts';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { TransactionsTable } from './transactions-table';
+import { TransactionsTable, type InvoiceGroup } from './transactions-table';
 
 export interface OverdueGridProps {
   transactions: TransactionDto[];
@@ -12,7 +12,10 @@ export interface OverdueGridProps {
   onEdit: (transaction: TransactionDto) => void;
   onDelete: (transaction: TransactionDto) => void;
   onEffectuate: (transaction: TransactionDto) => void;
+  onEffectuateInvoice?: (group: InvoiceGroup) => void;
   onUndoEffectuate?: (transaction: TransactionDto) => void;
+  onUndoEffectuateInvoice?: (group: InvoiceGroup) => void;
+  groupCreditCardExpenses?: boolean;
 }
 
 /** Table of unpaid occurrences due before the current month. Empty when nothing is overdue. */
@@ -24,7 +27,10 @@ export function OverdueGrid({
   onEdit,
   onDelete,
   onEffectuate,
+  onEffectuateInvoice,
   onUndoEffectuate,
+  onUndoEffectuateInvoice,
+  groupCreditCardExpenses,
 }: OverdueGridProps) {
   if (transactions.length === 0) {
     return (
@@ -49,7 +55,10 @@ export function OverdueGrid({
         onEdit={onEdit}
         onDelete={onDelete}
         onEffectuate={onEffectuate}
+        onEffectuateInvoice={onEffectuateInvoice}
         onUndoEffectuate={onUndoEffectuate}
+        onUndoEffectuateInvoice={onUndoEffectuateInvoice}
+        groupCreditCardExpenses={groupCreditCardExpenses}
       />
     </div>
   );

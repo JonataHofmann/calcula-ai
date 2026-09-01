@@ -10,6 +10,7 @@ function tx(over: Partial<TransactionDto> = {}): TransactionDto {
     id: '11111111-1111-1111-1111-111111111111',
     description: 'Aluguel',
     dueDate: '2026-01-10T00:00:00.000Z',
+    purchaseDate: null,
     amount: '1200.00',
     effectiveAmount: null,
     recurrence: 'single',

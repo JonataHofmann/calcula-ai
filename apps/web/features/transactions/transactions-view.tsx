@@ -244,7 +244,10 @@ export function TransactionsView() {
                 onEdit={openEdit}
                 onDelete={del}
                 onEffectuate={setEffectuating}
+                onEffectuateInvoice={setEffectuatingInvoice}
                 onUndoEffectuate={handleUndoEffectuate}
+                onUndoEffectuateInvoice={handleUndoEffectuateInvoice}
+                groupCreditCardExpenses={groupCreditCardExpenses}
               />
             </Card>
           </motion.div>

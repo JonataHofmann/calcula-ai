@@ -317,6 +317,14 @@ function makeExistsRepo<E extends { id: string }>(seed: E[]): Repository<E> {
         : rows;
       return filtered.map((r) => ({ ...r }));
     },
+    async findOne(options: { where?: Record<string, unknown> } = {}) {
+      const match = options.where
+        ? rows.find((r) =>
+            matchesWhere(r as unknown as Record<string, unknown>, options.where as Record<string, unknown>),
+          )
+        : rows[0];
+      return match ? { ...match } : null;
+    },
   };
   return fake as unknown as Repository<E>;
 }
@@ -390,5 +398,6 @@ export function accountRow(id: string, userId: string): AccountEntity {
 }
 
 export function cardRow(id: string, userId: string): CreditCardEntity {
-  return Object.assign(new CreditCardEntity(), { id, userId });
+  // Ciclo padrão (fech 1 / venc 10) — a criação manual de cartão deriva o vencimento da fatura daí.
+  return Object.assign(new CreditCardEntity(), { id, userId, closingDay: 1, dueDay: 10 });
 }

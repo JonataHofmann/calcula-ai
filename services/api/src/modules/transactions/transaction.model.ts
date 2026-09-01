@@ -14,6 +14,8 @@ export interface TransactionProps {
   /** Raw imported description before user edit; null for manual/unedited rows. Used for category matching. */
   originalDescription: string | null;
   dueDate: Date;
+  /** Real purchase date for card rows; null for account rows (dueDate is the invoice due). */
+  purchaseDate: Date | null;
   amount: string;
   effectiveAmount: string | null;
   recurrence: Recurrence;
@@ -37,6 +39,7 @@ export interface TransactionProps {
 export interface UpdateTransactionAttributes {
   description: string;
   dueDate: Date;
+  purchaseDate: Date | null;
   amount: string;
   type: TransactionType;
   notes: string | null;
@@ -54,6 +57,7 @@ export interface CreateTransactionData {
   description: string;
   originalDescription?: string | null;
   dueDate: Date;
+  purchaseDate?: Date | null;
   amount: string;
   recurrence: Recurrence;
   type: TransactionType;
@@ -97,6 +101,7 @@ export class Transaction {
       description,
       originalDescription: input.originalDescription ?? null,
       dueDate: input.dueDate,
+      purchaseDate: input.purchaseDate ?? null,
       amount: input.amount,
       effectiveAmount: null,
       recurrence: input.recurrence,
@@ -128,6 +133,7 @@ export class Transaction {
     const next = { ...this.props };
     if (patch.description !== undefined) next.description = assertDescription(patch.description);
     if (patch.dueDate !== undefined) next.dueDate = patch.dueDate;
+    if (patch.purchaseDate !== undefined) next.purchaseDate = patch.purchaseDate;
     if (patch.amount !== undefined) {
       assertAmount(patch.amount);
       next.amount = patch.amount;
@@ -192,6 +198,9 @@ export class Transaction {
   }
   get dueDate(): Date {
     return this.props.dueDate;
+  }
+  get purchaseDate(): Date | null {
+    return this.props.purchaseDate;
   }
   get amount(): string {
     return this.props.amount;

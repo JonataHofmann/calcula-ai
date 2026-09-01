@@ -11,6 +11,7 @@ export class TransactionConverter {
       id: t.id,
       description: t.description,
       dueDate: t.dueDate.toISOString(),
+      purchaseDate: t.purchaseDate ? t.purchaseDate.toISOString() : null,
       amount: t.amount,
       effectiveAmount: t.effectiveAmount,
       recurrence: t.recurrence,

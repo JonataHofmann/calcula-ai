@@ -291,6 +291,43 @@ maybe('TransactionsService (integration)', () => {
     });
   });
 
+  describe('manual card purchase (billing cycle)', () => {
+    // CARD_A: closingDay 1, dueDay 10 (creditCardEntity default). A purchase after the 1st
+    // closes the following month, due on the 10th of that month.
+    it('derives the invoice dueDate from the purchase date and persists purchaseDate', async () => {
+      const [row] = await service.create(USER_A, {
+        recurrence: 'single',
+        type: 'expense',
+        description: 'Mercado',
+        dueDate: new Date(Date.UTC(2026, 7, 20)).toISOString(),
+        purchaseDate: new Date(Date.UTC(2026, 7, 20)).toISOString(),
+        amount: '80.00',
+        categoryId: CAT_EXPENSE,
+        creditCardId: CARD_A,
+      } as CreateTransactionInput);
+
+      const back = await txEntities.findOneByOrFail({ id: row!.id });
+      expect(back.dueDate.toISOString().slice(0, 10)).toBe('2026-09-10');
+      expect(back.purchaseDate?.toISOString().slice(0, 10)).toBe('2026-08-20');
+    });
+
+    it('account rows keep the given dueDate and a null purchaseDate', async () => {
+      const [row] = await service.create(USER_A, {
+        recurrence: 'single',
+        type: 'expense',
+        description: 'Aluguel',
+        dueDate: new Date(Date.UTC(2026, 7, 20)).toISOString(),
+        amount: '1200.00',
+        categoryId: CAT_EXPENSE,
+        accountId: ACC,
+      } as CreateTransactionInput);
+
+      const back = await txEntities.findOneByOrFail({ id: row!.id });
+      expect(back.dueDate.toISOString().slice(0, 10)).toBe('2026-08-20');
+      expect(back.purchaseDate).toBeNull();
+    });
+  });
+
   describe('invoice import commit', () => {
     function commitLine(
       over: Partial<CommitInvoiceInput['lines'][number]> = {},

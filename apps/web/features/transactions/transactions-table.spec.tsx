@@ -10,6 +10,7 @@ function tx(over: Partial<TransactionDto> = {}): TransactionDto {
     id: '11111111-1111-1111-1111-111111111111',
     description: 'Aluguel',
     dueDate: '2026-01-10T00:00:00.000Z',
+    purchaseDate: null,
     amount: '1200.00',
     effectiveAmount: null,
     recurrence: 'single',
@@ -94,6 +95,45 @@ describe('TransactionsTable', () => {
     expect(screen.getByText('(2/3)')).toBeInTheDocument();
     expect(screen.getByTitle('Aumenta a fatura')).toBeInTheDocument();
     expect(screen.getByTitle('Reduz a fatura')).toBeInTheDocument();
+  });
+
+  it('shows the invoice header plus nested children when grouping is OFF', () => {
+    render(
+      <TransactionsTable
+        transactions={[
+          tx({
+            id: 'c1',
+            description: 'Compra 1',
+            creditCardId: '44444444-4444-4444-4444-444444444444',
+          }),
+        ]}
+        cards={[{ id: '44444444-4444-4444-4444-444444444444', name: 'Cartão X' }]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Fatura/)).toBeInTheDocument();
+    expect(screen.getByText('Compra 1')).toBeInTheDocument();
+  });
+
+  it('shows only the invoice header (children hidden) when grouping is ON', () => {
+    render(
+      <TransactionsTable
+        transactions={[
+          tx({
+            id: 'c1',
+            description: 'Compra 1',
+            creditCardId: '44444444-4444-4444-4444-444444444444',
+          }),
+        ]}
+        cards={[{ id: '44444444-4444-4444-4444-444444444444', name: 'Cartão X' }]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        groupCreditCardExpenses
+      />,
+    );
+    expect(screen.getByText(/Fatura/)).toBeInTheDocument();
+    expect(screen.queryByText('Compra 1')).not.toBeInTheDocument();
   });
 
   it('shows the effectuate action only for pending rows when handler is given', () => {

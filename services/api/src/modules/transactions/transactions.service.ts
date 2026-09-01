@@ -20,7 +20,7 @@ import type {
   UpdateTransactionInput,
 } from '@finance/contracts';
 import { normalizeDescription } from './normalize-description';
-import { invoiceDueDate, referenceMonthWindow } from './billing-cycle';
+import { invoiceDueDate, invoiceDueDateForPurchase, referenceMonthWindow } from './billing-cycle';
 import { CategoryEntity } from '../categories/entities/category.entity';
 import { AccountEntity } from '../accounts/entities/account.entity';
 import { CreditCardEntity } from '../cards/entities/credit-card.entity';
@@ -161,7 +161,23 @@ export class TransactionsService {
       creditCardId: input.creditCardId ?? null,
     });
 
-    const dueDate = new Date(input.dueDate);
+    // Card rows: the user gives the purchase date; the invoice due date is derived from the
+    // card's closing/due cycle so the row lands in the right invoice (competência do vencimento).
+    // Account rows: the given date IS the due date, and there is no purchase date.
+    let dueDate: Date;
+    let purchaseDate: Date | null;
+    if (input.creditCardId) {
+      const card = await this.creditCardRepo.findOne({
+        where: { id: input.creditCardId, userId },
+      });
+      if (!card) throw new ReferenceNotFoundError('card', input.creditCardId);
+      purchaseDate = new Date(input.purchaseDate ?? input.dueDate);
+      dueDate = invoiceDueDateForPurchase(purchaseDate, card.closingDay, card.dueDay);
+    } else {
+      dueDate = new Date(input.dueDate);
+      purchaseDate = null;
+    }
+
     const common = {
       userId,
       description: input.description,
@@ -170,6 +186,7 @@ export class TransactionsService {
       accountId: input.accountId ?? null,
       creditCardId: input.creditCardId ?? null,
       notes: input.notes ?? null,
+      purchaseDate,
     };
 
     if (input.recurrence === 'installment') {
@@ -251,8 +268,26 @@ export class TransactionsService {
     });
 
     const patch = toDomainPatch(input);
+    const singleScope = !target.groupId || !scope || scope === 'one';
 
-    if (!target.groupId || !scope || scope === 'one') {
+    // Card rows (single scope): recompute the invoice due date from the purchase date + card cycle
+    // whenever the purchase date or the card itself changes. Grouped scopes (installments/fixed)
+    // keep the current date-editing behavior — the spacing between parcels must be preserved.
+    if (singleScope) {
+      const nextCardId =
+        input.creditCardId !== undefined ? input.creditCardId : target.creditCardId;
+      if (nextCardId && (patch.purchaseDate !== undefined || input.creditCardId !== undefined)) {
+        const purchase = patch.purchaseDate ?? target.purchaseDate;
+        if (purchase) {
+          const card = await this.creditCardRepo.findOne({ where: { id: nextCardId, userId } });
+          if (!card) throw new ReferenceNotFoundError('card', nextCardId);
+          patch.purchaseDate = purchase;
+          patch.dueDate = invoiceDueDateForPurchase(purchase, card.closingDay, card.dueDay);
+        }
+      }
+    }
+
+    if (singleScope) {
       target.update(patch);
       await this.saveOne(target);
       this.logger.log(`Updated transaction ${id} for user ${userId}`);
@@ -1018,6 +1053,7 @@ function toEntity(transaction: Transaction): TransactionEntity {
   entity.description = props.description;
   entity.originalDescription = props.originalDescription;
   entity.dueDate = props.dueDate;
+  entity.purchaseDate = props.purchaseDate;
   entity.amount = props.amount;
   entity.effectiveAmount = props.effectiveAmount;
   entity.recurrence = props.recurrence;
@@ -1041,8 +1077,9 @@ function toEntity(transaction: Transaction): TransactionEntity {
 
 /**
  * Merge dedup key (FR-019): a line duplicates an existing scope row when the due day,
- * amount and normalized description all match. Purchase date is not persisted (only the
- * invoice `dueDate` is), so the day component uses the UTC calendar day of `dueDate`.
+ * amount and normalized description all match. The day component uses the UTC calendar day
+ * of `dueDate` (the invoice due date), not the purchase date, so re-imports of the same
+ * invoice line still collapse to one row.
  */
 function dedupKey(dueDate: Date, amount: string, description: string): string {
   const day = dueDate.toISOString().slice(0, 10);
@@ -1065,6 +1102,7 @@ function toDomain(row: TransactionEntity): Transaction {
     description: row.description,
     originalDescription: row.originalDescription,
     dueDate: row.dueDate,
+    purchaseDate: row.purchaseDate,
     amount: row.amount,
     effectiveAmount: row.effectiveAmount,
     recurrence: row.recurrence as Transaction['recurrence'],
@@ -1092,6 +1130,7 @@ function toDomainPatch(input: UpdateTransactionInput): Partial<UpdateTransaction
   const patch: Partial<UpdateTransactionAttributes> = {};
   if (input.description !== undefined) patch.description = input.description;
   if (input.dueDate !== undefined) patch.dueDate = new Date(input.dueDate);
+  if (input.purchaseDate !== undefined) patch.purchaseDate = new Date(input.purchaseDate);
   if (input.amount !== undefined) patch.amount = input.amount;
   if (input.type !== undefined) patch.type = input.type;
   if (input.notes !== undefined) patch.notes = input.notes ?? null;

@@ -36,6 +36,8 @@ export const transactionSchema = z.object({
   id: z.string().uuid(),
   description: z.string().min(1).max(120),
   dueDate: z.string().datetime(),
+  /** Card lines: real purchase date. `dueDate` is the invoice due date derived from it. Null for account rows. */
+  purchaseDate: z.string().datetime().nullable(),
   amount: moneyAmountSchema,
   effectiveAmount: moneyAmountSchema.nullable(),
   recurrence: z.enum(['single', 'fixed', 'installment']),
@@ -79,6 +81,8 @@ const createBase = {
   type: transactionTypeSchema,
   description,
   dueDate: z.string().datetime(),
+  /** Card only: real purchase date. Server derives `dueDate` (invoice due) from the card cycle. */
+  purchaseDate: z.string().datetime().optional(),
   categoryId: z.string().uuid(),
   accountId: z.string().uuid().optional(),
   creditCardId: z.string().uuid().optional(),
@@ -185,6 +189,8 @@ export const updateTransactionInput = z
     type: transactionTypeSchema,
     description,
     dueDate: z.string().datetime(),
+    /** Card only: recompute the invoice `dueDate` from this purchase date + card cycle. */
+    purchaseDate: z.string().datetime(),
     amount: positiveMoney,
     notes,
     categoryId: z.string().uuid(),

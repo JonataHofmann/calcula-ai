@@ -43,6 +43,10 @@ export class TransactionEntity {
   @Column({ name: 'due_date', type: 'timestamptz' })
   dueDate!: Date;
 
+  // Data real da compra (linhas de cartão). Para conta, fica null; o `due_date` já é o vencimento.
+  @Column({ name: 'purchase_date', type: 'timestamptz', nullable: true })
+  purchaseDate!: Date | null;
+
   @Column({ type: 'numeric', precision: 18, scale: 2 })
   amount!: string;
 

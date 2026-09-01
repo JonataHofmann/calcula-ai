@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Coins,
+  CornerDownRight,
   CreditCard,
   Landmark,
   Link2,
@@ -34,6 +35,7 @@ import {
   TrendingUp,
   Trash2,
 } from 'lucide-react';
+import { Fragment } from 'react';
 import { buildCategoryPathMap } from '../../util/category';
 import { day, monthYear } from '../../util/date';
 import { centsToMoney, money, toCents } from '../../util/money';
@@ -64,15 +66,19 @@ export interface TransactionsTableProps {
   onSort?: (column: TransactionSort) => void;
 }
 
-/** Partitions transactions into ungrouped rows plus one InvoiceGroup per credit card, when grouping is on. */
+/**
+ * Partitions transactions into non-card rows plus one InvoiceGroup per credit card + competência.
+ * Card lines are ALWAYS folded into an invoice header; the `groupCreditCardExpenses` flag only
+ * decides, at render time, whether the invoice's children are shown nested beneath the header.
+ */
 function buildInvoiceGroups(
   transactions: TransactionDto[],
   cardMap: Map<string, string>,
-  groupCreditCardExpenses: boolean,
 ): { ungrouped: TransactionDto[]; invoices: InvoiceGroup[] } {
-  if (!groupCreditCardExpenses) return { ungrouped: transactions, invoices: [] };
-
   const ungrouped: TransactionDto[] = [];
+  // Agrupa por cartão + competência do vencimento (YYYY-MM). O `dueDate` já é o vencimento da
+  // fatura; a chave por mês blinda contra faturas de meses diferentes caírem no mesmo grupo
+  // (defensivo — a janela do período normalmente traz só um mês).
   const byCard = new Map<string, TransactionDto[]>();
 
   for (const t of transactions) {
@@ -82,16 +88,18 @@ function buildInvoiceGroups(
       continue;
     }
     if (t.creditCardId) {
-      const list = byCard.get(t.creditCardId) ?? [];
+      const key = `${t.creditCardId}|${t.dueDate.slice(0, 7)}`;
+      const list = byCard.get(key) ?? [];
       list.push(t);
-      byCard.set(t.creditCardId, list);
+      byCard.set(key, list);
     } else {
       ungrouped.push(t);
     }
   }
 
   // Receita no cartão (estorno/reembolso/pagamento) reduz a fatura → entra negativa no total.
-  const invoices: InvoiceGroup[] = Array.from(byCard.entries()).map(([cardId, items]) => {
+  const invoices: InvoiceGroup[] = Array.from(byCard.entries()).map(([key, items]) => {
+    const cardId = key.slice(0, key.indexOf('|'));
     const totalCents = items.reduce(
       (sum, t) => sum + (t.type === 'income' ? -toCents(t.amount) : toCents(t.amount)),
       0,
@@ -235,7 +243,7 @@ export function TransactionsTable({
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
   const cardMap = new Map(cards.map((c) => [c.id, c.name]));
 
-  const { ungrouped, invoices } = buildInvoiceGroups(transactions, cardMap, groupCreditCardExpenses);
+  const { ungrouped, invoices } = buildInvoiceGroups(transactions, cardMap);
 
   const origin = (t: TransactionDto): { label: string; kind: OriginKind } => {
     if (t.creditCardId) return { label: cardMap.get(t.creditCardId) ?? '—', kind: 'card' };
@@ -249,6 +257,137 @@ export function TransactionsTable({
       <ArrowDown className="h-3 w-3" aria-hidden="true" />
     ) : (
       <ArrowUp className="h-3 w-3" aria-hidden="true" />
+    );
+  };
+
+  /** One transaction row. `nested` renders it as a fatura child — indented, with a corner marker. */
+  const transactionRow = (t: TransactionDto, nested = false) => {
+    const isLogical = Boolean(t.logical);
+    const settled = Boolean(t.settledElsewhere);
+    return (
+      <TableRow
+        key={isLogical ? `${t.id}-cash` : t.id}
+        className={cn(isLogical && 'bg-surface-2/40', nested && 'bg-surface-2/20')}
+      >
+        <TableCell
+          className={cn(
+            CELL,
+            'font-medium',
+            isLogical ? 'text-text-muted' : 'text-text',
+            nested && 'pl-8',
+          )}
+        >
+          {nested ? (
+            <span className="text-text-muted mr-1 inline-flex align-middle" aria-hidden="true">
+              <CornerDownRight className="h-3 w-3" />
+            </span>
+          ) : null}
+          {isLogical ? (
+            <span className="mr-1 inline-flex align-middle" title="Efetivada neste mês (regime de caixa)">
+              <Coins className="text-text-muted h-3 w-3" aria-hidden="true" />
+            </span>
+          ) : t.source === 'synced' ? (
+            <span className="mr-1 inline-flex align-middle" title="Sincronizado automaticamente">
+              <Link2 className="text-text-muted h-3 w-3" aria-hidden="true" />
+            </span>
+          ) : null}
+          {t.description}
+          {t.installmentNumber && t.installmentCount ? (
+            <span className="text-text-muted ml-1 text-xs">
+              ({t.installmentNumber}/{t.installmentCount})
+            </span>
+          ) : null}
+          {isLogical ? (
+            <span className="text-text-muted ml-1.5 rounded-full bg-surface px-1.5 py-0.5 text-xs">
+              venc. {monthYear(t.dueDate)}
+            </span>
+          ) : null}
+        </TableCell>
+        <TableCell className={CELL}>
+          <CategoryTag path={categoryPathMap.get(t.categoryId)} />
+        </TableCell>
+        <TableCell className={cn(CELL, 'text-text-muted')}>{day(t.dueDate)}</TableCell>
+        <TableCell className={cn(CELL, t.effectiveDate ? 'text-text' : 'text-text-muted')}>
+          {t.effectiveDate ? day(t.effectiveDate) : <span className="text-xs">—</span>}
+        </TableCell>
+        <TableCell className={cn(CELL, t.type === 'income' ? 'text-success' : 'text-text')}>
+          {t.creditCardId ? <CardDirectionIcon type={t.type} /> : null}
+          {money(t.amount)}
+        </TableCell>
+        <TableCell className={CELL}>
+          {(() => {
+            const o = origin(t);
+            return <OriginTag label={o.label} kind={o.kind} />;
+          })()}
+        </TableCell>
+        <TableCell className={CELL}>
+          <Badge variant={TYPE_VARIANT[t.type]}>{TYPE_LABEL[t.type]}</Badge>
+        </TableCell>
+        <TableCell className={CELL}>
+          <Badge variant={RECURRENCE_VARIANT[t.recurrence]}>{RECURRENCE_LABEL[t.recurrence]}</Badge>
+        </TableCell>
+        <TableCell className={CELL}>
+          <div className="flex items-center gap-1.5">
+            <Badge variant={t.status === 'paid' ? 'success' : 'default'}>
+              {t.status === 'paid' ? 'Paga' : 'Pendente'}
+            </Badge>
+            {settled && t.effectiveDate ? (
+              <span
+                className="text-text-muted text-xs"
+                title="Contabilizada no balanço do mês da efetivação"
+              >
+                fora do balanço
+              </span>
+            ) : null}
+          </div>
+        </TableCell>
+        <TableCell className={CELL}>
+          <div className="flex items-center justify-end gap-1">
+            {isLogical ? (
+              <span className="text-text-muted text-xs">—</span>
+            ) : (
+              <>
+                {onEffectuate && t.status === 'pending' && !t.creditCardId ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEffectuate(t)}
+                    aria-label={`Efetivar ${t.description}`}
+                  >
+                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                ) : null}
+                {onUndoEffectuate && t.status === 'paid' ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onUndoEffectuate(t)}
+                    aria-label={`Desfazer efetivação de ${t.description}`}
+                  >
+                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(t)}
+                  aria-label={`Editar ${t.description}`}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDelete(t)}
+                  aria-label={`Excluir ${t.description}`}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </>
+            )}
+          </div>
+        </TableCell>
+      </TableRow>
     );
   };
 
@@ -282,7 +421,8 @@ export function TransactionsTable({
         ) : (
           <>
             {invoices.map((invoice) => (
-              <TableRow key={`invoice-${invoice.cardId}`}>
+              <Fragment key={`invoice-${invoice.cardId}-${invoice.dueDate.slice(0, 7)}`}>
+              <TableRow>
                 <TableCell className={cn(CELL, 'text-text font-medium')}>
                   <span className="mr-1 inline-flex align-middle" title="Fatura do cartão">
                     <Receipt className="text-text-muted h-3 w-3" aria-hidden="true" />
@@ -336,127 +476,12 @@ export function TransactionsTable({
                   </div>
                 </TableCell>
               </TableRow>
+              {!groupCreditCardExpenses
+                ? invoice.transactions.map((t) => transactionRow(t, true))
+                : null}
+              </Fragment>
             ))}
-            {ungrouped.map((t) => {
-            const isLogical = Boolean(t.logical);
-            const settled = Boolean(t.settledElsewhere);
-            return (
-            <TableRow key={isLogical ? `${t.id}-cash` : t.id} className={cn(isLogical && 'bg-surface-2/40')}>
-              <TableCell className={cn(CELL, 'font-medium', isLogical ? 'text-text-muted' : 'text-text')}>
-                {isLogical ? (
-                  <span className="mr-1 inline-flex align-middle" title="Efetivada neste mês (regime de caixa)">
-                    <Coins className="text-text-muted h-3 w-3" aria-hidden="true" />
-                  </span>
-                ) : t.source === 'synced' ? (
-                  <span className="mr-1 inline-flex align-middle" title="Sincronizado automaticamente">
-                    <Link2 className="text-text-muted h-3 w-3" aria-hidden="true" />
-                  </span>
-                ) : null}
-                {t.description}
-                {t.installmentNumber && t.installmentCount ? (
-                  <span className="text-text-muted ml-1 text-xs">
-                    ({t.installmentNumber}/{t.installmentCount})
-                  </span>
-                ) : null}
-                {isLogical ? (
-                  <span className="text-text-muted ml-1.5 rounded-full bg-surface px-1.5 py-0.5 text-xs">
-                    venc. {monthYear(t.dueDate)}
-                  </span>
-                ) : null}
-              </TableCell>
-              <TableCell className={CELL}>
-                <CategoryTag path={categoryPathMap.get(t.categoryId)} />
-              </TableCell>
-              <TableCell className={cn(CELL, 'text-text-muted')}>{day(t.dueDate)}</TableCell>
-              <TableCell className={cn(CELL, t.effectiveDate ? 'text-text' : 'text-text-muted')}>
-                {t.effectiveDate ? (
-                  day(t.effectiveDate)
-                ) : (
-                  <span className="text-xs">—</span>
-                )}
-              </TableCell>
-              <TableCell className={cn(CELL, t.type === 'income' ? 'text-success' : 'text-text')}>
-                {t.creditCardId ? <CardDirectionIcon type={t.type} /> : null}
-                {money(t.amount)}
-              </TableCell>
-              <TableCell className={CELL}>
-                {(() => {
-                  const o = origin(t);
-                  return <OriginTag label={o.label} kind={o.kind} />;
-                })()}
-              </TableCell>
-              <TableCell className={CELL}>
-                <Badge variant={TYPE_VARIANT[t.type]}>{TYPE_LABEL[t.type]}</Badge>
-              </TableCell>
-              <TableCell className={CELL}>
-                <Badge variant={RECURRENCE_VARIANT[t.recurrence]}>
-                  {RECURRENCE_LABEL[t.recurrence]}
-                </Badge>
-              </TableCell>
-              <TableCell className={CELL}>
-                <div className="flex items-center gap-1.5">
-                  <Badge variant={t.status === 'paid' ? 'success' : 'default'}>
-                    {t.status === 'paid' ? 'Paga' : 'Pendente'}
-                  </Badge>
-                  {settled && t.effectiveDate ? (
-                    <span
-                      className="text-text-muted text-xs"
-                      title="Contabilizada no balanço do mês da efetivação"
-                    >
-                      fora do balanço
-                    </span>
-                  ) : null}
-                </div>
-              </TableCell>
-              <TableCell className={CELL}>
-                <div className="flex items-center justify-end gap-1">
-                  {isLogical ? (
-                    <span className="text-text-muted text-xs">—</span>
-                  ) : (
-                    <>
-                      {onEffectuate && t.status === 'pending' && !t.creditCardId ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEffectuate(t)}
-                          aria-label={`Efetivar ${t.description}`}
-                        >
-                          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                        </Button>
-                      ) : null}
-                      {onUndoEffectuate && t.status === 'paid' ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onUndoEffectuate(t)}
-                          aria-label={`Desfazer efetivação de ${t.description}`}
-                        >
-                          <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                        </Button>
-                      ) : null}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(t)}
-                        aria-label={`Editar ${t.description}`}
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(t)}
-                        aria-label={`Excluir ${t.description}`}
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-            );
-            })}
+            {ungrouped.map((t) => transactionRow(t))}
           </>
         )}
       </TableBody>

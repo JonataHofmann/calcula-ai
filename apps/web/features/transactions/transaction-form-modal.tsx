@@ -185,7 +185,8 @@ function defaults(initial?: TransactionDto): FormValues {
     type: initial.type,
     recurrence: initial.recurrence,
     description: initial.description,
-    dueDate: initial.dueDate,
+    // Cartão: o campo de data edita a data da compra (não o vencimento calculado da fatura).
+    dueDate: initial.creditCardId ? (initial.purchaseDate ?? initial.dueDate) : initial.dueDate,
     amount: initial.amount,
     totalAmount: '',
     installmentCount: initial.installmentCount?.toString() ?? '',
@@ -202,6 +203,8 @@ function defaults(initial?: TransactionDto): FormValues {
 
 /** Builds the CreateTransactionInput from form values, dropping fields foreign to the variant. */
 function toInput(v: FormValues): CreateTransactionInput {
+  // Cartão: o campo de data é a DATA DA COMPRA; o servidor recalcula o vencimento da fatura
+  // pelo ciclo do cartão. `dueDate` vai preenchido só para satisfazer o contrato (será sobrescrito).
   const base = {
     type: v.type,
     description: v.description,
@@ -210,6 +213,7 @@ function toInput(v: FormValues): CreateTransactionInput {
     notes: v.notes.trim() === '' ? undefined : v.notes,
     accountId: v.originKind === 'account' ? v.accountId || undefined : undefined,
     creditCardId: v.originKind === 'card' ? v.creditCardId || undefined : undefined,
+    ...(v.originKind === 'card' ? { purchaseDate: v.dueDate } : {}),
   };
   if (v.recurrence === 'installment') {
     const count = Number(v.installmentCount);
@@ -369,18 +373,25 @@ export function TransactionFormModal({
         </div>
 
         {/* Vencimento + campo variante da linha (Valor | Término | Parcelas). */}
-        <Controller
-          control={control}
-          name="dueDate"
-          render={({ field }) => (
-            <DatePicker
-              label="Vencimento"
-              error={errors.dueDate?.message}
-              value={isoToDate(field.value)}
-              onChange={(v) => field.onChange(dateToIso(v))}
-            />
-          )}
-        />
+        <div>
+          <Controller
+            control={control}
+            name="dueDate"
+            render={({ field }) => (
+              <DatePicker
+                label={originKind === 'card' ? 'Data da compra' : 'Vencimento'}
+                error={errors.dueDate?.message}
+                value={isoToDate(field.value)}
+                onChange={(v) => field.onChange(dateToIso(v))}
+              />
+            )}
+          />
+          {originKind === 'card' ? (
+            <p className="text-text-muted mt-1 text-xs">
+              A fatura é calculada pelo fechamento do cartão.
+            </p>
+          ) : null}
+        </div>
         {recurrence === 'installment' ? (
           <Input
             type="number"

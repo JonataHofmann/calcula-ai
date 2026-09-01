@@ -9,6 +9,7 @@ export class TransactionResponseDto implements TransactionDto {
   id!: TransactionDto['id'];
   description!: TransactionDto['description'];
   dueDate!: TransactionDto['dueDate'];
+  purchaseDate!: TransactionDto['purchaseDate'];
   amount!: TransactionDto['amount'];
   effectiveAmount!: TransactionDto['effectiveAmount'];
   recurrence!: TransactionDto['recurrence'];
