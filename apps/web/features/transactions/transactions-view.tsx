@@ -23,6 +23,7 @@ import { useCategories } from '../categories/use-categories';
 import { EffectuateInvoiceModal } from './effectuate-invoice-modal';
 import { EffectuateModal } from './effectuate-modal';
 import { GroupScopeModal } from './group-scope-modal';
+import { ConfirmDeleteModal } from './confirm-delete-modal';
 import { OverdueGrid } from './overdue-grid';
 import { TransactionFormModal } from './transaction-form-modal';
 import { TransactionsFilters } from './transactions-filters';
@@ -75,6 +76,7 @@ export function TransactionsView() {
   const [scopeAction, setScopeAction] = useState<'edit' | 'delete' | null>(null);
   const [scopeTarget, setScopeTarget] = useState<TransactionDto | undefined>(undefined);
   const [pendingUpdate, setPendingUpdate] = useState<UpdateTransactionInput | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TransactionDto | undefined>(undefined);
   const reduceMotion = useReducedMotion();
 
   const query: ListTransactionsQuery = useMemo(() => {
@@ -138,13 +140,19 @@ export function TransactionsView() {
     setEditing(undefined);
   };
 
-  const del = async (transaction: TransactionDto) => {
+  const del = (transaction: TransactionDto) => {
     if (transaction.groupId) {
       setScopeTarget(transaction);
       setScopeAction('delete');
       return;
     }
-    await remove.mutateAsync({ id: transaction.id });
+    setDeleteTarget(transaction);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await remove.mutateAsync({ id: deleteTarget.id });
+    setDeleteTarget(undefined);
   };
 
   const closeScope = () => {
@@ -329,6 +337,14 @@ export function TransactionsView() {
         onClose={closeScope}
         onConfirm={confirmScope}
         submitting={update.isPending || remove.isPending}
+      />
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== undefined}
+        transaction={deleteTarget}
+        onClose={() => setDeleteTarget(undefined)}
+        onConfirm={confirmDelete}
+        submitting={remove.isPending}
       />
     </div>
   );
