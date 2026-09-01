@@ -10,6 +10,7 @@ import type {
 } from '@finance/contracts';
 import {
   Button,
+  Checkbox,
   EntitySelect,
   Input,
   Modal,
@@ -44,6 +45,7 @@ interface LineState {
   categoryId: string;
   discarded: boolean;
   description: string;
+  fixed: boolean;
 }
 
 /** Flattens the expense branch into indented options carrying icon + color. */
@@ -96,6 +98,7 @@ export function InvoiceReviewModal({
           categoryId: l.suggestedCategoryId ?? '',
           discarded: false,
           description: l.description,
+          fixed: false,
         },
       ]),
     ),
@@ -123,6 +126,13 @@ export function InvoiceReviewModal({
     setLineState((s) => ({
       ...s,
       [lineId]: { ...s[lineId]!, discarded: !s[lineId]!.discarded },
+    }));
+  }
+
+  function toggleFixed(lineId: string) {
+    setLineState((s) => ({
+      ...s,
+      [lineId]: { ...s[lineId]!, fixed: !s[lineId]!.fixed },
     }));
   }
 
@@ -162,6 +172,7 @@ export function InvoiceReviewModal({
         originalDescription: description !== l.description ? l.description : undefined,
         categoryId: state.categoryId,
         discarded: state.discarded,
+        fixed: state.fixed,
       };
     });
     await onConfirm({ referenceMonth: referenceMonth as ReferenceMonth, lines });
@@ -206,6 +217,7 @@ export function InvoiceReviewModal({
                 <TableHead>Parcela</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead>Categoria</TableHead>
+                <TableHead className="text-center">Fixa</TableHead>
                 <TableHead className="text-right">Ação</TableHead>
               </TableRow>
             </TableHeader>
@@ -270,6 +282,15 @@ export function InvoiceReviewModal({
                         options={income ? incomeOptions : expenseOptions}
                         placeholder={income ? 'Categoria de receita' : 'Categoria'}
                         disabled={state.discarded}
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={state.fixed}
+                        onChange={() => toggleFixed(line.lineId)}
+                        disabled={state.discarded || income}
+                        aria-label="Marcar como despesa fixa"
+                        title="Despesa fixa (recorrente, sem parcelas)"
                       />
                     </TableCell>
                     <TableCell className="text-right">

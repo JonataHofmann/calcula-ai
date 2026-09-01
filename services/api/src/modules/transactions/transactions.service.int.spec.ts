@@ -343,6 +343,7 @@ maybe('TransactionsService (integration)', () => {
         suggestedCategoryId: null,
         categoryId: CAT_EXPENSE,
         discarded: false,
+        fixed: false,
         ...over,
       };
     }
@@ -438,6 +439,80 @@ maybe('TransactionsService (integration)', () => {
       ]);
       expect(rows.every((r) => r.source === 'imported')).toBe(true);
       expect(rows.every((r) => r.status === 'pending')).toBe(true);
+    });
+
+    it('imports only the current installment plus the remaining ones (3/10 -> 8 rows 3..10)', async () => {
+      await service.commitInvoice(
+        USER_A,
+        commit({
+          lines: [
+            commitLine({
+              description: 'Mercado Livre',
+              amount: '50.00',
+              installmentNumber: 3,
+              installmentCount: 10,
+            }),
+          ],
+        }),
+      );
+
+      const rows = (await cardRows()).sort(
+        (a, b) => a.dueDate.getTime() - b.dueDate.getTime(),
+      );
+      expect(rows).toHaveLength(8);
+      expect(rows.map((r) => r.installmentNumber)).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
+      expect(rows.every((r) => r.installmentCount === 10)).toBe(true);
+      expect(rows.every((r) => r.groupId === rows[0]?.groupId)).toBe(true);
+      // The reference month is the current installment's due date.
+      expect(rows[0]?.dueDate.toISOString().slice(0, 10)).toBe('2026-08-10');
+      expect(rows[7]?.dueDate.toISOString().slice(0, 10)).toBe('2027-03-10');
+    });
+
+    it('imports only the last installment when it is the current one (12/12 -> 1 row)', async () => {
+      await service.commitInvoice(
+        USER_A,
+        commit({
+          lines: [
+            commitLine({
+              description: 'Amazon',
+              amount: '30.00',
+              installmentNumber: 12,
+              installmentCount: 12,
+            }),
+          ],
+        }),
+      );
+
+      const rows = await cardRows();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.installmentNumber).toBe(12);
+      expect(rows[0]?.installmentCount).toBe(12);
+    });
+
+    it('imports a fixed-flagged line as a single fixed transaction, ignoring installments', async () => {
+      await service.commitInvoice(
+        USER_A,
+        commit({
+          lines: [
+            commitLine({
+              description: 'Netflix',
+              amount: '39.90',
+              fixed: true,
+              // Even with installment metadata present, `fixed` wins → one row, no parcels.
+              installmentNumber: 2,
+              installmentCount: 12,
+            }),
+          ],
+        }),
+      );
+
+      const rows = await cardRows();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.recurrence).toBe('fixed');
+      expect(rows[0]?.endDate).toBeNull();
+      expect(rows[0]?.installmentNumber).toBeNull();
+      expect(rows[0]?.installmentCount).toBeNull();
+      expect(rows[0]?.dueDate.toISOString().slice(0, 10)).toBe('2026-08-10');
     });
 
     it('persists the original (raw) description when the line was renamed', async () => {

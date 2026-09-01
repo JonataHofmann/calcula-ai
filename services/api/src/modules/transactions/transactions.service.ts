@@ -688,10 +688,31 @@ export class TransactionsService {
       source: 'imported' as const,
     };
 
+    // Despesa fixa marcada no review: uma única transação recorrente (sem fim), independente
+    // de parcelas. Precede o ramo de parcelas — uma fixa não é parcelada.
+    if (line.fixed) {
+      return [
+        Transaction.create({
+          ...common,
+          id: randomUUID(),
+          recurrence: 'fixed',
+          amount,
+          dueDate,
+          endDate: null,
+          groupId: randomUUID(),
+        }),
+      ];
+    }
+
     if (line.installmentNumber && line.installmentCount) {
       const groupId = randomUUID();
       const count = line.installmentCount;
-      return Array.from({ length: count }, (_, i) =>
+      // A fatura mostra a PARCELA ATUAL (installmentNumber); as anteriores já foram cobradas.
+      // Importa só a atual + as subsequentes (current..count). Ex.: "3/10" -> 8 linhas (3..10);
+      // "12/12" -> só a 12ª. O mês de referência é o vencimento da parcela atual.
+      const current = Math.min(line.installmentNumber, count);
+      const remaining = count - current + 1;
+      return Array.from({ length: remaining }, (_, i) =>
         Transaction.create({
           ...common,
           id: randomUUID(),
@@ -699,7 +720,7 @@ export class TransactionsService {
           amount,
           dueDate: addMonthClamped(dueDate, i),
           installmentCount: count,
-          installmentNumber: i + 1,
+          installmentNumber: current + i,
           groupId,
         }),
       );
