@@ -535,6 +535,28 @@ describe('TransactionsService.update (group scope)', () => {
     expect(g[0].status).toBe('paid');
     expect(g[0].effectiveAmount).toBe('100.00');
   });
+
+  it("scope 'all' keeps each parcel's own dueDate even when the patch carries a dueDate", async () => {
+    // Regression: a single absolute dueDate applied to every row collapsed the group onto the same
+    // (group_id, due_date), violating uq_transactions_group_due. Dates stay per-occurrence.
+    const { service, txRepo } = setup();
+    const rows = await service.create(USER_A, installment as CreateTransactionInput);
+    const before = (await group(txRepo, rows[0].groupId as string)).map((t) =>
+      t.dueDate.toISOString(),
+    );
+
+    await service.update(
+      USER_A,
+      rows[1].id,
+      { description: 'Novo', dueDate: '2026-01-10T00:00:00.000Z' },
+      'all',
+    );
+
+    const g = await group(txRepo, rows[0].groupId as string);
+    expect(g.map((t) => t.dueDate.toISOString())).toEqual(before);
+    expect(new Set(g.map((t) => t.dueDate.toISOString())).size).toBe(4);
+    expect(g.every((t) => t.description === 'Novo')).toBe(true);
+  });
 });
 
 // --- delete ----------------------------------------------------------------------------------

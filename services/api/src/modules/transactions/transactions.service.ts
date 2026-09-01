@@ -299,7 +299,13 @@ export class TransactionsService {
       scope === 'all'
         ? group
         : group.filter((t) => t.dueDate.getTime() >= target.dueDate.getTime());
-    for (const t of targets) t.update(patch);
+    // Date fields are per-occurrence in a group (parcels/fixed): applying one absolute dueDate to
+    // every row would collapse them onto the same (group_id, due_date) and violate
+    // uq_transactions_group_due. Each parcel keeps its own dueDate/purchaseDate on a group edit.
+    const groupPatch = { ...patch };
+    delete groupPatch.dueDate;
+    delete groupPatch.purchaseDate;
+    for (const t of targets) t.update(groupPatch);
     await this.saveMany(targets);
     this.logger.log(`Updated ${targets.length} transaction(s) in group ${target.groupId} for user ${userId}`);
     return targets;
