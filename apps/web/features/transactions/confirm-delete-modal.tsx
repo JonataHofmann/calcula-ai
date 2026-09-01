@@ -7,15 +7,30 @@ import { Button, Modal } from '@finance/ui';
 export interface ConfirmDeleteModalProps {
   open: boolean;
   transaction?: TransactionDto;
+  /** When set, confirms a bulk deletion of this many transactions instead of a single one. */
+  count?: number;
   onClose: () => void;
   onConfirm: () => Promise<void> | void;
   submitting?: boolean;
 }
 
-/** Confirmation before permanently deleting a single (non-grouped) transaction. */
+function describe(transaction?: TransactionDto, count?: number): string {
+  if (count !== undefined) {
+    return `Tem certeza que deseja excluir ${count} ${
+      count === 1 ? 'transação' : 'transações'
+    }? Esta ação não pode ser desfeita.`;
+  }
+  if (transaction) {
+    return `Tem certeza que deseja excluir "${transaction.description}"? Esta ação não pode ser desfeita.`;
+  }
+  return 'Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.';
+}
+
+/** Confirmation before permanently deleting a single (non-grouped) transaction or a bulk selection. */
 export function ConfirmDeleteModal({
   open,
   transaction,
+  count,
   onClose,
   onConfirm,
   submitting,
@@ -35,12 +50,8 @@ export function ConfirmDeleteModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Excluir transação"
-      description={
-        transaction
-          ? `Tem certeza que deseja excluir "${transaction.description}"? Esta ação não pode ser desfeita.`
-          : 'Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.'
-      }
+      title={count !== undefined ? 'Excluir transações' : 'Excluir transação'}
+      description={describe(transaction, count)}
     >
       <div className="flex flex-col gap-2">
         {rootError ? <p className="text-danger text-sm">{rootError}</p> : null}

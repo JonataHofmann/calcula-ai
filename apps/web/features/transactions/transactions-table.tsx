@@ -4,6 +4,7 @@ import type { CategoryNodeDto, CategoryTreeDto, SortOrder, TransactionDto, Trans
 import {
   Badge,
   Button,
+  Checkbox,
   cn,
   COLOR_TOKEN_SOFT_BG,
   COLOR_TOKEN_TEXT,
@@ -64,6 +65,10 @@ export interface TransactionsTableProps {
   sort?: TransactionSort;
   order?: SortOrder;
   onSort?: (column: TransactionSort) => void;
+  /** Presence of `selectedIds` turns on the leading selection checkbox column. */
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleMany?: (ids: string[], checked: boolean) => void;
 }
 
 /**
@@ -238,12 +243,24 @@ export function TransactionsTable({
   sort,
   order,
   onSort,
+  selectedIds,
+  onToggleSelect,
+  onToggleMany,
 }: TransactionsTableProps) {
   const categoryPathMap = buildCategoryPathMap(categories);
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
   const cardMap = new Map(cards.map((c) => [c.id, c.name]));
 
   const { ungrouped, invoices } = buildInvoiceGroups(transactions, cardMap);
+
+  const selectable = selectedIds !== undefined;
+  // Logical (cash-basis) rows are reflections, not real transactions — never selectable.
+  const selectableIds = [
+    ...invoices.flatMap((inv) => inv.transactions.map((t) => t.id)),
+    ...ungrouped.filter((t) => !t.logical).map((t) => t.id),
+  ];
+  const allChecked =
+    selectable && selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
 
   const origin = (t: TransactionDto): { label: string; kind: OriginKind } => {
     if (t.creditCardId) return { label: cardMap.get(t.creditCardId) ?? '—', kind: 'card' };
@@ -269,6 +286,17 @@ export function TransactionsTable({
         key={isLogical ? `${t.id}-cash` : t.id}
         className={cn(isLogical && 'bg-surface-2/40', nested && 'bg-surface-2/20')}
       >
+        {selectable ? (
+          <TableCell className={CELL}>
+            {isLogical ? null : (
+              <Checkbox
+                checked={selectedIds.has(t.id)}
+                onChange={() => onToggleSelect?.(t.id)}
+                aria-label={`Selecionar ${t.description}`}
+              />
+            )}
+          </TableCell>
+        ) : null}
         <TableCell
           className={cn(
             CELL,
@@ -395,6 +423,16 @@ export function TransactionsTable({
     <Table>
       <TableHeader>
         <TableRow>
+          {selectable ? (
+            <TableHead className={cn(HEAD, 'w-8')}>
+              <Checkbox
+                checked={allChecked}
+                onChange={(e) => onToggleMany?.(selectableIds, e.target.checked)}
+                aria-label="Selecionar todas"
+                disabled={selectableIds.length === 0}
+              />
+            </TableHead>
+          ) : null}
           {COLUMNS.map(({ key, label, sort: column }) => (
             <TableHead key={key} className={HEAD}>
               {column && onSort ? (
@@ -417,12 +455,30 @@ export function TransactionsTable({
       </TableHeader>
       <TableBody>
         {invoices.length === 0 && ungrouped.length === 0 ? (
-          <TableEmpty colSpan={COLUMNS.length + 1} message="Nenhuma transação neste mês" />
+          <TableEmpty
+            colSpan={COLUMNS.length + 1 + (selectable ? 1 : 0)}
+            message="Nenhuma transação neste mês"
+          />
         ) : (
           <>
             {invoices.map((invoice) => (
               <Fragment key={`invoice-${invoice.cardId}-${invoice.dueDate.slice(0, 7)}`}>
               <TableRow>
+                {selectable ? (
+                  <TableCell className={CELL}>
+                    {(() => {
+                      const ids = invoice.transactions.map((t) => t.id);
+                      const checked = ids.every((id) => selectedIds.has(id));
+                      return (
+                        <Checkbox
+                          checked={checked}
+                          onChange={(e) => onToggleMany?.(ids, e.target.checked)}
+                          aria-label={`Selecionar fatura ${invoice.cardName}`}
+                        />
+                      );
+                    })()}
+                  </TableCell>
+                ) : null}
                 <TableCell className={cn(CELL, 'text-text font-medium')}>
                   <span className="mr-1 inline-flex align-middle" title="Fatura do cartão">
                     <Receipt className="text-text-muted h-3 w-3" aria-hidden="true" />

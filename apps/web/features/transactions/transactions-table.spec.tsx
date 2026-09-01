@@ -136,6 +136,46 @@ describe('TransactionsTable', () => {
     expect(screen.queryByText('Compra 1')).not.toBeInTheDocument();
   });
 
+  it('renders a selection checkbox per row and fires onToggleSelect', () => {
+    const onToggleSelect = vi.fn();
+    render(
+      <TransactionsTable
+        transactions={[tx()]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        selectedIds={new Set()}
+        onToggleSelect={onToggleSelect}
+        onToggleMany={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Selecionar Aluguel' }));
+    expect(onToggleSelect).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111');
+  });
+
+  it('select-all toggles every selectable id via onToggleMany', () => {
+    const onToggleMany = vi.fn();
+    render(
+      <TransactionsTable
+        transactions={[tx(), tx({ id: 'b', description: 'Luz' })]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        selectedIds={new Set()}
+        onToggleSelect={vi.fn()}
+        onToggleMany={onToggleMany}
+      />,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Selecionar todas' }));
+    expect(onToggleMany).toHaveBeenCalledWith(
+      ['11111111-1111-1111-1111-111111111111', 'b'],
+      true,
+    );
+  });
+
+  it('has no selection column when selectedIds is absent', () => {
+    render(<TransactionsTable transactions={[tx()]} onEdit={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
   it('shows the effectuate action only for pending rows when handler is given', () => {
     const onEffectuate = vi.fn();
     render(

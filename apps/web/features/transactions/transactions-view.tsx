@@ -24,6 +24,7 @@ import { EffectuateInvoiceModal } from './effectuate-invoice-modal';
 import { EffectuateModal } from './effectuate-modal';
 import { GroupScopeModal } from './group-scope-modal';
 import { ConfirmDeleteModal } from './confirm-delete-modal';
+import { BulkEffectuateModal } from './bulk-effectuate-modal';
 import { OverdueGrid } from './overdue-grid';
 import { TransactionFormModal } from './transaction-form-modal';
 import { TransactionsFilters } from './transactions-filters';
@@ -77,6 +78,9 @@ export function TransactionsView() {
   const [scopeTarget, setScopeTarget] = useState<TransactionDto | undefined>(undefined);
   const [pendingUpdate, setPendingUpdate] = useState<UpdateTransactionInput | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TransactionDto | undefined>(undefined);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkEffectuateOpen, setBulkEffectuateOpen] = useState(false);
   const reduceMotion = useReducedMotion();
 
   const query: ListTransactionsQuery = useMemo(() => {
@@ -153,6 +157,51 @@ export function TransactionsView() {
     if (!deleteTarget) return;
     await remove.mutateAsync({ id: deleteTarget.id });
     setDeleteTarget(undefined);
+  };
+
+  // --- bulk selection ---
+  const txById = useMemo(
+    () => new Map(tableTransactions.map((t) => [t.id, t])),
+    [tableTransactions],
+  );
+
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleMany = (ids: string[], checked: boolean) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (checked) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  // Only rows still present in the current list are actionable (a period/filter change may drop some).
+  const selected = [...selectedIds].map((id) => txById.get(id)).filter((t): t is TransactionDto => !!t);
+  // Effectuation applies to pending account rows; card lines are settled via their invoice.
+  const effectuableSelected = selected.filter((t) => t.status === 'pending' && !t.creditCardId);
+
+  const confirmBulkDelete = async () => {
+    await Promise.all(selected.map((t) => remove.mutateAsync({ id: t.id, scope: 'one' })));
+    setBulkDeleteOpen(false);
+    clearSelection();
+  };
+
+  const confirmBulkEffectuate = async (date: string) => {
+    await Promise.all(
+      effectuableSelected.map((t) => effectuate.mutateAsync({ id: t.id, input: { date, amount: t.amount } })),
+    );
+    setBulkEffectuateOpen(false);
+    clearSelection();
   };
 
   const closeScope = () => {
@@ -263,6 +312,32 @@ export function TransactionsView() {
       </AnimatePresence>
 
       <Card className="flex flex-col gap-4 p-4">
+        {selected.length > 0 ? (
+          <div className="bg-surface-2 flex flex-wrap items-center gap-3 rounded-card px-3 py-2">
+            <span className="text-text text-sm font-medium">
+              {selected.length} selecionada{selected.length === 1 ? '' : 's'}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setBulkEffectuateOpen(true)}
+                disabled={effectuableSelected.length === 0}
+              >
+                Efetivar
+                {effectuableSelected.length < selected.length
+                  ? ` (${effectuableSelected.length})`
+                  : ''}
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+                Excluir
+              </Button>
+              <Button variant="ghost" size="sm" onClick={clearSelection}>
+                Limpar
+              </Button>
+            </div>
+          </div>
+        ) : null}
         {isLoading ? (
           <div className="flex flex-col gap-2">
             {[0, 1, 2, 3].map((i) => (
@@ -285,6 +360,9 @@ export function TransactionsView() {
             sort={sort}
             order={order}
             onSort={(column: TransactionSort) => dispatch(toggleSort(column))}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onToggleMany={toggleMany}
           />
         ) : (
           <div className="flex flex-col items-center gap-3 p-10 text-center">
@@ -345,6 +423,22 @@ export function TransactionsView() {
         onClose={() => setDeleteTarget(undefined)}
         onConfirm={confirmDelete}
         submitting={remove.isPending}
+      />
+
+      <ConfirmDeleteModal
+        open={bulkDeleteOpen}
+        count={selected.length}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={confirmBulkDelete}
+        submitting={remove.isPending}
+      />
+
+      <BulkEffectuateModal
+        open={bulkEffectuateOpen}
+        count={effectuableSelected.length}
+        onClose={() => setBulkEffectuateOpen(false)}
+        onConfirm={confirmBulkEffectuate}
+        submitting={effectuate.isPending}
       />
     </div>
   );
