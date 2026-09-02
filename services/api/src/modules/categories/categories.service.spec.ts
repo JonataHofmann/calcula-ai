@@ -5,10 +5,12 @@ import {
   makeFakeCategoryRepo,
   makeFakeHiddenRepo,
   makeFakeOverrideRepo,
+  makeFakeParentRepo,
   makeFakeTransactionRepo,
   customCategory,
   systemCategory,
 } from './__testing__/in-memory-repositories';
+import { InvalidCategoryError } from './categories.types';
 import type { TransactionEntity } from '../transactions/entities/transaction.entity';
 
 const USER = 'user-1';
@@ -25,9 +27,10 @@ function setup(
   const categoryRepo = makeFakeCategoryRepo(seed);
   const hiddenRepo = makeFakeHiddenRepo();
   const overrideRepo = makeFakeOverrideRepo();
+  const parentRepo = makeFakeParentRepo();
   const txRepo = makeFakeTransactionRepo(txSeed);
-  const service = new CategoriesService(categoryRepo, hiddenRepo, overrideRepo, txRepo);
-  return { service, categoryRepo, hiddenRepo, overrideRepo, txRepo };
+  const service = new CategoriesService(categoryRepo, hiddenRepo, overrideRepo, parentRepo, txRepo);
+  return { service, categoryRepo, hiddenRepo, overrideRepo, parentRepo, txRepo };
 }
 
 const txStore = (txRepo: Repository<TransactionEntity>): TransactionEntity[] =>
@@ -313,5 +316,99 @@ describe('CategoriesService.revert', () => {
   it('throws for an unknown category', async () => {
     const { service } = setup();
     await expect(service.revert(USER, 'nope')).rejects.toBeInstanceOf(CategoryNotFoundError);
+  });
+});
+
+describe('CategoriesService.move', () => {
+  it('nests a custom root under another root, inheriting the parent color', async () => {
+    const { service, categoryRepo } = setup();
+    const node = await service.move(USER, 'cus-pets', 'sys-food');
+
+    expect(node.color).toBe('danger'); // sys-food's color
+    const stored = await categoryRepo.findOne({ where: { id: 'cus-pets' } });
+    expect(stored?.parentId).toBe('sys-food');
+    expect(stored?.color).toBe('danger');
+
+    const tree = await service.list(USER);
+    expect(tree.expense.some((n) => n.id === 'cus-pets')).toBe(false);
+    const food = tree.expense.find((n) => n.id === 'sys-food');
+    expect(food?.children.some((c) => c.id === 'cus-pets')).toBe(true);
+  });
+
+  it('promotes a custom subcategory back to a root', async () => {
+    const seed = [
+      customCategory({ id: 'cus-pets', ownerId: USER, name: 'Pets', type: 'expense' }),
+      customCategory({ id: 'cus-vet', ownerId: USER, name: 'Vet', type: 'expense', parentId: 'cus-pets' }),
+    ];
+    const { service, categoryRepo } = setup(seed);
+    await service.move(USER, 'cus-vet', null);
+
+    expect((await categoryRepo.findOne({ where: { id: 'cus-vet' } }))?.parentId).toBeNull();
+    const tree = await service.list(USER);
+    expect(tree.expense.some((n) => n.id === 'cus-vet')).toBe(true);
+  });
+
+  it('reparents a system default via a per-user placement, without touching the shared row', async () => {
+    const { service, categoryRepo, parentRepo } = setup();
+    // Promote the system subcategory to a root for this user.
+    await service.move(USER, 'sys-food-mkt', null);
+
+    // Shared row is untouched; only a placement is written.
+    expect((await categoryRepo.findOne({ where: { id: 'sys-food-mkt' } }))?.parentId).toBe('sys-food');
+    expect(await parentRepo.find({ where: { userId: USER } })).toHaveLength(1);
+
+    const tree = await service.list(USER);
+    expect(tree.expense.some((n) => n.id === 'sys-food-mkt')).toBe(true);
+    expect(tree.expense.find((n) => n.id === 'sys-food')?.children).toEqual([]);
+    // Another user still sees it nested under sys-food.
+    const other = await service.list('user-2');
+    expect(other.expense.find((n) => n.id === 'sys-food')?.children.some((c) => c.id === 'sys-food-mkt')).toBe(true);
+  });
+
+  it('drops the placement when a default is moved back to its natural position', async () => {
+    const { service, parentRepo } = setup();
+    await service.move(USER, 'sys-food-mkt', null);
+    expect(await parentRepo.find({ where: { userId: USER } })).toHaveLength(1);
+
+    await service.move(USER, 'sys-food-mkt', 'sys-food');
+    expect(await parentRepo.find({ where: { userId: USER } })).toHaveLength(0);
+    const tree = await service.list(USER);
+    expect(tree.expense.find((n) => n.id === 'sys-food')?.children.some((c) => c.id === 'sys-food-mkt')).toBe(true);
+  });
+
+  it('rejects nesting a node that still has children (keeps two levels)', async () => {
+    const { service } = setup();
+    await expect(service.move(USER, 'sys-food', 'cus-pets')).rejects.toBeInstanceOf(
+      InvalidCategoryError,
+    );
+  });
+
+  it('rejects nesting under a non-root parent', async () => {
+    const { service } = setup();
+    await expect(service.move(USER, 'cus-pets', 'sys-food-mkt')).rejects.toBeInstanceOf(
+      InvalidCategoryError,
+    );
+  });
+
+  it('rejects a cross-type move', async () => {
+    const { service } = setup();
+    await expect(service.move(USER, 'cus-pets', 'sys-salary')).rejects.toBeInstanceOf(
+      InvalidCategoryError,
+    );
+  });
+
+  it('rejects making a category its own parent', async () => {
+    const { service } = setup();
+    await expect(service.move(USER, 'cus-pets', 'cus-pets')).rejects.toBeInstanceOf(
+      InvalidCategoryError,
+    );
+  });
+
+  it('throws for an unknown category or parent', async () => {
+    const { service } = setup();
+    await expect(service.move(USER, 'nope', null)).rejects.toBeInstanceOf(CategoryNotFoundError);
+    await expect(service.move(USER, 'cus-pets', 'nope')).rejects.toBeInstanceOf(
+      CategoryNotFoundError,
+    );
   });
 });

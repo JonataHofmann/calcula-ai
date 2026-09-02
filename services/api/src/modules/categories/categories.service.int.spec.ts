@@ -5,6 +5,7 @@ import { CategoryEntity } from './entities/category.entity';
 import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { UserHiddenCategoryEntity } from './entities/user-hidden-category.entity';
 import { UserCategoryOverrideEntity } from './entities/user-category-override.entity';
+import { UserCategoryParentEntity } from './entities/user-category-parent.entity';
 import { CategoryNotFoundError } from './categories.types';
 
 /**
@@ -26,6 +27,7 @@ const ENTITIES = [
   TransactionEntity,
   UserHiddenCategoryEntity,
   UserCategoryOverrideEntity,
+  UserCategoryParentEntity,
 ];
 
 maybe('CategoriesService (integration)', () => {
@@ -45,6 +47,7 @@ maybe('CategoriesService (integration)', () => {
       dataSource.getRepository(CategoryEntity),
       dataSource.getRepository(UserHiddenCategoryEntity),
       dataSource.getRepository(UserCategoryOverrideEntity),
+      dataSource.getRepository(UserCategoryParentEntity),
       dataSource.getRepository(TransactionEntity),
     );
   });
@@ -57,6 +60,7 @@ maybe('CategoriesService (integration)', () => {
     await dataSource.getRepository(TransactionEntity).clear();
     await dataSource.getRepository(UserHiddenCategoryEntity).clear();
     await dataSource.getRepository(UserCategoryOverrideEntity).clear();
+    await dataSource.getRepository(UserCategoryParentEntity).clear();
     await dataSource.getRepository(CategoryEntity).clear();
   });
 
@@ -236,5 +240,67 @@ maybe('CategoriesService (integration)', () => {
     const reverted = (await service.list(USER_A)).expense.find((n) => n.id === SYSTEM_ID);
     expect(reverted?.name).toBe('Alimentação');
     expect(reverted?.source).toBe('default');
+  });
+
+  it('reparents a custom category and persists it', async () => {
+    const target = await service.create(USER_A, {
+      name: 'Mercado',
+      type: 'expense',
+      icon: 'utensils',
+      color: 'primary',
+    });
+    const moved = await service.create(USER_A, {
+      name: 'Feira',
+      type: 'expense',
+      icon: 'utensils',
+      color: 'accent',
+    });
+
+    await service.move(USER_A, moved.id, target.id);
+    const nested = (await service.list(USER_A)).expense.find((n) => n.id === target.id);
+    expect(nested?.children.map((c) => c.id)).toEqual([moved.id]);
+
+    await service.move(USER_A, moved.id, null);
+    expect((await service.list(USER_A)).expense.some((n) => n.id === moved.id)).toBe(true);
+  });
+
+  it('reparents a system default per-user via a placement, isolated between users', async () => {
+    await seedSystem();
+    const target = await service.create(USER_A, {
+      name: 'Extras',
+      type: 'expense',
+      icon: 'utensils',
+      color: 'primary',
+    });
+
+    await service.move(USER_A, SYSTEM_ID, target.id);
+
+    const aTree = await service.list(USER_A);
+    expect(aTree.expense.some((n) => n.id === SYSTEM_ID)).toBe(false);
+    expect(
+      aTree.expense.find((n) => n.id === target.id)?.children.some((c) => c.id === SYSTEM_ID),
+    ).toBe(true);
+    // USER_B is unaffected — still sees the default as a root.
+    expect((await service.list(USER_B)).expense.some((n) => n.id === SYSTEM_ID)).toBe(true);
+
+    const placements = dataSource.getRepository(UserCategoryParentEntity);
+    expect(await placements.count({ where: { userId: USER_A } })).toBe(1);
+  });
+
+  it('cleans up placements when the parent category is deleted', async () => {
+    await seedSystem();
+    const target = await service.create(USER_A, {
+      name: 'Extras',
+      type: 'expense',
+      icon: 'utensils',
+      color: 'primary',
+    });
+    await service.move(USER_A, SYSTEM_ID, target.id);
+
+    await service.delete(USER_A, target.id);
+    const placements = dataSource.getRepository(UserCategoryParentEntity);
+    expect(await placements.count({ where: { userId: USER_A } })).toBe(0);
+    // The default falls back to its natural root position.
+    expect((await service.list(USER_A)).expense.some((n) => n.id === SYSTEM_ID)).toBe(true);
   });
 });

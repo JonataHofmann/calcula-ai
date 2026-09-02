@@ -16,6 +16,7 @@ import type {
   CategoryTreeDto,
   CreateCategoryInput,
   CreateSubcategoryInput,
+  MoveCategoryInput,
   UpdateCategoryInput,
 } from '@finance/contracts';
 import type { Request } from 'express';
@@ -60,6 +61,17 @@ export class CategoriesController {
   ): Promise<CategoryNodeDto> {
     this.logger.log(`POST /categories/${parentId}/subcategories`);
     return this.categories.addChild(tokenOf(req), parentId, body, idempotencyKey);
+  }
+
+  @Patch(':id/move')
+  move(
+    @Req() req: SessionRequest,
+    @Param('id') id: string,
+    @Body() body: MoveCategoryInput,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ): Promise<CategoryNodeDto> {
+    this.logger.log(`PATCH /categories/${id}/move`);
+    return this.categories.move(tokenOf(req), id, body, idempotencyKey);
   }
 
   @Patch(':id')

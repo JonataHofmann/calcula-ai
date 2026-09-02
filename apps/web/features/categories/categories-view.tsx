@@ -25,6 +25,7 @@ import {
   useCategoryTransactionCount,
   useCreateCategory,
   useDeleteCategory,
+  useMoveCategory,
   useRevertOverride,
   useUpdateCategory,
 } from './use-categories';
@@ -45,6 +46,7 @@ export function CategoriesView() {
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
   const revertOverride = useRevertOverride();
+  const moveCategory = useMoveCategory();
 
   const [form, setForm] = useState<FormState | null>(null);
   const [deleting, setDeleting] = useState<CategoryNodeDto | undefined>(undefined);
@@ -118,6 +120,7 @@ export function CategoriesView() {
     onEdit: openEdit,
     onDelete: openDelete,
     onRevert: (node: CategoryNodeDto) => revertOverride.mutate(node.id),
+    onMove: (id: string, parentId: string | null) => moveCategory.mutate({ id, parentId }),
   };
 
   const isEmpty =

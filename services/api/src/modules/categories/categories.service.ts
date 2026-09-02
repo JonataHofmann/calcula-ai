@@ -6,6 +6,7 @@ import {
   isColorToken,
   isIconKey,
   type CategoryNodeDto,
+  type CategorySource,
   type CategoryTreeDto,
   type CategoryType,
   type CreateCategoryInput,
@@ -16,6 +17,7 @@ import { CategoryEntity } from './entities/category.entity';
 import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { UserHiddenCategoryEntity } from './entities/user-hidden-category.entity';
 import { UserCategoryOverrideEntity } from './entities/user-category-override.entity';
+import { UserCategoryParentEntity } from './entities/user-category-parent.entity';
 import { CategoryConverter } from './converters/category.converter';
 import {
   CategoryConflictError,
@@ -28,6 +30,8 @@ interface BuildContext {
   childrenOf: Map<string, CategoryEntity[]>;
   hidden: Set<string>;
   overrides: Map<string, CategoryOverride>;
+  /** Per-user reparent overrides (system defaults only): categoryId → effective parentId. */
+  placements: Map<string, string | null>;
 }
 
 /**
@@ -48,6 +52,8 @@ export class CategoriesService {
     private readonly hiddenRepo: Repository<UserHiddenCategoryEntity>,
     @InjectRepository(UserCategoryOverrideEntity)
     private readonly overrideRepo: Repository<UserCategoryOverrideEntity>,
+    @InjectRepository(UserCategoryParentEntity)
+    private readonly parentRepo: Repository<UserCategoryParentEntity>,
     @InjectRepository(TransactionEntity)
     private readonly txRepo: Repository<TransactionEntity>,
   ) {}
@@ -55,11 +61,12 @@ export class CategoriesService {
   /** Effective tree: system defaults (not hidden, overrides applied) ∪ the user's custom categories. */
   async list(userId: string): Promise<CategoryTreeDto> {
     this.logger.log(`Listing effective categories for user ${userId}`);
-    const [system, custom, hiddenIds, overrideRows] = await Promise.all([
+    const [system, custom, hiddenIds, overrideRows, placements] = await Promise.all([
       this.findSystem(),
       this.findAllByOwner(userId),
       this.findHiddenIds(userId),
       this.findOverrides(userId),
+      this.findPlacements(userId),
     ]);
 
     const all = [...system, ...custom].sort(
@@ -70,15 +77,19 @@ export class CategoriesService {
       childrenOf: new Map(),
       hidden: new Set(hiddenIds),
       overrides: new Map(overrideRows.map((o) => [o.categoryId, o])),
+      placements,
     };
     for (const cat of all) {
-      if (cat.parentId === null) continue;
-      const siblings = ctx.childrenOf.get(cat.parentId) ?? [];
+      const parentId = this.effectiveParentId(cat, placements);
+      if (parentId === null) continue;
+      const siblings = ctx.childrenOf.get(parentId) ?? [];
       siblings.push(cat);
-      ctx.childrenOf.set(cat.parentId, siblings);
+      ctx.childrenOf.set(parentId, siblings);
     }
 
-    const roots = all.filter((c) => c.parentId === null && this.isVisible(c, ctx));
+    const roots = all.filter(
+      (c) => this.effectiveParentId(c, placements) === null && this.isVisible(c, ctx),
+    );
     const tree: CategoryTreeDto = {
       expense: roots.filter((c) => c.type === 'expense').map((c) => this.buildNode(c, ctx)),
       income: roots.filter((c) => c.type === 'income').map((c) => this.buildNode(c, ctx)),
@@ -223,9 +234,9 @@ export class CategoriesService {
       this.logger.warn(`Category ${id} not found for user ${userId}`);
       throw new CategoryNotFoundError(id);
     }
+    const subtreeIds = await this.collectSubtreeIds(id, userId);
     // Optionally cascade the whole subtree's transactions before removing the categories.
     if (deleteTransactions) {
-      const subtreeIds = await this.collectSubtreeIds(id, userId);
       const { affected } = await this.txRepo.delete({ categoryId: In(subtreeIds), userId });
       this.logger.log(`Deleted ${affected ?? 0} transaction(s) of category subtree ${id} for user ${userId}`);
     }
@@ -234,6 +245,9 @@ export class CategoriesService {
     } else {
       await this.deleteWithDescendants(id, userId);
     }
+    // Drop per-user placements that referenced any removed category, as child or as parent.
+    await this.parentRepo.delete({ userId, categoryId: In(subtreeIds) });
+    await this.parentRepo.delete({ userId, parentId: In(subtreeIds) });
     this.logger.log(`Deleted category ${id} for user ${userId}`);
   }
 
@@ -265,6 +279,82 @@ export class CategoriesService {
     await this.overrideRepo.delete({ userId, categoryId: id });
   }
 
+  /**
+   * Reparent a category (drag-and-drop). `parentId: null` promotes it to a root; a uuid nests it
+   * under that root. Custom categories mutate their own `parentId`; system defaults get a per-user
+   * placement override (the shared row is never touched). The tree stays two levels deep.
+   */
+  async move(userId: string, id: string, parentId: string | null): Promise<CategoryNodeDto> {
+    this.logger.log(`Moving category ${id} under ${parentId ?? 'root'} for user ${userId}`);
+    const category = await this.findAccessible(id, userId);
+    if (!category) {
+      this.logger.warn(`Category ${id} not found for user ${userId}`);
+      throw new CategoryNotFoundError(id);
+    }
+    if (parentId === id) {
+      throw new InvalidCategoryError('A category cannot be its own parent');
+    }
+
+    const [system, custom, placements, override] = await Promise.all([
+      this.findSystem(),
+      this.findAllByOwner(userId),
+      this.findPlacements(userId),
+      category.isSystem ? this.findOverride(userId, id) : Promise.resolve(null),
+    ]);
+    const accessible = [...system, ...custom];
+    const byId = new Map(accessible.map((c) => [c.id, c]));
+
+    let targetColor: string | undefined;
+    if (parentId !== null) {
+      const target = byId.get(parentId);
+      if (!target) throw new CategoryNotFoundError(parentId);
+      if (this.effectiveParentId(target, placements) !== null) {
+        throw new InvalidCategoryError('Categories can only be nested one level deep');
+      }
+      if (target.type !== category.type) {
+        throw new InvalidCategoryError('Cannot move a category to a parent of a different type');
+      }
+      if (accessible.some((c) => this.effectiveParentId(c, placements) === id)) {
+        throw new InvalidCategoryError('Move its subcategories out first — nesting is limited to two levels');
+      }
+      const targetOverride = target.isSystem ? await this.findOverride(userId, target.id) : null;
+      targetColor = targetOverride?.color ?? target.color;
+    }
+
+    // No-op when the effective parent is unchanged.
+    if (this.effectiveParentId(category, placements) !== parentId) {
+      if (category.isSystem) {
+        // Back to its natural position drops the override; any other position upserts it.
+        if (parentId === category.parentId) {
+          await this.parentRepo.delete({ userId, categoryId: id });
+        } else {
+          await this.parentRepo.upsert(
+            { userId, categoryId: id, parentId },
+            ['userId', 'categoryId'],
+          );
+        }
+      } else {
+        category.parentId = parentId;
+        // Nesting inherits the parent's effective color; promoting keeps the node's own.
+        if (targetColor !== undefined) category.color = targetColor;
+        category.updatedAt = new Date();
+        await this.categoryRepo.save(category);
+      }
+    }
+
+    const source: CategorySource = category.isSystem
+      ? override
+        ? 'default-overridden'
+        : 'default'
+      : 'custom';
+    const color = parentId !== null ? targetColor : override?.color ?? category.color;
+    return CategoryConverter.toNode(category, {
+      source,
+      override: override ?? undefined,
+      color,
+    });
+  }
+
   // --- persistence helpers (folded from the removed custom repositories) ---
 
   private async findSystem(): Promise<CategoryEntity[]> {
@@ -288,13 +378,19 @@ export class CategoriesService {
    * subcategories hung under a default parent too.
    */
   private async collectSubtreeIds(id: string, userId: string): Promise<string[]> {
-    const accessible = [...(await this.findSystem()), ...(await this.findAllByOwner(userId))];
+    const [system, custom, placements] = await Promise.all([
+      this.findSystem(),
+      this.findAllByOwner(userId),
+      this.findPlacements(userId),
+    ]);
+    const accessible = [...system, ...custom];
     const childrenOf = new Map<string, string[]>();
     for (const row of accessible) {
-      if (!row.parentId) continue;
-      const list = childrenOf.get(row.parentId) ?? [];
+      const parentId = this.effectiveParentId(row, placements);
+      if (!parentId) continue;
+      const list = childrenOf.get(parentId) ?? [];
       list.push(row.id);
-      childrenOf.set(row.parentId, list);
+      childrenOf.set(parentId, list);
     }
     const ids: string[] = [];
     const stack = [id];
@@ -333,6 +429,17 @@ export class CategoriesService {
   private async findOverrides(userId: string): Promise<CategoryOverride[]> {
     const rows = await this.overrideRepo.find({ where: { userId } });
     return rows.map(toOverride);
+  }
+
+  private async findPlacements(userId: string): Promise<Map<string, string | null>> {
+    const rows = await this.parentRepo.find({ where: { userId } });
+    return new Map(rows.map((row) => [row.categoryId, row.parentId]));
+  }
+
+  /** The parent that applies for this user: a per-user placement (defaults only), else the stored one. */
+  private effectiveParentId(cat: CategoryEntity, placements: Map<string, string | null>): string | null {
+    if (cat.isSystem && placements.has(cat.id)) return placements.get(cat.id) ?? null;
+    return cat.parentId;
   }
 
   // --- tree building ---

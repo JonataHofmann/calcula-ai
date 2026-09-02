@@ -17,7 +17,7 @@ function node(partial: Partial<CategoryNodeDto> & Pick<CategoryNodeDto, 'id' | '
 }
 
 function callbacks() {
-  return { onAddSub: vi.fn(), onEdit: vi.fn(), onDelete: vi.fn(), onRevert: vi.fn() };
+  return { onAddSub: vi.fn(), onEdit: vi.fn(), onDelete: vi.fn(), onRevert: vi.fn(), onMove: vi.fn() };
 }
 
 describe('CategoryTree', () => {

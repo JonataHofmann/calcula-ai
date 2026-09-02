@@ -21,6 +21,8 @@ import {
   type CreateSubcategoryInput,
   updateCategoryInput,
   type UpdateCategoryInput,
+  moveCategoryInput,
+  type MoveCategoryInput,
   type TransactionCountResult,
 } from '@finance/contracts';
 import { z } from 'zod';
@@ -81,6 +83,16 @@ export class CategoriesController {
   ): Promise<CategoryNodeDto> {
     this.logger.log(`PATCH /categories/${id} user=${user.id}`);
     return this.categories.update(user.id, id, input);
+  }
+
+  @Patch(':id/move')
+  move(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(moveCategoryInput)) input: MoveCategoryInput,
+  ): Promise<CategoryNodeDto> {
+    this.logger.log(`PATCH /categories/${id}/move user=${user.id} parentId=${input.parentId}`);
+    return this.categories.move(user.id, id, input.parentId);
   }
 
   @Delete(':id')

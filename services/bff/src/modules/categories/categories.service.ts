@@ -4,6 +4,7 @@ import type {
   CategoryTreeDto,
   CreateCategoryInput,
   CreateSubcategoryInput,
+  MoveCategoryInput,
   UpdateCategoryInput,
 } from '@finance/contracts';
 import { ApiClient } from '../../common/api-client';
@@ -51,6 +52,16 @@ export class CategoriesService {
   ): Promise<CategoryNodeDto> {
     this.logger.log(`Proxying PATCH /categories/${id}`);
     return this.api.patch<CategoryNodeDto>(`/categories/${id}`, { token, body, idempotencyKey });
+  }
+
+  move(
+    token: string,
+    id: string,
+    body: MoveCategoryInput,
+    idempotencyKey?: string,
+  ): Promise<CategoryNodeDto> {
+    this.logger.log(`Proxying PATCH /categories/${id}/move`);
+    return this.api.patch<CategoryNodeDto>(`/categories/${id}/move`, { token, body, idempotencyKey });
   }
 
   remove(token: string, id: string, idempotencyKey?: string): Promise<void> {

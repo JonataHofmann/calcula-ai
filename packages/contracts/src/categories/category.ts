@@ -69,3 +69,9 @@ export const updateCategoryInput = z
   })
   .partial();
 export type UpdateCategoryInput = z.infer<typeof updateCategoryInput>;
+
+/** Reparent a category. `parentId: null` promotes it to a root; a uuid nests it under that root. */
+export const moveCategoryInput = z.object({
+  parentId: z.string().uuid().nullable(),
+});
+export type MoveCategoryInput = z.infer<typeof moveCategoryInput>;

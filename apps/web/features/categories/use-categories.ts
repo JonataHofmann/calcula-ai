@@ -13,6 +13,7 @@ import {
   deleteCategory,
   getCategoryTransactionCount,
   listCategories,
+  moveCategory,
   restoreCategory,
   revertOverride,
   updateCategory,
@@ -69,6 +70,16 @@ export function useDeleteCategory() {
       qc.invalidateQueries({ queryKey: KEY });
       if (deleteTransactions) qc.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY });
     },
+  });
+}
+
+/** Reparent a category (drag-and-drop). `parentId: null` promotes it to a root. */
+export function useMoveCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, parentId }: { id: string; parentId: string | null }) =>
+      moveCategory(id, parentId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }
 

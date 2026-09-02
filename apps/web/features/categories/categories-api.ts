@@ -3,6 +3,7 @@ import type {
   CategoryTreeDto,
   CreateCategoryInput,
   CreateSubcategoryInput,
+  MoveCategoryInput,
   TransactionCountResult,
   UpdateCategoryInput,
 } from '@finance/contracts';
@@ -40,6 +41,18 @@ export function updateCategory(
     method: 'PATCH',
     headers: { 'Idempotency-Key': newIdempotencyKey() },
     body: JSON.stringify(input),
+  });
+}
+
+/** Reparent a category. `parentId: null` promotes it to a root; a uuid nests it under that root. */
+export function moveCategory(
+  id: string,
+  parentId: MoveCategoryInput['parentId'],
+): Promise<CategoryNodeDto> {
+  return apiFetch<CategoryNodeDto>(`/categories/${id}/move`, {
+    method: 'PATCH',
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+    body: JSON.stringify({ parentId }),
   });
 }
 

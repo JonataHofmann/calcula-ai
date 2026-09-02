@@ -9,6 +9,7 @@ import { AccountEntity } from '../accounts/entities/account.entity';
 import { CategoryEntity } from '../categories/entities/category.entity';
 import { UserCategoryOverrideEntity } from '../categories/entities/user-category-override.entity';
 import { UserHiddenCategoryEntity } from '../categories/entities/user-hidden-category.entity';
+import { UserCategoryParentEntity } from '../categories/entities/user-category-parent.entity';
 
 /**
  * Full "reset my data" wipe. Deletes every user-scoped row in one transaction so the reset is
@@ -35,6 +36,7 @@ export class AccountService {
         (await manager.delete(UserCategoryOverrideEntity, { userId })).affected ?? 0;
       const hiddenCategories =
         (await manager.delete(UserHiddenCategoryEntity, { userId })).affected ?? 0;
+      await manager.delete(UserCategoryParentEntity, { userId });
       // Only the user's own categories — system defaults (ownerId null) stay.
       const categories =
         (await manager.delete(CategoryEntity, { ownerId: userId })).affected ?? 0;
@@ -148,6 +150,7 @@ export class AccountService {
         await manager.delete(TransactionEntity, { userId });
         await manager.delete(UserCategoryOverrideEntity, { userId });
         await manager.delete(UserHiddenCategoryEntity, { userId });
+        await manager.delete(UserCategoryParentEntity, { userId });
         await manager.delete(CategoryEntity, { ownerId: userId });
         await manager.delete(CreditCardEntity, { userId });
         await manager.delete(AccountEntity, { userId });

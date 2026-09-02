@@ -4,6 +4,7 @@ import { CategoryEntity } from '../entities/category.entity';
 import { TransactionEntity } from '../../transactions/entities/transaction.entity';
 import { UserHiddenCategoryEntity } from '../entities/user-hidden-category.entity';
 import { UserCategoryOverrideEntity } from '../entities/user-category-override.entity';
+import { UserCategoryParentEntity } from '../entities/user-category-parent.entity';
 
 /**
  * Owner-scoped in-memory fakes of the three TypeORM repositories the
@@ -103,6 +104,31 @@ export function makeFakeOverrideRepo(): Repository<UserCategoryOverrideEntity> {
       void store.delete(k(c.userId, c.categoryId)),
   };
   return fake as unknown as Repository<UserCategoryOverrideEntity>;
+}
+
+export function makeFakeParentRepo(): Repository<UserCategoryParentEntity> {
+  const store = new Map<string, UserCategoryParentEntity>();
+  const k = (userId: string, categoryId: string) => `${userId}:${categoryId}`;
+  const fake = {
+    find: async (o: { where: { userId: string } }) =>
+      [...store.values()].filter((r) => r.userId === o.where.userId).map((r) => ({ ...r })),
+    upsert: async (v: Partial<UserCategoryParentEntity>) => {
+      const row = Object.assign(new UserCategoryParentEntity(), v);
+      store.set(k(row.userId, row.categoryId), row);
+    },
+    // Criteria: { userId, categoryId?: id|In([...]), parentId?: In([...]) }.
+    delete: async (c: { userId: string; categoryId?: unknown; parentId?: unknown }) => {
+      const catMatch = 'categoryId' in c ? idMatcher(c.categoryId) : null;
+      const parentMatch = 'parentId' in c ? idMatcher(c.parentId) : null;
+      for (const r of [...store.values()]) {
+        if (r.userId !== c.userId) continue;
+        if (catMatch && !catMatch(r.categoryId)) continue;
+        if (parentMatch && !parentMatch(r.parentId ?? '')) continue;
+        store.delete(k(r.userId, r.categoryId));
+      }
+    },
+  };
+  return fake as unknown as Repository<UserCategoryParentEntity>;
 }
 
 /**
