@@ -2,7 +2,7 @@
 
 import { createElement, useMemo, useState } from 'react';
 import type { ColorToken, ListTransactionsQuery } from '@finance/contracts';
-import { BalanceBarChart, Card, ChartContainer, formatBRL, TransactionList, cn, getIcon } from '@finance/ui';
+import { BalanceBarChart, Card, ChartContainer, formatBRL, Modal, TransactionList, cn, getIcon } from '@finance/ui';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Receipt } from 'lucide-react';
 import { MonthRangePicker } from '../../components/month-range-picker';
@@ -64,6 +64,8 @@ export function DashboardView() {
 
   // Categoria selecionada para drill nas subcategorias (null = visão por categoria-raiz).
   const [drillCategoryId, setDrillCategoryId] = useState<string | null>(null);
+  // Categoria (sub ou folha) cujas transações do período são exibidas num modal (null = fechado).
+  const [txCategoryId, setTxCategoryId] = useState<string | null>(null);
 
   // qualquer categoria (raiz ou sub) → id da raiz; e conjunto de raízes que têm subcategorias.
   const { rootOfCategory, drillableRoots } = useMemo(() => {
@@ -206,6 +208,22 @@ export function DashboardView() {
     [transactions, categoryMeta],
   );
 
+  // Transações do período lançadas exatamente na categoria selecionada (drill → clique).
+  const categoryTx = useMemo(() => {
+    if (!txCategoryId) return [];
+    return (transactions ?? [])
+      .filter((t) => t.categoryId === txCategoryId)
+      .map((t) => ({
+        description: t.description,
+        date: new Date(t.dueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+        amount: `${t.type === 'expense' ? '-' : ''}${t.amount}`,
+        category: categoryMeta.get(t.categoryId)?.name,
+        icon: createElement(getIcon(categoryMeta.get(t.categoryId)?.icon ?? 'tag'), {
+          className: 'h-4 w-4',
+        }),
+      }));
+  }, [txCategoryId, transactions, categoryMeta]);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -267,13 +285,18 @@ export function DashboardView() {
                     title={categoryMeta.get(drillCategoryId)?.name ?? 'Categoria'}
                     rows={bySubcategory}
                     onBack={() => setDrillCategoryId(null)}
+                    // Clicar numa subcategoria mostra as transações lançadas nela.
+                    onRowClick={(id) => setTxCategoryId(id)}
+                    hint="Toque numa fatia para ver os lançamentos"
                   />
                 ) : (
                   <BreakdownCard
                     title="Despesas por categoria"
                     rows={byCategory}
                     onRowClick={(id) => {
+                      // Raiz com subcategorias → drill; folha → transações direto.
                       if (drillableRoots.has(id)) setDrillCategoryId(id);
+                      else setTxCategoryId(id);
                     }}
                   />
                 )}
@@ -293,6 +316,15 @@ export function DashboardView() {
           </Card>
         </>
       )}
+
+      <Modal
+        open={txCategoryId !== null}
+        onClose={() => setTxCategoryId(null)}
+        title={txCategoryId ? (categoryMeta.get(txCategoryId)?.name ?? 'Categoria') : 'Categoria'}
+        description="Lançamentos deste período nesta categoria."
+      >
+        <TransactionList items={categoryTx} emptyMessage="Nenhum lançamento nesta categoria." />
+      </Modal>
     </div>
   );
 }

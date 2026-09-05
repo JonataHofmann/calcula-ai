@@ -31,6 +31,8 @@ export interface BreakdownCardProps {
   emptyMessage?: string;
   /** When set, slices/legend rows become clickable and report their id (drill-down). */
   onRowClick?: (id: string) => void;
+  /** Caption shown under the chart when rows are clickable. */
+  hint?: string;
   /** When set, shows a back button before the title (exits drill-down). */
   onBack?: () => void;
 }
@@ -40,6 +42,7 @@ export function BreakdownCard({
   rows,
   emptyMessage = 'Nenhuma despesa neste período',
   onRowClick,
+  hint = 'Toque numa fatia para ver as subcategorias',
   onBack,
 }: BreakdownCardProps) {
   const [expanded, setExpanded] = useState(false);
@@ -88,9 +91,7 @@ export function BreakdownCard({
             onSliceClick={onRowClick}
           />
           {onRowClick ? (
-            <p className="text-text-subtle -mt-2 text-center text-[11px]">
-              Toque numa fatia para ver as subcategorias
-            </p>
+            <p className="text-text-subtle -mt-2 text-center text-[11px]">{hint}</p>
           ) : null}
 
           <button
