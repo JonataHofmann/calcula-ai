@@ -80,6 +80,8 @@ export const invoiceReviewLineSchema = extractedInvoiceLineSchema.extend({
   categoryId: z.string().uuid(),
   discarded: z.boolean().default(false),
   originalDescription: z.string().min(1).max(120).optional(),
+  /** Optional free note the user adds during review; persisted on the transaction. */
+  notes: z.string().trim().max(2000).nullish(),
   /**
    * User-flagged as a recurring fixed expense (e.g. streaming). When true the line is
    * imported as a single `fixed` transaction (no end date), overriding any installment info.

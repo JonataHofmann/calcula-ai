@@ -46,6 +46,7 @@ interface LineState {
   discarded: boolean;
   description: string;
   fixed: boolean;
+  notes: string;
 }
 
 /** Flattens the expense branch into indented options carrying icon + color. */
@@ -99,6 +100,7 @@ export function InvoiceReviewModal({
           discarded: false,
           description: l.description,
           fixed: false,
+          notes: '',
         },
       ]),
     ),
@@ -120,6 +122,10 @@ export function InvoiceReviewModal({
 
   function setDescription(lineId: string, description: string) {
     setLineState((s) => ({ ...s, [lineId]: { ...s[lineId]!, description } }));
+  }
+
+  function setNotes(lineId: string, notes: string) {
+    setLineState((s) => ({ ...s, [lineId]: { ...s[lineId]!, notes } }));
   }
 
   function toggleDiscard(lineId: string) {
@@ -173,6 +179,7 @@ export function InvoiceReviewModal({
         categoryId: state.categoryId,
         discarded: state.discarded,
         fixed: state.fixed,
+        notes: state.notes.trim() === '' ? undefined : state.notes.trim(),
       };
     });
     await onConfirm({ referenceMonth: referenceMonth as ReferenceMonth, lines });
@@ -184,7 +191,7 @@ export function InvoiceReviewModal({
       onClose={onClose}
       title="Revisar lançamentos"
       description="Confira as categorias e descarte o que não quiser importar."
-      className="max-w-6xl"
+      className="max-w-7xl"
     >
       <div className="flex flex-col gap-4">
         <div className="flex items-end justify-between gap-4">
@@ -217,6 +224,7 @@ export function InvoiceReviewModal({
                 <TableHead>Parcela</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead>Categoria</TableHead>
+                <TableHead>Observação</TableHead>
                 <TableHead className="text-center">Fixa</TableHead>
                 <TableHead className="text-right">Ação</TableHead>
               </TableRow>
@@ -233,7 +241,7 @@ export function InvoiceReviewModal({
                     <TableCell>
                       {new Date(line.date).toLocaleDateString('pt-BR')}
                     </TableCell>
-                    <TableCell className="min-w-[12rem]">
+                    <TableCell className="min-w-[20rem]">
                       <span className="flex items-center gap-1.5">
                         {line.uncertain && (
                           <AlertTriangle
@@ -282,6 +290,16 @@ export function InvoiceReviewModal({
                         options={income ? incomeOptions : expenseOptions}
                         placeholder={income ? 'Categoria de receita' : 'Categoria'}
                         disabled={state.discarded}
+                      />
+                    </TableCell>
+                    <TableCell className="min-w-[14rem]">
+                      <Input
+                        value={state.notes}
+                        onChange={(e) => setNotes(line.lineId, e.target.value)}
+                        disabled={state.discarded}
+                        maxLength={2000}
+                        placeholder="Observação (opcional)"
+                        aria-label="Observação"
                       />
                     </TableCell>
                     <TableCell className="text-center">

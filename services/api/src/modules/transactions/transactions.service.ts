@@ -816,7 +816,7 @@ export class TransactionsService {
       categoryId: line.categoryId,
       accountId: null,
       creditCardId,
-      notes: null,
+      notes: line.notes ?? null,
       source: 'imported' as const,
     };
 
