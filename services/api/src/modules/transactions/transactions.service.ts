@@ -348,6 +348,24 @@ export class TransactionsService {
     for (const t of targets) {
       await this.deleteOne(t.id, userId);
     }
+
+    // A fixed expense persists lazily — deleting the current/future rows is not enough, because
+    // ensureFixedOccurrences would re-create them from the latest remaining row. Cap the recurrence
+    // with an endDate at the latest KEPT occurrence so it terminates: nothing from `target` onward
+    // appears again (nor re-materializes). No kept rows means the whole fixed is gone already.
+    if (target.recurrence === 'fixed') {
+      const kept = group.filter((t) => t.dueDate.getTime() < target.dueDate.getTime());
+      if (kept.length > 0) {
+        const endDate = kept.reduce(
+          (max, t) => (t.dueDate.getTime() > max.getTime() ? t.dueDate : max),
+          kept[0]!.dueDate,
+        );
+        for (const t of kept) {
+          t.update({ endDate });
+          await this.saveOne(t);
+        }
+      }
+    }
   }
 
   /** pending -> paid; a fixed occurrence materializes the next pending row (FR-014/R10). */

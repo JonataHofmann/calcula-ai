@@ -662,6 +662,56 @@ describe('TransactionsService.delete (group scope)', () => {
       TransactionNotFoundError,
     );
   });
+
+  it("scope 'future' on a fixed caps it with an endDate so later months never reappear", async () => {
+    const { service, txRepo } = setup();
+    const fixed = {
+      recurrence: 'fixed',
+      type: 'expense',
+      description: 'Aluguel',
+      dueDate: '2026-01-05T00:00:00.000Z',
+      amount: '1000.00',
+      categoryId: CAT_EXPENSE,
+      accountId: ACC,
+    } as CreateTransactionInput;
+    await service.create(USER_A, fixed);
+
+    // Materialize Jan..May by listing the range (lazy occurrences created on view).
+    await service.list(USER_A, {
+      dueFrom: '2026-01-01T00:00:00.000Z',
+      dueTo: '2026-06-01T00:00:00.000Z',
+      sort: 'dueDate',
+      order: 'asc',
+    });
+    const may = (await service.list(USER_A, {
+      dueFrom: '2026-05-01T00:00:00.000Z',
+      dueTo: '2026-06-01T00:00:00.000Z',
+      sort: 'dueDate',
+      order: 'asc',
+    }))[0]!;
+
+    // Delete "this and future" from May → May onward gone, Jan..Apr kept.
+    await service.delete(USER_A, may.id, 'future');
+
+    // Every kept row carries the endDate = April (latest kept occurrence).
+    const remaining = [...txRepo.store.values()].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+    expect(remaining.map((r) => r.dueDate.toISOString().slice(0, 7))).toEqual([
+      '2026-01',
+      '2026-02',
+      '2026-03',
+      '2026-04',
+    ]);
+    expect(remaining.every((r) => r.endDate?.toISOString().slice(0, 7) === '2026-04')).toBe(true);
+
+    // Re-opening May/June must NOT re-materialize the fixed (the bug being fixed).
+    const future = await service.list(USER_A, {
+      dueFrom: '2026-05-01T00:00:00.000Z',
+      dueTo: '2026-07-01T00:00:00.000Z',
+      sort: 'dueDate',
+      order: 'asc',
+    });
+    expect(future).toEqual([]);
+  });
 });
 
 // --- forecast --------------------------------------------------------------------------------
