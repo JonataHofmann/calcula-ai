@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import type { BackupSnapshot, ImportMode, ImportResult, ResetResult } from '@finance/contracts';
+import {
+  BACKUP_VERSION,
+  type BackupSnapshot,
+  type ImportMode,
+  type ImportResult,
+  type ResetResult,
+} from '@finance/contracts';
 import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { CreditCardEntity } from '../cards/entities/credit-card.entity';
 import { AccountEntity } from '../accounts/entities/account.entity';
@@ -64,15 +70,26 @@ export class AccountService {
    * defaults (ownerId null) live on every deployment and are referenced by id.
    */
   async exportData(userId: string): Promise<BackupSnapshot> {
-    const [accounts, creditCards, categories, transactions] = await Promise.all([
+    const [
+      accounts,
+      creditCards,
+      categories,
+      transactions,
+      overrides,
+      hidden,
+      placements,
+    ] = await Promise.all([
       this.dataSource.getRepository(AccountEntity).find({ where: { userId } }),
       this.dataSource.getRepository(CreditCardEntity).find({ where: { userId } }),
       this.dataSource.getRepository(CategoryEntity).find({ where: { ownerId: userId } }),
       this.dataSource.getRepository(TransactionEntity).find({ where: { userId } }),
+      this.dataSource.getRepository(UserCategoryOverrideEntity).find({ where: { userId } }),
+      this.dataSource.getRepository(UserHiddenCategoryEntity).find({ where: { userId } }),
+      this.dataSource.getRepository(UserCategoryParentEntity).find({ where: { userId } }),
     ]);
 
     return {
-      version: 1,
+      version: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
       accounts: accounts.map((a) => ({
         id: a.id,
@@ -120,6 +137,20 @@ export class AccountService {
         source: t.source,
         externalId: t.externalId,
       })),
+      // Per-user customizations of SYSTEM default categories (categoryId is a stable
+      // system-default id, kept verbatim). Without these a backup/restore silently
+      // reverted renamed, hidden and reparented defaults to their factory state.
+      categoryOverrides: overrides.map((o) => ({
+        categoryId: o.categoryId,
+        name: o.name,
+        icon: o.icon,
+        color: o.color,
+      })),
+      hiddenCategories: hidden.map((h) => h.categoryId),
+      categoryPlacements: placements.map((p) => ({
+        categoryId: p.categoryId,
+        parentId: p.parentId,
+      })),
     };
   }
 
@@ -166,13 +197,62 @@ export class AccountService {
         await manager.insert(CategoryEntity, {
           id: newId,
           ownerId: userId,
-          parentId: c.parentId ? (catIdMap.get(c.parentId) ?? null) : null,
+          // A custom subcategory can hang under a SYSTEM default: that parentId is not in
+          // the snapshot's categories, so it is kept verbatim (stable system id) rather than
+          // nulled — nulling it silently promoted the subcategory to a root on restore.
+          parentId: c.parentId ? (catIdMap.get(c.parentId) ?? c.parentId) : null,
           name: c.name,
           type: c.type,
           icon: c.icon,
           color: c.color,
           isSystem: false,
         });
+      }
+
+      // Restore per-user customizations of system default categories. categoryId is a stable
+      // system-default id (verbatim); a placement's parentId is remapped when it points at a
+      // custom category from this snapshot. orIgnore keeps a `merge` from clobbering the user's
+      // current customizations and is a no-op on the clean slate a `replace` already left.
+      if (snapshot.categoryOverrides.length > 0) {
+        await manager
+          .createQueryBuilder()
+          .insert()
+          .into(UserCategoryOverrideEntity)
+          .values(
+            snapshot.categoryOverrides.map((o) => ({
+              userId,
+              categoryId: o.categoryId,
+              name: o.name,
+              icon: o.icon,
+              color: o.color,
+            })),
+          )
+          .orIgnore()
+          .execute();
+      }
+      if (snapshot.hiddenCategories.length > 0) {
+        await manager
+          .createQueryBuilder()
+          .insert()
+          .into(UserHiddenCategoryEntity)
+          .values(snapshot.hiddenCategories.map((categoryId) => ({ userId, categoryId })))
+          .orIgnore()
+          .execute();
+      }
+      if (snapshot.categoryPlacements.length > 0) {
+        await manager
+          .createQueryBuilder()
+          .insert()
+          .into(UserCategoryParentEntity)
+          .values(
+            snapshot.categoryPlacements.map((p) => ({
+              userId,
+              categoryId: p.categoryId,
+              parentId: p.parentId ? (catIdMap.get(p.parentId) ?? p.parentId) : null,
+            })),
+          )
+          .orIgnore()
+          .execute();
       }
 
       const accIdMap = new Map<string, string>();

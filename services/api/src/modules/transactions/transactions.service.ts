@@ -1262,7 +1262,11 @@ function projectFixedCells(
 ): Array<{ month: string; amount: string | null }> {
   const byMonth = new Map<string, Transaction>();
   for (const row of group) byMonth.set(formatMonth(row.dueDate), row);
-  const anchor = group[group.length - 1] as Transaction;
+  // Anchor on the FIRST occurrence and walk forward. A fixed expense whose past months were
+  // effectuated has several rows in the group (paid history + the next pending one, all sharing
+  // the groupId); anchoring on the LAST row made every month before it project as null, so the
+  // fixed showed up only in its latest (often the projection's last) month. group is dueDate-asc.
+  const anchor = group[0] as Transaction;
 
   let cursor = anchor.dueDate;
   let amount = anchor.amount;

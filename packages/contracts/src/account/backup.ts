@@ -35,6 +35,28 @@ export const backupCategorySchema = z.object({
   color: z.string(),
 });
 
+/**
+ * A user's copy-on-write override of a system default category's presentation (never its
+ * type). `categoryId` is a system-default id — stable across deployments, so it is kept
+ * verbatim on import (never remapped).
+ */
+export const backupCategoryOverrideSchema = z.object({
+  categoryId: z.string().uuid(),
+  name: z.string(),
+  icon: z.string(),
+  color: z.string(),
+});
+
+/**
+ * A user's per-user reparent of a system default. `categoryId` is a system-default id
+ * (verbatim). `parentId` null = promoted to root; a uuid nests it under that parent (which
+ * may be a custom category from this snapshot, so it is remapped on import).
+ */
+export const backupCategoryPlacementSchema = z.object({
+  categoryId: z.string().uuid(),
+  parentId: z.string().uuid().nullable(),
+});
+
 export const backupTransactionSchema = z.object({
   id: z.string().uuid(),
   description: z.string(),
@@ -58,15 +80,20 @@ export const backupTransactionSchema = z.object({
   externalId: z.string().uuid().nullable().optional(),
 });
 
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 export const backupSnapshotSchema = z.object({
-  version: z.literal(BACKUP_VERSION),
+  // Accepts v1 (custom categories only) and v2 (adds system-category customizations). The
+  // v2-only arrays default to [] so a v1 file still imports cleanly.
+  version: z.union([z.literal(1), z.literal(2)]),
   exportedAt: z.string(),
   accounts: z.array(backupAccountSchema),
   creditCards: z.array(backupCreditCardSchema),
   categories: z.array(backupCategorySchema),
   transactions: z.array(backupTransactionSchema),
+  categoryOverrides: z.array(backupCategoryOverrideSchema).default([]),
+  hiddenCategories: z.array(z.string().uuid()).default([]),
+  categoryPlacements: z.array(backupCategoryPlacementSchema).default([]),
 });
 export type BackupSnapshot = z.infer<typeof backupSnapshotSchema>;
 

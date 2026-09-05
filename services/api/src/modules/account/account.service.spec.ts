@@ -6,6 +6,7 @@ import { AccountEntity } from '../accounts/entities/account.entity';
 import { CategoryEntity } from '../categories/entities/category.entity';
 import { UserCategoryOverrideEntity } from '../categories/entities/user-category-override.entity';
 import { UserHiddenCategoryEntity } from '../categories/entities/user-hidden-category.entity';
+import { UserCategoryParentEntity } from '../categories/entities/user-category-parent.entity';
 
 const USER = 'user-1';
 
@@ -24,23 +25,54 @@ function setup(affected: Map<unknown, number>) {
 }
 
 const EMPTY_SNAPSHOT = {
-  version: 1 as const,
+  version: 2 as const,
   exportedAt: new Date().toISOString(),
   accounts: [],
   creditCards: [],
   categories: [],
   transactions: [],
+  categoryOverrides: [],
+  hiddenCategories: [],
+  categoryPlacements: [],
 };
+
+/** One captured `insert().into(E).values(v).orIgnore().execute()` chain. */
+interface CapturedInsert {
+  entity: unknown;
+  values: unknown;
+}
 
 /** Fake EntityManager tracking delete + insert calls, for import mode tests. */
 function setupImport() {
   const del = jest.fn(async () => ({ affected: 0, raw: [] }));
   const insert = jest.fn(async () => ({ identifiers: [], generatedMaps: [], raw: [] }));
-  const manager = { delete: del, insert } as unknown as EntityManager;
+  // The system-category customizations are restored via the query builder; capture each chain.
+  const inserts: CapturedInsert[] = [];
+  const qb: Record<string, unknown> = {};
+  let pending: CapturedInsert = { entity: undefined, values: undefined };
+  qb.insert = () => qb;
+  qb.into = (entity: unknown) => {
+    pending = { entity, values: undefined };
+    return qb;
+  };
+  qb.values = (values: unknown) => {
+    pending.values = values;
+    return qb;
+  };
+  qb.orIgnore = () => qb;
+  qb.execute = async () => {
+    inserts.push(pending);
+    return { raw: [] };
+  };
+  const manager = {
+    delete: del,
+    insert,
+    createQueryBuilder: () => qb,
+  } as unknown as EntityManager;
   const dataSource = {
     transaction: (cb: (m: EntityManager) => Promise<unknown>) => cb(manager),
   } as unknown as DataSource;
-  return { service: new AccountService(dataSource), del, insert };
+  return { service: new AccountService(dataSource), del, insert, inserts };
 }
 
 describe('AccountService.importData', () => {
@@ -60,6 +92,7 @@ describe('AccountService.importData', () => {
     expect(del).toHaveBeenCalledWith(TransactionEntity, { userId: USER });
     expect(del).toHaveBeenCalledWith(UserCategoryOverrideEntity, { userId: USER });
     expect(del).toHaveBeenCalledWith(UserHiddenCategoryEntity, { userId: USER });
+    expect(del).toHaveBeenCalledWith(UserCategoryParentEntity, { userId: USER });
     expect(del).toHaveBeenCalledWith(CategoryEntity, { ownerId: USER });
     expect(del).toHaveBeenCalledWith(CreditCardEntity, { userId: USER });
     expect(del).toHaveBeenCalledWith(AccountEntity, { userId: USER });
@@ -71,6 +104,59 @@ describe('AccountService.importData', () => {
     await service.importData(USER, EMPTY_SNAPSHOT);
 
     expect(del).not.toHaveBeenCalled();
+  });
+
+  it('restores system-category customizations (overrides, hidden, placements)', async () => {
+    const { service, inserts } = setupImport();
+    const SYS = '11111111-1111-4111-8111-111111111111';
+    const SYS2 = '22222222-2222-4222-8222-222222222222';
+
+    await service.importData(
+      USER,
+      {
+        ...EMPTY_SNAPSHOT,
+        categoryOverrides: [{ categoryId: SYS, name: 'Comida', icon: 'utensils', color: 'red' }],
+        hiddenCategories: [SYS2],
+        categoryPlacements: [{ categoryId: SYS, parentId: null }],
+      },
+      'merge',
+    );
+
+    const overrides = inserts.find((i) => i.entity === UserCategoryOverrideEntity);
+    const hidden = inserts.find((i) => i.entity === UserHiddenCategoryEntity);
+    const placements = inserts.find((i) => i.entity === UserCategoryParentEntity);
+
+    // categoryId is a stable system-default id, kept verbatim (never remapped).
+    expect(overrides?.values).toEqual([
+      { userId: USER, categoryId: SYS, name: 'Comida', icon: 'utensils', color: 'red' },
+    ]);
+    expect(hidden?.values).toEqual([{ userId: USER, categoryId: SYS2 }]);
+    expect(placements?.values).toEqual([{ userId: USER, categoryId: SYS, parentId: null }]);
+  });
+
+  it('remaps a placement parentId that points at a custom category from the snapshot', async () => {
+    const { service, inserts } = setupImport();
+    const SYS = '11111111-1111-4111-8111-111111111111';
+    const CUSTOM = '33333333-3333-4333-8333-333333333333';
+
+    await service.importData(
+      USER,
+      {
+        ...EMPTY_SNAPSHOT,
+        categories: [
+          { id: CUSTOM, parentId: null, name: 'Meus', type: 'expense', icon: 'folder', color: 'blue' },
+        ],
+        // A system default reparented under the custom category above.
+        categoryPlacements: [{ categoryId: SYS, parentId: CUSTOM }],
+      },
+      'merge',
+    );
+
+    const placements = inserts.find((i) => i.entity === UserCategoryParentEntity);
+    const value = (placements?.values as Array<{ parentId: string }>)[0];
+    // parentId must be the custom category's NEW id, not the stale snapshot id.
+    expect(value?.parentId).not.toBe(CUSTOM);
+    expect(typeof value?.parentId).toBe('string');
   });
 });
 

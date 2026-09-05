@@ -728,6 +728,21 @@ describe('TransactionsService.getForecast', () => {
     expect(row?.cells.map((c) => c.amount)).toEqual(['50.00', '50.00', '50.00']);
   });
 
+  it('(b2) projects a fixed group with effectuated past rows across every month, not only the latest', async () => {
+    // Regression: a fixed expense whose earlier months were effectuated has several rows in the
+    // group (paid history + the next pending one). Anchoring on the last row hid every month
+    // before it, so the fixed appeared only in the projection's last month.
+    const { service } = forecastService([
+      fixedRow({ userId: USER_A, groupId: 'g-rent', id: 't-rent-1', description: 'aluguel', month: '2026-08', amount: '50.00' }),
+      fixedRow({ userId: USER_A, groupId: 'g-rent', id: 't-rent-2', description: 'aluguel', month: '2026-09', amount: '50.00' }),
+      fixedRow({ userId: USER_A, groupId: 'g-rent', id: 't-rent-3', description: 'aluguel', month: '2026-10', amount: '60.00' }),
+    ]);
+    const result = await service.getForecast(USER_A, { from: '2026-08', months: 4 });
+    const row = result.rows.find((r) => r.key === 'g-rent');
+    // Every month populated; the amount carries forward the most recent occurrence (60.00 from Oct).
+    expect(row?.cells.map((c) => c.amount)).toEqual(['50.00', '50.00', '60.00', '60.00']);
+  });
+
   it('(c) fixed with endDate yields null cells after termination', async () => {
     const { service } = forecastService([
       fixedRow({
