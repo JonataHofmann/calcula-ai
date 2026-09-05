@@ -8,6 +8,7 @@ import type {
 import { TransactionsService } from './transactions.service';
 import { ReferenceNotFoundError } from './transactions.types';
 import { TransactionEntity } from './entities/transaction.entity';
+import { ProjectionEstimateEntity } from './entities/projection-estimate.entity';
 import { CategoryEntity } from '../categories/entities/category.entity';
 import { AccountEntity } from '../accounts/entities/account.entity';
 import { CreditCardEntity } from '../cards/entities/credit-card.entity';
@@ -110,7 +111,13 @@ maybe('TransactionsService (integration)', () => {
     dataSource = new DataSource({
       type: 'postgres',
       url,
-      entities: [TransactionEntity, CategoryEntity, AccountEntity, CreditCardEntity],
+      entities: [
+        TransactionEntity,
+        ProjectionEstimateEntity,
+        CategoryEntity,
+        AccountEntity,
+        CreditCardEntity,
+      ],
       synchronize: true,
       dropSchema: true,
     });
@@ -121,6 +128,7 @@ maybe('TransactionsService (integration)', () => {
       dataSource.getRepository(CategoryEntity),
       dataSource.getRepository(AccountEntity),
       dataSource.getRepository(CreditCardEntity),
+      dataSource.getRepository(ProjectionEstimateEntity),
     );
 
     // Reference rows validateReferences requires (no DB-level FKs — seeded only for the service).

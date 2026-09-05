@@ -30,6 +30,11 @@ import {
   type ListTransactionsQuery,
   overdueQuery,
   type OverdueQuery,
+  createProjectionEstimateInput,
+  type CreateProjectionEstimateInput,
+  updateProjectionEstimateInput,
+  type UpdateProjectionEstimateInput,
+  type ProjectionEstimate,
   updateTransactionInput,
   type UpdateTransactionInput,
 } from '@finance/contracts';
@@ -144,6 +149,45 @@ export class TransactionsController {
   ): Promise<CategorySuggestionResult> {
     this.logger.log(`GET /transactions/category-suggestions user=${user.id}`);
     return this.transactions.suggestCategories(user.id, query.descriptions);
+  }
+
+  // --- projection estimates (projection-only rows; declared before ':id' so the static path wins) ---
+
+  @Get('projection-estimates')
+  async listProjectionEstimates(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ProjectionEstimate[]> {
+    this.logger.log(`GET /transactions/projection-estimates user=${user.id}`);
+    return this.transactions.listProjectionEstimates(user.id);
+  }
+
+  @Post('projection-estimates')
+  async createProjectionEstimate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(createProjectionEstimateInput)) input: CreateProjectionEstimateInput,
+  ): Promise<ProjectionEstimate> {
+    this.logger.log(`POST /transactions/projection-estimates user=${user.id}`);
+    return this.transactions.createProjectionEstimate(user.id, input);
+  }
+
+  @Patch('projection-estimates/:id')
+  async updateProjectionEstimate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateProjectionEstimateInput)) input: UpdateProjectionEstimateInput,
+  ): Promise<ProjectionEstimate> {
+    this.logger.log(`PATCH /transactions/projection-estimates/${id} user=${user.id}`);
+    return this.transactions.updateProjectionEstimate(user.id, id, input);
+  }
+
+  @Delete('projection-estimates/:id')
+  @HttpCode(204)
+  async removeProjectionEstimate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    this.logger.log(`DELETE /transactions/projection-estimates/${id} user=${user.id}`);
+    await this.transactions.deleteProjectionEstimate(user.id, id);
   }
 
   @Get(':id')

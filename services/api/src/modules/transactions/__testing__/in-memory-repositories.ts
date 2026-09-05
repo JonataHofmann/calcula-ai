@@ -6,6 +6,7 @@ import type {
   TransactionType,
 } from '@finance/contracts';
 import { TransactionEntity } from '../entities/transaction.entity';
+import { ProjectionEstimateEntity } from '../entities/projection-estimate.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { AccountEntity } from '../../accounts/entities/account.entity';
 import { CreditCardEntity } from '../../cards/entities/credit-card.entity';
@@ -354,6 +355,48 @@ export function makeFakeAccountRepo(seed: AccountEntity[] = []): Repository<Acco
 
 export function makeFakeCreditCardRepo(seed: CreditCardEntity[] = []): Repository<CreditCardEntity> {
   return makeExistsRepo(seed);
+}
+
+/** In-memory `ProjectionEstimateEntity` repo: the subset the service uses (create/insert/find/findOne/save/delete). */
+export function makeFakeProjectionEstimateRepo(
+  seed: ProjectionEstimateEntity[] = [],
+): Repository<ProjectionEstimateEntity> {
+  const store = new Map<string, ProjectionEstimateEntity>(seed.map((e) => [e.id, { ...e }]));
+  const fake = {
+    create(input: Partial<ProjectionEstimateEntity>): ProjectionEstimateEntity {
+      return Object.assign(new ProjectionEstimateEntity(), input);
+    },
+    async insert(e: ProjectionEstimateEntity) {
+      store.set(e.id, { ...e });
+    },
+    async save(e: ProjectionEstimateEntity) {
+      store.set(e.id, { ...e });
+      return { ...e };
+    },
+    async find(options: { where?: Record<string, unknown> } = {}) {
+      const rows = [...store.values()].filter((r) =>
+        options.where ? matchesWhere(r as unknown as Record<string, unknown>, options.where as never) : true,
+      );
+      return rows.map((r) => ({ ...r }));
+    },
+    async findOne(options: { where: Record<string, unknown> }) {
+      const row = [...store.values()].find((r) =>
+        matchesWhere(r as unknown as Record<string, unknown>, options.where as never),
+      );
+      return row ? { ...row } : null;
+    },
+    async delete(criteria: Record<string, unknown>) {
+      let affected = 0;
+      for (const [id, row] of [...store.entries()]) {
+        if (matchesWhere(row as unknown as Record<string, unknown>, criteria as never)) {
+          store.delete(id);
+          affected++;
+        }
+      }
+      return { affected, raw: [] };
+    },
+  };
+  return fake as unknown as Repository<ProjectionEstimateEntity>;
 }
 
 // --- entity builders ------------------------------------------------------------------------------

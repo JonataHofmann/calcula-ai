@@ -14,6 +14,7 @@ export * from './cards/credit-card.js';
 export * from './transactions/transaction.js';
 export * from './transactions/forecast.js';
 export * from './transactions/import-invoice.js';
+export * from './transactions/projection-estimate.js';
 export * from './bank-connections/bank-connection.js';
 export * from './bank-connections/connect-token.js';
 export * from './bank-connections/synced-transaction.js';

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { moneyAmountSchema } from '../common/money.js';
+import { transactionTypeSchema } from './transaction.js';
 
 export const forecastQuerySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}$/),
@@ -20,7 +21,10 @@ export type ForecastQuery = z.infer<typeof forecastQuerySchema>;
 export const forecastRowSchema = z.object({
   key: z.string(),
   description: z.string(),
-  recurrence: z.enum(['installment', 'fixed']),
+  // `estimate` = projection-only average (not a real transaction). See projection-estimate.ts.
+  recurrence: z.enum(['installment', 'fixed', 'estimate']),
+  /** Direction of the row: expenses add to the Total, incomes subtract. Defaults to expense. */
+  type: transactionTypeSchema.default('expense'),
   installmentCount: z.number().int().positive().nullable(),
   /** Origin of the commitment: which account or card it is charged to. */
   originKind: z.enum(['account', 'card']).nullable(),

@@ -1,10 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
+  CreateProjectionEstimateInput,
   CreateTransactionInput,
   EffectuateInput,
   ForecastQuery,
   ForecastResponse,
+  ProjectionEstimate,
   TransactionDto,
+  UpdateProjectionEstimateInput,
   UpdateTransactionInput,
 } from '@finance/contracts';
 import { ApiClient } from '../../common/api-client';
@@ -56,6 +59,43 @@ export class TransactionsService {
   get(token: string, id: string): Promise<TransactionDto> {
     this.logger.log(`Proxying GET /transactions/${id}`);
     return this.api.get<TransactionDto>(`/transactions/${id}`, { token });
+  }
+
+  // --- projection estimates (projection-only rows) ---
+
+  listProjectionEstimates(token: string): Promise<ProjectionEstimate[]> {
+    this.logger.log('Proxying GET /transactions/projection-estimates');
+    return this.api.get<ProjectionEstimate[]>('/transactions/projection-estimates', { token });
+  }
+
+  createProjectionEstimate(
+    token: string,
+    body: CreateProjectionEstimateInput,
+    idempotencyKey?: string,
+  ): Promise<ProjectionEstimate> {
+    this.logger.log('Proxying POST /transactions/projection-estimates');
+    return this.api.post<ProjectionEstimate>('/transactions/projection-estimates', {
+      token,
+      body,
+      idempotencyKey,
+    });
+  }
+
+  updateProjectionEstimate(
+    token: string,
+    id: string,
+    body: UpdateProjectionEstimateInput,
+  ): Promise<ProjectionEstimate> {
+    this.logger.log(`Proxying PATCH /transactions/projection-estimates/${id}`);
+    return this.api.patch<ProjectionEstimate>(`/transactions/projection-estimates/${id}`, {
+      token,
+      body,
+    });
+  }
+
+  removeProjectionEstimate(token: string, id: string): Promise<void> {
+    this.logger.log(`Proxying DELETE /transactions/projection-estimates/${id}`);
+    return this.api.delete<void>(`/transactions/projection-estimates/${id}`, { token });
   }
 
   create(token: string, body: CreateTransactionInput, idempotencyKey?: string): Promise<CreateResult> {

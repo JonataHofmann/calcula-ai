@@ -21,6 +21,14 @@ export class TransactionNotFoundError extends Error {
   }
 }
 
+/** A projection estimate the user does not own (or absent) -> 404 (name ends with NotFoundError). */
+export class ProjectionEstimateNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Projection estimate not found: ${id}`);
+    this.name = 'ProjectionEstimateNotFoundError';
+  }
+}
+
 /** Effectuating an already-paid transaction -> 409 (name ends with ConflictError). */
 export class AlreadyPaidError extends Error {
   constructor(id: string) {

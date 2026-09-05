@@ -12,6 +12,7 @@ import {
   accountRow,
   categoryRow,
   makeFakeAccountRepo,
+  makeFakeProjectionEstimateRepo,
   makeFakeCategoryRepo,
   makeFakeCreditCardRepo,
   makeFakeTransactionRepo,
@@ -43,6 +44,7 @@ function makeController() {
     ]),
     makeFakeAccountRepo([accountRow(ACCOUNT_ID, USER_A)]),
     makeFakeCreditCardRepo(),
+    makeFakeProjectionEstimateRepo(),
   );
   const controller = new TransactionsController(service);
   return { controller };

@@ -8,15 +8,18 @@ import type {
   CommitInvoiceResult,
   CreateTransactionInput,
   EffectuateInput,
+  CreateProjectionEstimateInput,
   ForecastQuery,
   ForecastResponse,
   ForecastRow,
   GroupScope,
   ListTransactionsQuery,
   OverdueQuery,
+  ProjectionEstimate,
   SortOrder,
   TransactionSort,
   TransactionType,
+  UpdateProjectionEstimateInput,
   UpdateTransactionInput,
 } from '@finance/contracts';
 import { normalizeDescription } from './normalize-description';
@@ -25,10 +28,12 @@ import { CategoryEntity } from '../categories/entities/category.entity';
 import { AccountEntity } from '../accounts/entities/account.entity';
 import { CreditCardEntity } from '../cards/entities/credit-card.entity';
 import { TransactionEntity } from './entities/transaction.entity';
+import { ProjectionEstimateEntity } from './entities/projection-estimate.entity';
 import { Transaction, type UpdateTransactionAttributes } from './transaction.model';
 import { addMonthClamped, fromCents, nextOccurrence, splitInstallments, toCents } from './recurrence';
 import {
   InvalidTransactionError,
+  ProjectionEstimateNotFoundError,
   ReferenceNotFoundError,
   SyncedImportConflictError,
   TransactionNotFoundError,
@@ -152,6 +157,8 @@ export class TransactionsService {
     private readonly accountRepo: Repository<AccountEntity>,
     @InjectRepository(CreditCardEntity)
     private readonly creditCardRepo: Repository<CreditCardEntity>,
+    @InjectRepository(ProjectionEstimateEntity)
+    private readonly projectionRepo: Repository<ProjectionEstimateEntity>,
   ) {}
 
   // --- commands ---
@@ -526,6 +533,7 @@ export class TransactionsService {
           key,
           description: first.description,
           recurrence: 'installment',
+          type: 'expense',
           installmentCount: first.installmentCount,
           ...origin,
           cells: projectInstallmentCells(group, months),
@@ -535,6 +543,7 @@ export class TransactionsService {
           key,
           description: first.description,
           recurrence: 'fixed',
+          type: 'expense',
           installmentCount: null,
           ...origin,
           cells: projectFixedCells(group, months),
@@ -542,18 +551,84 @@ export class TransactionsService {
       }
     }
 
-    // Card commitments first, then fixed (non-card), then the rest — matches the report ordering.
+    // Projection-only estimates: one row each, same amount in EVERY month (recurring average).
+    const estimates = await this.projectionRepo.find({ where: { userId } });
+    for (const est of estimates) {
+      rows.push({
+        key: `estimate-${est.id}`,
+        description: est.description,
+        recurrence: 'estimate',
+        type: est.type,
+        installmentCount: null,
+        originKind: null,
+        originId: null,
+        originName: null,
+        cells: months.map((month) => ({ month, amount: est.amount })),
+      });
+    }
+
+    // Card commitments first, then fixed (non-card), then installments, then estimates last.
     rows.sort((a, b) => forecastRank(a) - forecastRank(b));
 
     const totals = months.map((month, i) => {
       const cents = rows.reduce((sum, row) => {
         const cell = row.cells[i];
-        return sum + (cell?.amount ? toCents(cell.amount) : 0);
+        if (!cell?.amount) return sum;
+        // Expenses add to the projected Total; incomes (estimates) subtract from it.
+        return row.type === 'income' ? sum - toCents(cell.amount) : sum + toCents(cell.amount);
       }, 0);
       return { month, amount: fromCents(cents) };
     });
 
     return { months, rows, totals };
+  }
+
+  // --- projection estimates (projection-only rows; never real transactions) ---
+
+  async listProjectionEstimates(userId: string): Promise<ProjectionEstimate[]> {
+    this.logger.log(`Listing projection estimates for user ${userId}`);
+    const rows = await this.projectionRepo.find({
+      where: { userId },
+      order: { createdAt: 'ASC' },
+    });
+    return rows.map(toProjectionEstimateDto);
+  }
+
+  async createProjectionEstimate(
+    userId: string,
+    input: CreateProjectionEstimateInput,
+  ): Promise<ProjectionEstimate> {
+    this.logger.log(`Creating projection estimate for user ${userId}`);
+    const entity = this.projectionRepo.create({
+      id: randomUUID(),
+      userId,
+      description: input.description,
+      amount: input.amount,
+      type: input.type,
+    });
+    await this.projectionRepo.insert(entity);
+    return toProjectionEstimateDto(entity);
+  }
+
+  async updateProjectionEstimate(
+    userId: string,
+    id: string,
+    input: UpdateProjectionEstimateInput,
+  ): Promise<ProjectionEstimate> {
+    this.logger.log(`Updating projection estimate ${id} for user ${userId}`);
+    const existing = await this.projectionRepo.findOne({ where: { id, userId } });
+    if (!existing) throw new ProjectionEstimateNotFoundError(id);
+    if (input.description !== undefined) existing.description = input.description;
+    if (input.amount !== undefined) existing.amount = input.amount;
+    if (input.type !== undefined) existing.type = input.type;
+    await this.projectionRepo.save(existing);
+    return toProjectionEstimateDto(existing);
+  }
+
+  async deleteProjectionEstimate(userId: string, id: string): Promise<void> {
+    this.logger.log(`Deleting projection estimate ${id} for user ${userId}`);
+    const { affected } = await this.projectionRepo.delete({ id, userId });
+    if (!affected) throw new ProjectionEstimateNotFoundError(id);
   }
 
   /**
@@ -1288,11 +1363,17 @@ function resolveOrigin(
   return { originKind: null, originId: null, originName: null };
 }
 
-/** Sort rank: card commitments first, then fixed (non-card), then everything else. */
+/** Sort rank: card commitments first, then fixed (non-card), installments, then estimates last. */
 function forecastRank(row: ForecastRow): number {
+  if (row.recurrence === 'estimate') return 3;
   if (row.originKind === 'card') return 0;
   if (row.recurrence === 'fixed') return 1;
   return 2;
+}
+
+/** Maps a projection estimate row to its DTO (drops userId/timestamps — regra 9). */
+function toProjectionEstimateDto(e: ProjectionEstimateEntity): ProjectionEstimate {
+  return { id: e.id, description: e.description, amount: e.amount, type: e.type };
 }
 
 function projectFixedCells(

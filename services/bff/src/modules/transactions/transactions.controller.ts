@@ -13,11 +13,14 @@ import {
   Req,
 } from '@nestjs/common';
 import type {
+  CreateProjectionEstimateInput,
   CreateTransactionInput,
   EffectuateInput,
   ForecastQuery,
   ForecastResponse,
+  ProjectionEstimate,
   TransactionDto,
+  UpdateProjectionEstimateInput,
   UpdateTransactionInput,
 } from '@finance/contracts';
 import type { Request } from 'express';
@@ -67,6 +70,41 @@ export class TransactionsController {
   ): Promise<ForecastResponse> {
     this.logger.log('GET /transactions/forecast');
     return this.transactions.forecast(tokenOf(req), query);
+  }
+
+  // --- projection estimates (declared before ':id' so the static path wins) ---
+
+  @Get('projection-estimates')
+  listProjectionEstimates(@Req() req: SessionRequest): Promise<ProjectionEstimate[]> {
+    this.logger.log('GET /transactions/projection-estimates');
+    return this.transactions.listProjectionEstimates(tokenOf(req));
+  }
+
+  @Post('projection-estimates')
+  createProjectionEstimate(
+    @Req() req: SessionRequest,
+    @Body() body: CreateProjectionEstimateInput,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ): Promise<ProjectionEstimate> {
+    this.logger.log('POST /transactions/projection-estimates');
+    return this.transactions.createProjectionEstimate(tokenOf(req), body, idempotencyKey);
+  }
+
+  @Patch('projection-estimates/:id')
+  updateProjectionEstimate(
+    @Req() req: SessionRequest,
+    @Param('id') id: string,
+    @Body() body: UpdateProjectionEstimateInput,
+  ): Promise<ProjectionEstimate> {
+    this.logger.log(`PATCH /transactions/projection-estimates/${id}`);
+    return this.transactions.updateProjectionEstimate(tokenOf(req), id, body);
+  }
+
+  @Delete('projection-estimates/:id')
+  @HttpCode(204)
+  removeProjectionEstimate(@Req() req: SessionRequest, @Param('id') id: string): Promise<void> {
+    this.logger.log(`DELETE /transactions/projection-estimates/${id}`);
+    return this.transactions.removeProjectionEstimate(tokenOf(req), id);
   }
 
   @Get(':id')

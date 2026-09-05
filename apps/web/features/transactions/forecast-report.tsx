@@ -27,6 +27,8 @@ interface DisplayRow {
   key: string;
   label: string;
   origin: { kind: 'account' | 'card'; name: string } | null;
+  /** Direction: income rows (estimates) render green with a leading '+'; expenses are neutral. */
+  type: 'expense' | 'income';
   cells: Cell[];
 }
 
@@ -44,6 +46,7 @@ function apiRowLabel(row: ApiRow): string {
   if (row.recurrence === 'installment' && row.installmentCount) {
     return `${row.description} (${row.installmentCount}x)`;
   }
+  if (row.recurrence === 'estimate') return `${row.description} (estimativa)`;
   return `${row.description} (fixa)`;
 }
 
@@ -77,6 +80,7 @@ function buildRows(forecast: ForecastResponse, groupByCard: boolean): DisplayRow
       key: row.key,
       label: apiRowLabel(row),
       origin: origin(row),
+      type: row.type,
       cells: row.cells,
     }));
   }
@@ -100,6 +104,7 @@ function buildRows(forecast: ForecastResponse, groupByCard: boolean): DisplayRow
       key: `card-${id}`,
       label: items[0]?.originName ?? 'Cartão',
       origin: { kind: 'card', name: items[0]?.originName ?? 'Cartão' },
+      type: 'expense',
       cells: sumCells(items, months),
     });
   }
@@ -110,13 +115,14 @@ function buildRows(forecast: ForecastResponse, groupByCard: boolean): DisplayRow
       key: 'fixed-all',
       label: 'Despesas fixas',
       origin: null,
+      type: 'expense',
       cells: sumCells(fixedRows, months),
     });
   }
 
-  // Remaining installments (on accounts) kept individual.
+  // Remaining installments (on accounts) and estimates kept individual (carry their own type).
   for (const r of rest) {
-    out.push({ key: r.key, label: apiRowLabel(r), origin: origin(r), cells: r.cells });
+    out.push({ key: r.key, label: apiRowLabel(r), origin: origin(r), type: r.type, cells: r.cells });
   }
 
   return out;
@@ -162,8 +168,11 @@ export function ForecastReport({ forecast, groupByCard = false }: ForecastReport
                   ) : null}
                 </TableCell>
                 {row.cells.map((cell) => (
-                  <TableCell key={cell.month} className="text-text-muted text-right">
-                    {cell.amount ? money(cell.amount) : '-'}
+                  <TableCell
+                    key={cell.month}
+                    className={`text-right ${row.type === 'income' ? 'text-success' : 'text-text-muted'}`}
+                  >
+                    {cell.amount ? `${row.type === 'income' ? '+' : ''}${money(cell.amount)}` : '-'}
                   </TableCell>
                 ))}
               </TableRow>

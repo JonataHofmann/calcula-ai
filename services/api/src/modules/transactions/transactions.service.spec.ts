@@ -17,6 +17,7 @@ import {
   cardRow,
   categoryRow,
   makeFakeAccountRepo,
+  makeFakeProjectionEstimateRepo,
   makeFakeCategoryRepo,
   makeFakeCreditCardRepo,
   makeFakeTransactionRepo,
@@ -48,7 +49,13 @@ function setup() {
   ]);
   const accountRepo = makeFakeAccountRepo([accountRow(ACC, USER_A), accountRow(ACC, USER_B)]);
   const creditCardRepo = makeFakeCreditCardRepo([cardRow(CARD, USER_A)]);
-  const service = new TransactionsService(txRepo, categoryRepo, accountRepo, creditCardRepo);
+  const service = new TransactionsService(
+    txRepo,
+    categoryRepo,
+    accountRepo,
+    creditCardRepo,
+    makeFakeProjectionEstimateRepo(),
+  );
   return { service, txRepo };
 }
 
@@ -292,6 +299,7 @@ describe('TransactionsService.list', () => {
       categoryRepo,
       makeFakeAccountRepo([accountRow(ACC, USER_A)]),
       makeFakeCreditCardRepo([cardRow(CARD, USER_A)]),
+      makeFakeProjectionEstimateRepo(),
     );
     await service.create(USER_A, single('2026-01-05T00:00:00.000Z', { categoryId: PARENT }));
     await service.create(USER_A, single('2026-01-06T00:00:00.000Z', { categoryId: CHILD }));
@@ -669,6 +677,7 @@ describe('TransactionsService.getForecast', () => {
       makeFakeCategoryRepo(),
       makeFakeAccountRepo(),
       makeFakeCreditCardRepo(),
+      makeFakeProjectionEstimateRepo(),
     );
     return { service, txRepo };
   }
@@ -860,6 +869,86 @@ describe('TransactionsService.getForecast', () => {
   });
 });
 
+// --- projection estimates --------------------------------------------------------------------
+
+describe('TransactionsService projection estimates', () => {
+  function estimateService() {
+    const projectionRepo = makeFakeProjectionEstimateRepo();
+    const service = new TransactionsService(
+      makeFakeTransactionRepo(),
+      makeFakeCategoryRepo(),
+      makeFakeAccountRepo(),
+      makeFakeCreditCardRepo(),
+      projectionRepo,
+    );
+    return { service };
+  }
+
+  it('creates, lists, updates and deletes an estimate (scoped by user)', async () => {
+    const { service } = estimateService();
+    const created = await service.createProjectionEstimate(USER_A, {
+      description: 'Mercado (média)',
+      amount: '800.00',
+      type: 'expense',
+    });
+    expect(await service.listProjectionEstimates(USER_A)).toHaveLength(1);
+    // Another user never sees it.
+    expect(await service.listProjectionEstimates(USER_B)).toEqual([]);
+
+    const updated = await service.updateProjectionEstimate(USER_A, created.id, { amount: '900.00' });
+    expect(updated.amount).toBe('900.00');
+    expect(updated.description).toBe('Mercado (média)');
+
+    await service.deleteProjectionEstimate(USER_A, created.id);
+    expect(await service.listProjectionEstimates(USER_A)).toEqual([]);
+  });
+
+  it("404s updating/deleting another user's (or a missing) estimate", async () => {
+    const { service } = estimateService();
+    const mine = await service.createProjectionEstimate(USER_A, {
+      description: 'x',
+      amount: '10.00',
+      type: 'expense',
+    });
+    await expect(service.updateProjectionEstimate(USER_B, mine.id, { amount: '1.00' })).rejects.toThrow();
+    await expect(service.deleteProjectionEstimate(USER_B, mine.id)).rejects.toThrow();
+  });
+
+  it('injects one estimate row per estimate into the forecast, in every month', async () => {
+    const { service } = estimateService();
+    await service.createProjectionEstimate(USER_A, {
+      description: 'Mercado',
+      amount: '800.00',
+      type: 'expense',
+    });
+    const result = await service.getForecast(USER_A, { from: '2026-08', months: 3 });
+    const row = result.rows.find((r) => r.recurrence === 'estimate');
+    expect(row?.description).toBe('Mercado');
+    expect(row?.type).toBe('expense');
+    expect(row?.cells.map((c) => c.amount)).toEqual(['800.00', '800.00', '800.00']);
+  });
+
+  it('nets the Total: expense estimates add, income estimates subtract', async () => {
+    const { service } = estimateService();
+    await service.createProjectionEstimate(USER_A, { description: 'Mercado', amount: '800.00', type: 'expense' });
+    await service.createProjectionEstimate(USER_A, { description: 'Renda extra', amount: '300.00', type: 'income' });
+    const result = await service.getForecast(USER_A, { from: '2026-08', months: 1 });
+    expect(result.totals).toEqual([{ month: '2026-08', amount: '500.00' }]);
+  });
+
+  it('estimates never appear in the transactions listing (separate table)', async () => {
+    const { service } = estimateService();
+    await service.createProjectionEstimate(USER_A, { description: 'Mercado', amount: '800.00', type: 'expense' });
+    const rows = await service.list(USER_A, {
+      dueFrom: '2026-08-01T00:00:00.000Z',
+      dueTo: '2026-09-01T00:00:00.000Z',
+      sort: 'dueDate',
+      order: 'asc',
+    });
+    expect(rows).toEqual([]);
+  });
+});
+
 // --- synced import (service-to-service) ------------------------------------------------------
 
 describe('TransactionsService synced import', () => {
@@ -880,6 +969,7 @@ describe('TransactionsService synced import', () => {
       makeFakeCategoryRepo(categories),
       makeFakeAccountRepo([accountRow(ACCOUNT_ID, USER_A)]),
       makeFakeCreditCardRepo(),
+      makeFakeProjectionEstimateRepo(),
     );
     return { service, txRepo };
   }
@@ -1036,6 +1126,7 @@ describe('TransactionsService.suggestCategories', () => {
       categoryRepo,
       makeFakeAccountRepo(),
       makeFakeCreditCardRepo(),
+      makeFakeProjectionEstimateRepo(),
     );
     return { service };
   }
