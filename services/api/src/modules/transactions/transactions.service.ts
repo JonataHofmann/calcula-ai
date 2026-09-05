@@ -66,7 +66,12 @@ function applyOptionalFilters(
   }
   if (filter.recurrence) qb.andWhere('t.recurrence = :recurrence', { recurrence: filter.recurrence });
   if (filter.type) qb.andWhere('t.type = :type', { type: filter.type });
-  if (filter.categoryId) qb.andWhere('t.category_id = :categoryId', { categoryId: filter.categoryId });
+  // A parent selection expands to the category + its subcategories (categoryIds); a leaf stays exact.
+  if (filter.categoryIds && filter.categoryIds.length > 0) {
+    qb.andWhere('t.category_id IN (:...categoryIds)', { categoryIds: filter.categoryIds });
+  } else if (filter.categoryId) {
+    qb.andWhere('t.category_id = :categoryId', { categoryId: filter.categoryId });
+  }
   if (filter.accountId) qb.andWhere('t.account_id = :accountId', { accountId: filter.accountId });
   if (filter.creditCardId)
     qb.andWhere('t.credit_card_id = :creditCardId', { creditCardId: filter.creditCardId });
@@ -394,8 +399,9 @@ export class TransactionsService {
     // A fixed expense persists only one row; future months are materialized lazily when
     // the user navigates to them, so the monthly list shows the occurrence like any other
     // real (effectuable/editable) row. Forecast keeps its own pure projection (find()).
+    const filter = await this.buildListFilter(userId, query);
     await this.ensureFixedOccurrences(userId, dueFrom, dueTo);
-    return this.find(userId, this.listFilter(query));
+    return this.find(userId, filter);
   }
 
   /**
@@ -407,7 +413,7 @@ export class TransactionsService {
    */
   async listCashBasis(userId: string, query: ListTransactionsQuery): Promise<ListedTransaction[]> {
     this.logger.log(`Listing (cash basis) transactions for user ${userId}`);
-    const filter = this.listFilter(query);
+    const filter = await this.buildListFilter(userId, query);
     await this.ensureFixedOccurrences(userId, filter.dueFrom, filter.dueTo);
 
     const real = await this.find(userId, filter);
@@ -444,6 +450,39 @@ export class TransactionsService {
       sort: query.sort,
       order: query.order,
     };
+  }
+
+  /** {@link listFilter} plus the async category-subcategory expansion, shared by both list paths. */
+  private async buildListFilter(
+    userId: string,
+    query: ListTransactionsQuery,
+  ): Promise<FindTransactionsFilter> {
+    const filter = this.listFilter(query);
+    // Selecting a category lists its subcategories' transactions too (FR: filtro por categoria pai).
+    if (query.categoryId) {
+      filter.categoryIds = await this.resolveCategoryFilterIds(userId, query.categoryId);
+    }
+    return filter;
+  }
+
+  /**
+   * The selected category plus its subcategories, so filtering by a parent lists its children's
+   * transactions too. Children are found by the stored `parentId` across the user's own categories
+   * and the shared system defaults (categories nest at most one level deep). Per-user drag-reparents
+   * of system defaults (the placements table) are not reflected here — an accepted edge for now.
+   */
+  private async resolveCategoryFilterIds(
+    userId: string,
+    categoryId: string,
+  ): Promise<string[]> {
+    const children = await this.categoryRepo.find({
+      where: [
+        { parentId: categoryId, ownerId: userId },
+        { parentId: categoryId, ownerId: IsNull() },
+      ],
+      select: { id: true },
+    });
+    return [categoryId, ...children.map((c) => c.id)];
   }
 
   /** Pending occurrences due before the current month start (user timezone -> `before`). */

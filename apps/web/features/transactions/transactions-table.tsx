@@ -330,6 +330,11 @@ export function TransactionsTable({
               venc. {monthYear(t.dueDate)}
             </span>
           ) : null}
+          {t.notes ? (
+            <span className="text-text-muted mt-0.5 block max-w-[16rem] whitespace-normal text-xs font-normal">
+              {t.notes}
+            </span>
+          ) : null}
         </TableCell>
         <TableCell className={CELL}>
           <CategoryTag path={categoryPathMap.get(t.categoryId)} />

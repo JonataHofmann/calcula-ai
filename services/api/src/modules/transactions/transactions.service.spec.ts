@@ -277,6 +277,34 @@ describe('TransactionsService.list', () => {
     expect(rows[0]?.userId).toBe(USER_A);
   });
 
+  it('filtering by a parent category also lists its subcategories transactions', async () => {
+    const PARENT = 'cat-parent';
+    const CHILD = 'cat-child';
+    const OTHER = 'cat-other';
+    const txRepo = makeFakeTransactionRepo();
+    const categoryRepo = makeFakeCategoryRepo([
+      categoryRow({ id: PARENT, type: 'expense', ownerId: USER_A }),
+      categoryRow({ id: CHILD, type: 'expense', ownerId: USER_A, parentId: PARENT }),
+      categoryRow({ id: OTHER, type: 'expense', ownerId: USER_A }),
+    ]);
+    const service = new TransactionsService(
+      txRepo,
+      categoryRepo,
+      makeFakeAccountRepo([accountRow(ACC, USER_A)]),
+      makeFakeCreditCardRepo([cardRow(CARD, USER_A)]),
+    );
+    await service.create(USER_A, single('2026-01-05T00:00:00.000Z', { categoryId: PARENT }));
+    await service.create(USER_A, single('2026-01-06T00:00:00.000Z', { categoryId: CHILD }));
+    await service.create(USER_A, single('2026-01-07T00:00:00.000Z', { categoryId: OTHER }));
+
+    const parentFilter = await service.list(USER_A, { ...janQuery, categoryId: PARENT });
+    expect(parentFilter.map((t) => t.categoryId).sort()).toEqual([CHILD, PARENT]);
+
+    // A leaf selection stays exact — it has no children to include.
+    const childFilter = await service.list(USER_A, { ...janQuery, categoryId: CHILD });
+    expect(childFilter.map((t) => t.categoryId)).toEqual([CHILD]);
+  });
+
   it('does not duplicate a fixed occurrence when overlapping windows materialize it concurrently', async () => {
     const { service, txRepo } = setup();
     const [created] = await service.create(USER_A, {

@@ -137,7 +137,12 @@ function makeQueryBuilder(rows: TransactionEntity[]) {
       }
       if (params.recurrence) result = result.filter((r) => r.recurrence === params.recurrence);
       if (params.type) result = result.filter((r) => r.type === params.type);
-      if (params.categoryId) result = result.filter((r) => r.categoryId === params.categoryId);
+      if (Array.isArray(params.categoryIds)) {
+        const ids = params.categoryIds as string[];
+        result = result.filter((r) => ids.includes(r.categoryId));
+      } else if (params.categoryId) {
+        result = result.filter((r) => r.categoryId === params.categoryId);
+      }
       if (params.accountId) result = result.filter((r) => r.accountId === params.accountId);
       if (params.creditCardId)
         result = result.filter((r) => r.creditCardId === params.creditCardId);
@@ -282,15 +287,29 @@ export function makeFakeTransactionRepo(seed: TransactionEntity[] = []): FakeTra
 
 export function makeFakeCategoryRepo(seed: CategoryEntity[] = []): Repository<CategoryEntity> {
   const store = new Map<string, CategoryEntity>(seed.map((c) => [c.id, { ...c }]));
+  const matchAny = (
+    row: Record<string, unknown>,
+    where: Record<string, unknown> | Record<string, unknown>[],
+  ): boolean =>
+    Array.isArray(where)
+      ? where.some((w) => matchesWhere(row, w as never))
+      : matchesWhere(row, where as never);
   const fake = {
     async insert(e: CategoryEntity) {
       store.set(e.id, { ...e });
     },
     async findOne(options: { where: Record<string, unknown> }) {
       const row = [...store.values()].find((r) =>
-        matchesWhere(r as unknown as Record<string, unknown>, options.where),
+        matchesWhere(r as unknown as Record<string, unknown>, options.where as never),
       );
       return row ? { ...row } : null;
+    },
+    // `where` may be an array (OR); honoured so a parent-category filter resolves its children.
+    async find(options: { where?: Record<string, unknown> | Record<string, unknown>[] } = {}) {
+      const rows = [...store.values()].filter((r) =>
+        options.where ? matchAny(r as unknown as Record<string, unknown>, options.where) : true,
+      );
+      return rows.map((r) => ({ ...r }));
     },
   };
   return fake as unknown as Repository<CategoryEntity>;
@@ -378,11 +397,12 @@ export function categoryRow(input: {
   ownerId?: string | null;
   name?: string;
   isSystem?: boolean;
+  parentId?: string | null;
 }): CategoryEntity {
   return Object.assign(new CategoryEntity(), {
     id: input.id,
     ownerId: input.ownerId ?? null,
-    parentId: null,
+    parentId: input.parentId ?? null,
     name: input.name ?? 'Categoria',
     type: input.type,
     icon: 'tag',

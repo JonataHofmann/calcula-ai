@@ -74,6 +74,11 @@ export interface FindTransactionsFilter {
   recurrence?: Recurrence;
   type?: TransactionType;
   categoryId?: string;
+  /**
+   * Resolved category filter set: the selected category plus its subcategories. When present it
+   * takes precedence over `categoryId` so selecting a parent lists its children's transactions too.
+   */
+  categoryIds?: string[];
   accountId?: string;
   creditCardId?: string;
   sort: TransactionSort;
