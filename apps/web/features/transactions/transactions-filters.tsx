@@ -1,9 +1,18 @@
 'use client';
 
-import type { CategoryNodeDto, CategoryTreeDto } from '@finance/contracts';
-import { Button, Input, Select, Switch, type SelectOption } from '@finance/ui';
+import { findCardBrand, type CategoryNodeDto, type CategoryTreeDto } from '@finance/contracts';
+import {
+  Button,
+  EntitySelect,
+  Input,
+  Select,
+  Switch,
+  type EntityOption,
+  type SelectOption,
+} from '@finance/ui';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { useState } from 'react';
+import type { AccountLike, CardLike } from './transaction-form-modal';
 import type { TransactionFilters } from './transactions-ui.slice';
 
 export interface TransactionsFiltersProps {
@@ -11,8 +20,8 @@ export interface TransactionsFiltersProps {
   onChange: (patch: TransactionFilters) => void;
   onClear: () => void;
   categories?: CategoryTreeDto;
-  accounts: { id: string; name: string }[];
-  cards: { id: string; name: string }[];
+  accounts: AccountLike[];
+  cards: CardLike[];
   groupCreditCardExpenses: boolean;
   onGroupCreditCardExpensesChange: (value: boolean) => void;
   showOverdue: boolean;
@@ -20,10 +29,10 @@ export interface TransactionsFiltersProps {
 }
 
 /** Flattens the category tree into indented options. */
-function flatten(nodes: CategoryNodeDto[], depth = 0): SelectOption[] {
-  const out: SelectOption[] = [];
+function flatten(nodes: CategoryNodeDto[], depth = 0): EntityOption[] {
+  const out: EntityOption[] = [];
   for (const node of nodes) {
-    out.push({ value: node.id, label: `${'  '.repeat(depth)}${node.name}` });
+    out.push({ value: node.id, label: node.name, icon: node.icon, color: node.color, depth });
     if (node.children.length > 0) out.push(...flatten(node.children, depth + 1));
   }
   return out;
@@ -57,11 +66,33 @@ export function TransactionsFilters({
   showOverdue,
   onShowOverdueChange,
 }: TransactionsFiltersProps) {
-  const categoryOptions: SelectOption[] = categories
-    ? [...flatten(categories.expense), ...flatten(categories.income)]
-    : [];
-  const accountOptions: SelectOption[] = accounts.map((a) => ({ value: a.id, label: a.name }));
-  const cardOptions: SelectOption[] = cards.map((c) => ({ value: c.id, label: c.name }));
+  // "Todas/Todos" first so the filter can be cleared back to no selection.
+  const categoryOptions: EntityOption[] = [
+    { value: '', label: 'Todas' },
+    ...(categories ? [...flatten(categories.expense), ...flatten(categories.income)] : []),
+  ];
+  const accountOptions: EntityOption[] = [
+    { value: '', label: 'Todas' },
+    ...accounts.map((a) => ({
+      value: a.id,
+      label: a.name,
+      icon: a.icon ?? 'wallet',
+      color: a.color,
+    })),
+  ];
+  const cardOptions: EntityOption[] = [
+    { value: '', label: 'Todos' },
+    ...cards.map((c) => {
+      const brand = c.brandId ? findCardBrand(c.brandId) : undefined;
+      return {
+        value: c.id,
+        label: c.name,
+        icon: 'credit-card' as const,
+        colorHex: brand?.color,
+        hint: c.lastDigits ? `•••• ${c.lastDigits}` : undefined,
+      };
+    }),
+  ];
 
   const { search: _search, ...advancedFilters } = filters;
   const advancedCount = Object.keys(advancedFilters).length;
@@ -113,26 +144,26 @@ export function TransactionsFilters({
               value={filters.type ?? ''}
               onChange={(e) => onChange({ type: orUndef(e.target.value) as never })}
             />
-            <Select
+            <EntitySelect
               label="Categoria"
               placeholder="Todas"
               options={categoryOptions}
               value={filters.categoryId ?? ''}
-              onChange={(e) => onChange({ categoryId: orUndef(e.target.value) })}
+              onChange={(v) => onChange({ categoryId: orUndef(v) })}
             />
-            <Select
+            <EntitySelect
               label="Conta"
               placeholder="Todas"
               options={accountOptions}
               value={filters.accountId ?? ''}
-              onChange={(e) => onChange({ accountId: orUndef(e.target.value) })}
+              onChange={(v) => onChange({ accountId: orUndef(v) })}
             />
-            <Select
+            <EntitySelect
               label="Cartão"
               placeholder="Todos"
               options={cardOptions}
               value={filters.creditCardId ?? ''}
-              onChange={(e) => onChange({ creditCardId: orUndef(e.target.value) })}
+              onChange={(v) => onChange({ creditCardId: orUndef(v) })}
             />
             <Switch
               label="Agrupar despesas de cartão de crédito"

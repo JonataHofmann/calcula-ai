@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -25,7 +25,8 @@ import {
   type EntityOption,
   type SelectOption,
 } from '@finance/ui';
-import { dateToIso, isoToDate, todayIso } from '../../util/date';
+import { dateToIso, isoToDate, monthLabel, todayIso } from '../../util/date';
+import { invoiceDueDateForPurchase } from '../../util/billing-cycle';
 
 /** Form-level schema: mirrors the visible fields, then transformed to CreateTransactionInput on submit. */
 const formSchema = z
@@ -114,6 +115,9 @@ export interface CardLike {
   name: string;
   brandId?: string;
   lastDigits?: string;
+  /** Billing cycle — used to preview which invoice a card purchase lands in. */
+  closingDay?: number;
+  dueDay?: number;
 }
 
 export interface TransactionOptionSource {
@@ -273,6 +277,7 @@ export function TransactionFormModal({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -283,10 +288,28 @@ export function TransactionFormModal({
   const recurrence = watch('recurrence');
   const originKind = watch('originKind');
   const paid = watch('paid');
+  const dueDate = watch('dueDate');
+  const creditCardId = watch('creditCardId');
   const [rootError, setRootError] = useState<string | null>(null);
 
   // "Já efetivada" only makes sense for a brand-new single (avulsa) row.
   const canMarkPaid = !initial && recurrence === 'single';
+
+  // Ao marcar "já efetivada", pré-preenche a efetivação com o vencimento (task: default = vencimento).
+  const wasPaid = useRef(paid);
+  useEffect(() => {
+    if (paid && !wasPaid.current) setValue('effectiveDate', dueDate);
+    wasPaid.current = paid;
+  }, [paid, dueDate, setValue]);
+
+  // Cartão: prévia da fatura em que a compra vai cair (mesmo cálculo do servidor).
+  const invoicePreview = useMemo(() => {
+    if (originKind !== 'card' || !creditCardId || !dueDate) return null;
+    const card = cards.find((c) => c.id === creditCardId);
+    if (!card || card.closingDay == null || card.dueDay == null) return null;
+    const due = invoiceDueDateForPurchase(new Date(dueDate), card.closingDay, card.dueDay);
+    return { month: monthLabel(due), day: due.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) };
+  }, [originKind, creditCardId, dueDate, cards]);
 
   const categoryOptions = useMemo(() => {
     if (!categories) return [];
@@ -515,20 +538,28 @@ export function TransactionFormModal({
             )}
           />
         ) : (
-          <Controller
-            control={control}
-            name="creditCardId"
-            render={({ field }) => (
-              <EntitySelect
-                label="Cartão de crédito"
-                placeholder="Selecione"
-                options={cardOptions}
-                value={field.value}
-                onChange={field.onChange}
-                error={originError}
-              />
-            )}
-          />
+          <div>
+            <Controller
+              control={control}
+              name="creditCardId"
+              render={({ field }) => (
+                <EntitySelect
+                  label="Cartão de crédito"
+                  placeholder="Selecione"
+                  options={cardOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={originError}
+                />
+              )}
+            />
+            {invoicePreview ? (
+              <p className="text-text-muted mt-1 text-xs">
+                Cai na fatura de <span className="text-text font-medium">{invoicePreview.month}</span>{' '}
+                (vence {invoicePreview.day}).
+              </p>
+            ) : null}
+          </div>
         )}
 
         {/* Já efetivada (só avulsa nova). */}
